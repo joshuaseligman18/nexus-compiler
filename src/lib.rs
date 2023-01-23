@@ -2,6 +2,9 @@ use wasm_bindgen::{prelude::*, JsCast};
 use log::{Level, info, debug};
 use web_sys::{Window, Document, HtmlTextAreaElement, HtmlElement};
 
+mod compiler;
+use crate::compiler::Compiler;
+
 #[wasm_bindgen]
 pub fn nexus_init() {
     console_log::init_with_level(Level::Debug).expect("Should be able to connect to the browser's console");
@@ -10,6 +13,8 @@ pub fn nexus_init() {
     let document: Document = window.document().expect("The document object should exist");
 
     set_up_dom(&document);
+
+    let nexus: Compiler = Compiler::new();
 
     info!("Nexus initialized");
 }
@@ -26,17 +31,9 @@ fn set_up_dom(document: &Document) {
         .expect("There should be an element called compile-btn")
         .dyn_into::<HtmlElement>()
         .expect("Should be able to cast to an HtmlElement object");
-
-    let text_below: HtmlElement = document
-        .get_element_by_id("text-below")
-        .expect("There should be an element called text-below")
-        .dyn_into::<HtmlElement>()
-        .expect("Should be able to cast to an HtmlElement object");
     
     let submit_fn: Closure<dyn FnMut()> = Closure::<dyn FnMut()>::new(move || {
         debug!("Compile called");
-        let name: String = code_input.value();
-        text_below.set_inner_text(format!("Hello, {}", name).as_str());
     });
     compile_btn.add_event_listener_with_callback("click", submit_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
     submit_fn.forget();

@@ -1,0 +1,16 @@
+#main-area {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-evenly;
+}
+
+#title-area {
+    text-align: center;
+}
+
+#ta-code-input, #nexus-log-area {
+    resize: none;
+    width: 40%;
+    height: 350px;
+}
