@@ -17,7 +17,7 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
 
     // Iterate through the end of the string
     while trailer < source_code.len() {
-        debug!("{}", format!("cur_start: {}, best_end: {}", cur_start, best_end));
+        debug!("{}", format!("trailer: {}, cur_start: {}, best_end: {}", trailer, cur_start, best_end));
 
         // Get the current character
         let cur_char: &str = &source_code[trailer..trailer+1];
@@ -32,14 +32,16 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
                 best_end = trailer;
             }
         } else {
-            if cur_char == "\n" {
+            if cur_char.eq("\n") {
                 line_number += 1;
             }
 
             nexus_log::log(String::from("LEXER"), format!("Found {:?} at ({}, {})", cur_token, line_number, cur_start + 1));
-            trailer = best_end;
+            trailer = best_end.to_owned();
             cur_start = trailer + 1;
-            best_end = cur_start;
+            best_end = cur_start.to_owned();
+
+            debug!("{}", format!("NEW: trailer: {}, cur_start: {}, best_end: {}", trailer, cur_start, best_end));
 
             cur_token = Token::Unrecognized(String::from(""));
         }
