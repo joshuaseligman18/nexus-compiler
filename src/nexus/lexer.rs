@@ -1,10 +1,10 @@
 use crate::{nexus::token::Token, util::nexus_log};
-use log::debug;
+use log::{debug, info};
 use regex::{Regex, RegexSet};
 
 pub fn lex(source_code: String) {//-> Vec<Token> {
     // This represents all possible terminal characters for which to mark the end of the current search
-    let terminal_chars = Regex::new(r"\s").unwrap();
+    let terminal_chars = Regex::new(r"^\s$").unwrap();
 
     let mut line_number: usize = 1;
 
@@ -20,7 +20,8 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
         debug!("{}", format!("trailer: {}, cur_start: {}, best_end: {}", trailer, cur_start, best_end));
 
         // Get the current character
-        let cur_char: &str = &source_code[trailer..trailer+1];
+        let cur_char: &str = &source_code[trailer..trailer + 1];
+        info!("{:?}", cur_char.as_bytes());
 
         // Check if it is a terminal character
         if !terminal_chars.is_match(cur_char) {
@@ -29,7 +30,7 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
             let cur_sub: &str = &source_code[cur_start..trailer + 1];
             
             if upgrade_token(cur_sub, &mut cur_token) {
-                best_end = trailer;
+                best_end = trailer.to_owned();
             }
         } else {
             if cur_char.eq("\n") {
@@ -37,9 +38,12 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
             }
 
             nexus_log::log(String::from("LEXER"), format!("Found {:?} at ({}, {})", cur_token, line_number, cur_start + 1));
-            trailer = best_end.to_owned();
+            // If the best ending is not next to the terminating character, then move the trailer back to where it should start back up again
+            if best_end < trailer - 1 {
+                trailer = best_end.to_owned();
+            }
             cur_start = trailer + 1;
-            best_end = cur_start.to_owned();
+            best_end = trailer + 1;
 
             debug!("{}", format!("NEW: trailer: {}, cur_start: {}, best_end: {}", trailer, cur_start, best_end));
 
