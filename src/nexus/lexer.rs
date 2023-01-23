@@ -1,4 +1,5 @@
 use crate::{nexus::token::Token, util::nexus_log};
+use log::debug;
 use regex::{Regex, RegexSet};
 
 pub fn lex(source_code: String) {//-> Vec<Token> {
@@ -12,19 +13,23 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
 
     let mut cur_token: Token = Token::Unrecognized(String::from(""));
 
+    let mut trailer: usize = 0;
+
     // Iterate through the end of the string
-    for mut i in 0..source_code.len() {
+    while trailer < source_code.len() {
+        debug!("{}", format!("cur_start: {}, best_end: {}", cur_start, best_end));
+
         // Get the current character
-        let cur_char: &str = &source_code[i..i+1];
+        let cur_char: &str = &source_code[trailer..trailer+1];
 
         // Check if it is a terminal character
         if !terminal_chars.is_match(cur_char) {
             // Need to check the substring from cur_start
             // Get the current substring in question
-            let cur_sub: &str = &source_code[cur_start..i + 1];
+            let cur_sub: &str = &source_code[cur_start..trailer + 1];
             
-            if check_for_improvement(cur_sub, &mut cur_token) {
-                best_end = i;
+            if upgrade_token(cur_sub, &mut cur_token) {
+                best_end = trailer;
             }
         } else {
             if cur_char == "\n" {
@@ -32,13 +37,18 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
             }
 
             nexus_log::log(String::from("LEXER"), format!("Found {:?} at ({}, {})", cur_token, line_number, cur_start + 1));
-            i = best_end + 1;
-            cur_start = i;
+            trailer = best_end;
+            cur_start = trailer + 1;
+            best_end = cur_start;
+
+            cur_token = Token::Unrecognized(String::from(""));
         }
+
+        trailer += 1;
     }
 }
 
-fn check_for_improvement(substr: &str, best_token_type: &mut Token) -> bool {
+fn upgrade_token(substr: &str, best_token_type: &mut Token) -> bool {
     // Create the keywords
     let keywords: RegexSet = RegexSet::new(&[
         r"if",
