@@ -7,6 +7,7 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
     let terminal_chars = Regex::new(r"^\s$").unwrap();
 
     let mut line_number: usize = 1;
+    let mut col_number: usize = 1;
 
     let mut cur_start: usize = 0;
     let mut best_end: usize = 0;
@@ -33,11 +34,18 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
                 best_end = trailer.to_owned();
             }
         } else {
+            nexus_log::log(String::from("LEXER"), format!("Found {:?} at ({}, {})", cur_token, line_number, col_number));
+
             if cur_char.eq("\n") {
+                // Increment line number and reset column number
                 line_number += 1;
+                col_number = 1;
+            } else {
+                // Column number gets increased by the length of the token + 2
+                // (1 for the space and 1 for best_end - cur_start being 1 less than the length of the token)
+                col_number += best_end - cur_start + 2;
             }
 
-            nexus_log::log(String::from("LEXER"), format!("Found {:?} at ({}, {})", cur_token, line_number, cur_start + 1));
             // If the best ending is not next to the terminating character, then move the trailer back to where it should start back up again
             if best_end < trailer - 1 {
                 trailer = best_end.to_owned();
