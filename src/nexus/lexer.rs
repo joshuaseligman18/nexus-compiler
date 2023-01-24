@@ -2,10 +2,20 @@ use crate::{nexus::token::Token, util::nexus_log};
 use log::{debug, info, error};
 use regex::{Regex, RegexSet};
 
-pub fn lex(source_code: String) {//-> Vec<Token> {
+pub fn lex(source_code: &str) -> Vec<Token> {
+    
     // This represents all possible terminal characters for which to mark the end of the current search
     let terminal_chars = Regex::new(r"^\s$").unwrap();
 
+    // Worst case is that we have source_code length minus amount of whitespace number of tokens, so allocate that much space to prevent copying of the vector
+    let mut char_count: usize = 0;
+    for i in 0..source_code.len() {
+        if !terminal_chars.is_match(&source_code[i..i+1]) {
+            char_count += 1;
+        }
+    }
+    let mut token_stream: Vec<Token> = Vec::with_capacity(char_count);
+    
     // The line and column numbers in the file
     let mut line_number: usize = 1;
     let mut col_number: usize = 1;
@@ -29,12 +39,14 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
     let comment_regex: RegexSet = RegexSet::new(&[r"^/\*$", r"^\*/$"]).unwrap();
 
     // Iterate through the end of the string
-    while cur_start < source_code.len() {
-        debug!("{}", format!("trailer: {}, cur_start: {}, best_end: {}", trailer, cur_start, best_end));
- 
+    while cur_start < source_code.len() { 
+        // If it is the start of a search and we have space for a comment (/* or */)
         if cur_start == trailer && cur_start < source_code.len() - 1 {
+            // Get the next 2 characters
             let next_2: &str = &source_code[cur_start..cur_start + 2];
+            // If it is a comment symbol
             if comment_regex.is_match(next_2) {
+                // Flip and skip both characters
                 in_comment = !in_comment;
                 cur_start += 2;
                 best_end += 2;
@@ -55,13 +67,18 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
             // Get the current substring in question
             let cur_sub: &str = &source_code[cur_start..trailer + 1];
             
+            // Check to see if we need to upgrade the token
             if upgrade_token(cur_sub, &mut cur_token, &mut in_string) {
+                // Move the end to the character after the substring ends
                 best_end = trailer + 1;
             }
         } else {
+            // Make sure we have something
             if best_end - cur_start > 0 {
                 match cur_token {
+                    // Unrecognized tokens throw errors
                     Token::Unrecognized(_) => nexus_log::error(String::from("LEXER"), format!("{:?} at ({}, {})", cur_token, line_number, col_number)),
+                    // Everything else is valid and is printed out
                     _ => nexus_log::info(String::from("LEXER"), format!("{:?} at ({}, {})", cur_token, line_number, col_number)),
                 }
 
@@ -73,6 +90,9 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
                 // Move cur_start to the beginning of the next possible token
                 cur_start = trailer + 1;
 
+                token_stream.push(cur_token.to_owned());
+
+                // Go back to an unrecognized empty token
                 cur_token = Token::Unrecognized(String::from(""));
             } else {
                 // Token is empty
@@ -98,9 +118,12 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
         trailer += 1;
     }
 
+    // If comment is still open at end of program, the user should be warned
     if in_comment {
         nexus_log::warning(String::from("LEXER"), String::from("Unclosed comment"));
     }
+
+    return token_stream;
 }
 
 fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool) -> bool {
