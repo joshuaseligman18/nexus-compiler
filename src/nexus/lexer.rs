@@ -1,5 +1,5 @@
 use crate::{nexus::token::Token, util::nexus_log};
-use log::{debug, info};
+use log::{debug, info, error};
 use regex::{Regex, RegexSet};
 
 pub fn lex(source_code: String) {//-> Vec<Token> {
@@ -84,9 +84,11 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token) -> bool {
         r"^boolean$"
     ]).unwrap();
 
+    // Identifiers are a-z all lowercase and only 1 character
     let identifiers = Regex::new(r"^[a-z]$").unwrap();
 
-    let symbols = Regex::new(r"").unwrap();
+    // Symbols can be (, ), {, }, =, +, ", or !
+    let symbols = Regex::new(r#"^[\(\){}=\+"!]$"#).unwrap();
     
     match best_token_type {
         // Keyword is the best and they are all mutually exclusive, so no need to check
@@ -97,6 +99,9 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token) -> bool {
                 return true;
             } else if identifiers.is_match(substr) {
                 *best_token_type = Token::Identifier(String::from(substr));
+                return true;
+            } else if symbols.is_match(substr) {
+                *best_token_type = Token::Symbol(String::from(substr));
                 return true;
             } else {
                 return false;
