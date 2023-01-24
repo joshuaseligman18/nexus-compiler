@@ -21,6 +21,9 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
     // The current position in the source code
     let mut trailer: usize = 0;
 
+    // Initially not in a string
+    let mut in_string: bool = false;
+
     // Iterate through the end of the string
     while cur_start < source_code.len() {
         debug!("{}", format!("trailer: {}, cur_start: {}, best_end: {}", trailer, cur_start, best_end));
@@ -32,12 +35,12 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
         }
 
         // Check if it is a terminal character
-        if !cur_char.is_empty() && !terminal_chars.is_match(cur_char) {
+        if !cur_char.is_empty() && (!terminal_chars.is_match(cur_char) || in_string) {
             // Need to check the substring from cur_start
             // Get the current substring in question
             let cur_sub: &str = &source_code[cur_start..trailer + 1];
             
-            if upgrade_token(cur_sub, &mut cur_token) {
+            if upgrade_token(cur_sub, &mut cur_token, &mut in_string) {
                 best_end = trailer + 1;
             }
         } else {
@@ -73,7 +76,7 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
     }
 }
 
-fn upgrade_token(substr: &str, best_token_type: &mut Token) -> bool {
+fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool) -> bool {
     // Create the keywords
     let keywords: RegexSet = RegexSet::new(&[
         r"^if$",
@@ -84,12 +87,13 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token) -> bool {
         r"^boolean$"
     ]).unwrap();
 
-    // Identifiers are a-z all lowercase and only 1 character
-    let identifiers: Regex = Regex::new(r"^[a-z]$").unwrap();
+    // Characters are a-z all lowercase and only 1 character
+    let characters: Regex = Regex::new(r"^[a-z]$").unwrap();
 
     // Symbols can be (, ), {, }, =, +, ", or !
     let symbols: Regex = Regex::new(r#"^[\(\){}=\+"!]$"#).unwrap();
 
+    // Digits are 0-9
     let digits: Regex = Regex::new(r"^[0-9]$").unwrap();
     
     match best_token_type {
@@ -99,14 +103,25 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token) -> bool {
             if keywords.is_match(substr) {
                 *best_token_type = Token::Keyword(String::from(substr));
                 return true;
-            } else if identifiers.is_match(substr) {
-                *best_token_type = Token::Identifier(String::from(substr));
+            } else if characters.is_match(substr) {
+                if !*in_string {
+                    *best_token_type = Token::Identifier(String::from(substr));
+                } else {
+                    *best_token_type = Token::Char(String::from(substr));
+                }
                 return true;
             } else if symbols.is_match(substr) {
                 *best_token_type = Token::Symbol(String::from(substr));
+                // We found either the beginning or end of a string
+                if substr.eq("\"") {
+                    *in_string = !*in_string;
+                }
                 return true;
             }  else if digits.is_match(substr) {
                 *best_token_type = Token::Digit(String::from(substr));
+                return true;
+            } else if *in_string && substr.eq(" ") {
+                *best_token_type = Token::Char(String::from(" "));
                 return true;
             } else {
                 return false;
