@@ -45,8 +45,12 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
             }
         } else {
             if best_end - cur_start > 0 {
-                // There is a token of some kind
-                nexus_log::log(String::from("LEXER"), format!("Found {:?} at ({}, {})", cur_token, line_number, col_number));
+                match cur_token {
+                    Token::Unrecognized(_) => nexus_log::error(String::from("LEXER"), format!("{:?} at ({}, {})", cur_token, line_number, col_number)),
+                    _ => nexus_log::info(String::from("LEXER"), format!("{:?} at ({}, {})", cur_token, line_number, col_number)),
+                }
+
+                // nexus_log::info(String::from("LEXER"), format!("{:?} at ({}, {})", cur_token, line_number, col_number));
 
                 // Update the column number to accommodate the length of the token
                 col_number += best_end - cur_start;
@@ -96,35 +100,50 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool
     // Digits are 0-9
     let digits: Regex = Regex::new(r"^[0-9]$").unwrap();
     
-    match best_token_type {
-        // Keyword is the best and they are all mutually exclusive, so no need to check
-        Token::Keyword(_) => return false,
-        _ => {
-            if keywords.is_match(substr) {
-                *best_token_type = Token::Keyword(String::from(substr));
-                return true;
-            } else if characters.is_match(substr) {
-                if !*in_string {
+
+    // See if we are in a string
+    if *in_string {
+        // Spaces and characters are valid
+        if characters.is_match(substr) || substr.eq(" ") {
+            *best_token_type = Token::Char(String::from(substr));
+            return true;
+        } else if substr.eq("\"") {
+            // " is the end of the string
+            *best_token_type = Token::Symbol(String::from(substr));
+            *in_string = false;
+            return true;
+        } else if substr.len() == 1 {
+            // Invalid token
+            *best_token_type = Token::Unrecognized(String::from(substr));
+            return true;
+        } else {
+            // No upgrade
+            return false;
+        }
+    } else {
+        match best_token_type {
+            // Keyword is the best and they are all mutually exclusive, so no need to check
+            Token::Keyword(_) => return false,
+            _ => {
+                if keywords.is_match(substr) {
+                    *best_token_type = Token::Keyword(String::from(substr));
+                    return true;
+                } else if characters.is_match(substr) {
                     *best_token_type = Token::Identifier(String::from(substr));
+                    return true;
+                } else if symbols.is_match(substr) {
+                    *best_token_type = Token::Symbol(String::from(substr));
+                    // We found the start of a string
+                    if substr.eq("\"") {
+                        *in_string = true;
+                    }
+                    return true;
+                }  else if digits.is_match(substr) {
+                    *best_token_type = Token::Digit(String::from(substr));
+                    return true;
                 } else {
-                    *best_token_type = Token::Char(String::from(substr));
+                    return false;
                 }
-                return true;
-            } else if symbols.is_match(substr) {
-                *best_token_type = Token::Symbol(String::from(substr));
-                // We found either the beginning or end of a string
-                if substr.eq("\"") {
-                    *in_string = !*in_string;
-                }
-                return true;
-            }  else if digits.is_match(substr) {
-                *best_token_type = Token::Digit(String::from(substr));
-                return true;
-            } else if *in_string && substr.eq(" ") {
-                *best_token_type = Token::Char(String::from(" "));
-                return true;
-            } else {
-                return false;
             }
         }
     }       

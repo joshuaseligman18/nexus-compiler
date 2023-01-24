@@ -2,7 +2,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{HtmlTextAreaElement, Document, Window};
 
 // Function to log to the textarea
-pub fn log(src: String, msg: String) {
+pub fn info(src: String, msg: String) {
     // Get the log area
     let log_area: HtmlTextAreaElement = get_log_area();
 
@@ -10,7 +10,22 @@ pub fn log(src: String, msg: String) {
     let mut log_value: String = log_area.value();
 
     // Add the new message to the logs
-    log_value.push_str(format!("[{}]: {}\n", src, msg).as_str());
+    log_value.push_str(format!("[INFO - {}]: {}\n", src, msg).as_str());
+
+    // Set the new value
+    log_area.set_value(&log_value);
+}
+
+// Function to log an error to the textarea
+pub fn error(src: String, msg: String) {
+    // Get the log area
+    let log_area: HtmlTextAreaElement = get_log_area();
+
+    // Get the original value
+    let mut log_value: String = log_area.value();
+
+    // Add the new message to the logs
+    log_value.push_str(format!("[ERROR - {}]: {}\n", src, msg).as_str());
 
     // Set the new value
     log_area.set_value(&log_value);
