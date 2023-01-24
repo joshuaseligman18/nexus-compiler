@@ -85,10 +85,12 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token) -> bool {
     ]).unwrap();
 
     // Identifiers are a-z all lowercase and only 1 character
-    let identifiers = Regex::new(r"^[a-z]$").unwrap();
+    let identifiers: Regex = Regex::new(r"^[a-z]$").unwrap();
 
     // Symbols can be (, ), {, }, =, +, ", or !
-    let symbols = Regex::new(r#"^[\(\){}=\+"!]$"#).unwrap();
+    let symbols: Regex = Regex::new(r#"^[\(\){}=\+"!]$"#).unwrap();
+
+    let digits: Regex = Regex::new(r"^[0-9]$").unwrap();
     
     match best_token_type {
         // Keyword is the best and they are all mutually exclusive, so no need to check
@@ -102,6 +104,9 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token) -> bool {
                 return true;
             } else if symbols.is_match(substr) {
                 *best_token_type = Token::Symbol(String::from(substr));
+                return true;
+            }  else if digits.is_match(substr) {
+                *best_token_type = Token::Digit(String::from(substr));
                 return true;
             } else {
                 return false;
