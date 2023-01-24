@@ -1,6 +1,6 @@
-use crate::{nexus::token::Token, util::nexus_log};
+use crate::{nexus::token::{Token, Keywords, Symbols}, util::nexus_log};
 use log::{debug, info, error};
-use regex::{Regex, RegexSet};
+use regex::{Regex, RegexSet, SetMatches};
 
 pub fn lex(source_code: &str) -> Vec<Token> {
     
@@ -134,14 +134,26 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool
         r"^print$",
         r"^string$",
         r"^int$",
-        r"^boolean$"
+        r"^boolean$",
+        r"^true$",
+        r"^false$",
     ]).unwrap();
 
     // Characters are a-z all lowercase and only 1 character
     let characters: Regex = Regex::new(r"^[a-z]$").unwrap();
 
-    // Symbols can be (, ), {, }, =, +, ", or !
-    let symbols: Regex = Regex::new(r#"^[\(\){}=\+"!]$"#).unwrap();
+    // Symbols can be (, ), {, }, ==, =, +, ", or !=
+    let symbols: RegexSet = RegexSet::new(&[
+        r"^\($",
+        r"^\)$",
+        r"^\{$",
+        r"^\}$",
+        r"^\+$",
+        r"^==$",
+        r"^!=$",
+        r"^=$",
+        r#"^"$"#,
+    ]).unwrap();
 
     // Digits are 0-9
     let digits: Regex = Regex::new(r"^[0-9]$").unwrap();
@@ -155,7 +167,7 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool
             return true;
         } else if substr.eq("\"") {
             // " is the end of the string
-            *best_token_type = Token::Symbol(String::from(substr));
+            *best_token_type = Token::Symbol(Symbols::Quote);
             *in_string = false;
             return true;
         } else if substr.len() == 1 {
@@ -164,33 +176,62 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool
             return true;
         }
     } else {
-        if substr.len() > 1 {
-            // Being longer than 1 means we may have a keyword
-            if keywords.is_match(substr) {
-                // We have a keyword
-                *best_token_type = Token::Keyword(String::from(substr));
-                return true;
-            } 
-        } else {
-            // Otherwise it may be an identifier, digit, symbol, or unrecognized
-            if characters.is_match(substr) {
-                // We have an identifier
-                *best_token_type = Token::Identifier(String::from(substr));
-            } else if symbols.is_match(substr) {
-                // We have a symbol
-                *best_token_type = Token::Symbol(String::from(substr));
-                // We found the start of a string
-                if substr.eq("\"") {
-                    *in_string = true;
+        if keywords.is_match(substr) {
+            // Get the possible keyword matches
+            let keyword_matches: Vec<usize> = keywords.matches(substr).into_iter().collect();
+            debug!("{:?}", keyword_matches);
+            if keyword_matches.len() > 0 {
+                // The order here matches the order in which they are defined in the constructor
+                match keyword_matches[0] {
+                    0 => *best_token_type = Token::Keyword(Keywords::If),
+                    1 => *best_token_type = Token::Keyword(Keywords::While),
+                    2 => *best_token_type = Token::Keyword(Keywords::Print),
+                    3 => *best_token_type = Token::Keyword(Keywords::String),
+                    4 => *best_token_type = Token::Keyword(Keywords::Int),
+                    5 => *best_token_type = Token::Keyword(Keywords::Boolean),
+                    6 => *best_token_type = Token::Keyword(Keywords::True),
+                    7 => *best_token_type = Token::Keyword(Keywords::False),
+                    // Should never be reached
+                    _ => panic!("Invalid regex found for keywords")
                 }
-            } else if digits.is_match(substr) {
-                // We have a digit
-                *best_token_type = Token::Digit(String::from(substr));
-            } else {
-                // We have an unrecognized symbol
-                *best_token_type = Token::Unrecognized(String::from(substr));
+                return true;
             }
-            // Length of 1 always generates a token of some kind
+        } else if characters.is_match(substr) {
+            // Otherwise it may be an identifier, digit, symbol, or unrecognized
+            // We have an identifier
+            *best_token_type = Token::Identifier(String::from(substr));
+            return true;
+        } else if symbols.is_match(substr) {
+            // Get the possible symbol matches
+            let symbol_matches: Vec<usize> = symbols.matches(substr).into_iter().collect();
+            debug!("{:?}", symbol_matches);
+            if symbol_matches.len() > 0 {
+                // The order here matches the order in which they are defined in the constructor
+                match symbol_matches[0] {
+                    0 => *best_token_type = Token::Symbol(Symbols::L_Paren),
+                    1 => *best_token_type = Token::Symbol(Symbols::R_Paren),
+                    2 => *best_token_type = Token::Symbol(Symbols::L_Brace),
+                    3 => *best_token_type = Token::Symbol(Symbols::R_Brace),
+                    4 => *best_token_type = Token::Symbol(Symbols::Addition_Op),
+                    5 => *best_token_type = Token::Symbol(Symbols::Eq_Op),
+                    6 => *best_token_type = Token::Symbol(Symbols::Neq_Op),
+                    7 => *best_token_type = Token::Symbol(Symbols::Assignment_Op),
+                    8 => {
+                        *best_token_type = Token::Symbol(Symbols::Quote);
+                        *in_string = true;
+                    },
+                    // Should never be reached
+                    _ => panic!("Invalid regex found for symbols")
+                }
+                return true;
+            }
+        } else if digits.is_match(substr) {
+            // We have a digit
+            *best_token_type = Token::Digit(substr.parse::<u32>().unwrap());
+            return true;
+        } else if substr.len() == 1 {
+            // We have an unrecognized symbol
+            *best_token_type = Token::Unrecognized(String::from(substr));
             return true;
         }
     }
