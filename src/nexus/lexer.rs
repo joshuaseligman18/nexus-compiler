@@ -121,35 +121,38 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool
             // Invalid token
             *best_token_type = Token::Unrecognized(String::from(substr));
             return true;
-        } else {
-            // No upgrade
-            return false;
         }
     } else {
-        match best_token_type {
-            // Keyword is the best and they are all mutually exclusive, so no need to check
-            Token::Keyword(_) => return false,
-            _ => {
-                if keywords.is_match(substr) {
-                    *best_token_type = Token::Keyword(String::from(substr));
-                    return true;
-                } else if characters.is_match(substr) {
-                    *best_token_type = Token::Identifier(String::from(substr));
-                    return true;
-                } else if symbols.is_match(substr) {
-                    *best_token_type = Token::Symbol(String::from(substr));
-                    // We found the start of a string
-                    if substr.eq("\"") {
-                        *in_string = true;
-                    }
-                    return true;
-                }  else if digits.is_match(substr) {
-                    *best_token_type = Token::Digit(String::from(substr));
-                    return true;
-                } else {
-                    return false;
+        if substr.len() > 1 {
+            // Being longer than 1 means we may have a keyword
+            if keywords.is_match(substr) {
+                // We have a keyword
+                *best_token_type = Token::Keyword(String::from(substr));
+                return true;
+            } 
+        } else {
+            // Otherwise it may be an identifier, digit, symbol, or unrecognized
+            if characters.is_match(substr) {
+                // We have an identifier
+                *best_token_type = Token::Identifier(String::from(substr));
+            } else if symbols.is_match(substr) {
+                // We have a symbol
+                *best_token_type = Token::Symbol(String::from(substr));
+                // We found the start of a string
+                if substr.eq("\"") {
+                    *in_string = true;
                 }
+            } else if digits.is_match(substr) {
+                // We have a digit
+                *best_token_type = Token::Digit(String::from(substr));
+            } else {
+                // We have an unrecognized symbol
+                *best_token_type = Token::Unrecognized(String::from(substr));
             }
+            // Length of 1 always generates a token of some kind
+            return true;
         }
-    }       
+    }
+    // No upgrade
+    return false;
 }
