@@ -22,15 +22,17 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
     let mut trailer: usize = 0;
 
     // Iterate through the end of the string
-    while trailer < source_code.len() {
+    while cur_start < source_code.len() {
         debug!("{}", format!("trailer: {}, cur_start: {}, best_end: {}", trailer, cur_start, best_end));
 
-        // Get the current character
-        let cur_char: &str = &source_code[trailer..trailer + 1];
-        info!("{:?}", cur_char.as_bytes());
+        // Get the current character if legal
+        let mut cur_char: &str = "";
+        if trailer < source_code.len() {
+            cur_char = &source_code[trailer..trailer + 1];
+        }
 
         // Check if it is a terminal character
-        if !terminal_chars.is_match(cur_char) {
+        if !cur_char.is_empty() && !terminal_chars.is_match(cur_char) {
             // Need to check the substring from cur_start
             // Get the current substring in question
             let cur_sub: &str = &source_code[cur_start..trailer + 1];
