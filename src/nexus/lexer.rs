@@ -34,8 +34,9 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
             cur_char = &source_code[trailer..trailer + 1];
         }
 
-        // Check if it is a terminal character
-        if !cur_char.is_empty() && (!terminal_chars.is_match(cur_char) || in_string) {
+        // Check if it is a terminal character or if we are in string and the character is not a \n
+        // If \n when in string, then we have an unclosed string and should throw an error in the else block
+        if !cur_char.is_empty() && (!terminal_chars.is_match(cur_char) || (in_string && !cur_char.eq("\n"))) {
             // Need to check the substring from cur_start
             // Get the current substring in question
             let cur_sub: &str = &source_code[cur_start..trailer + 1];
@@ -49,8 +50,6 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
                     Token::Unrecognized(_) => nexus_log::error(String::from("LEXER"), format!("{:?} at ({}, {})", cur_token, line_number, col_number)),
                     _ => nexus_log::info(String::from("LEXER"), format!("{:?} at ({}, {})", cur_token, line_number, col_number)),
                 }
-
-                // nexus_log::info(String::from("LEXER"), format!("{:?} at ({}, {})", cur_token, line_number, col_number));
 
                 // Update the column number to accommodate the length of the token
                 col_number += best_end - cur_start;
@@ -68,6 +67,12 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
 
                 // New line should update the line and column numbers
                 if cur_char.eq("\n") {
+                    if in_string {
+                        // The string was not closed, so throw an error
+                        nexus_log::error(String::from("LEXER"), String::from("Unclosed string"));
+                        // Will finish lexing, so reset in_string
+                        in_string = false;
+                    }
                     line_number += 1;
                     col_number = 1;
                 } else {
