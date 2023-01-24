@@ -24,10 +24,24 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
     // Initially not in a string
     let mut in_string: bool = false;
 
+    // Initially not in a comment
+    let mut in_comment: bool = false;
+    let comment_regex: RegexSet = RegexSet::new(&[r"^/\*$", r"^\*/$"]).unwrap();
+
     // Iterate through the end of the string
     while cur_start < source_code.len() {
         debug!("{}", format!("trailer: {}, cur_start: {}, best_end: {}", trailer, cur_start, best_end));
-
+ 
+        if cur_start == trailer && cur_start < source_code.len() - 1 {
+            let next_2: &str = &source_code[cur_start..cur_start + 2];
+            if comment_regex.is_match(next_2) {
+                in_comment = !in_comment;
+                cur_start += 2;
+                best_end += 2;
+                trailer += 2;
+            }
+        }
+        
         // Get the current character if legal
         let mut cur_char: &str = "";
         if trailer < source_code.len() {
@@ -36,7 +50,7 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
 
         // Check if it is a terminal character or if we are in string and the character is not a \n
         // If \n when in string, then we have an unclosed string and should throw an error in the else block
-        if !cur_char.is_empty() && (!terminal_chars.is_match(cur_char) || (in_string && !cur_char.eq("\n"))) {
+        if !in_comment && !cur_char.is_empty() && (!terminal_chars.is_match(cur_char) || (in_string && !cur_char.eq("\n"))) {
             // Need to check the substring from cur_start
             // Get the current substring in question
             let cur_sub: &str = &source_code[cur_start..trailer + 1];
@@ -82,6 +96,10 @@ pub fn lex(source_code: String) {//-> Vec<Token> {
         }
 
         trailer += 1;
+    }
+
+    if in_comment {
+        nexus_log::warning(String::from("LEXER"), String::from("Unclosed comment"));
     }
 }
 

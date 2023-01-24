@@ -13,6 +13,7 @@ use crate::util::nexus_log;
 pub fn nexus_init() {
     // Set up console logs for debugging
     console_log::init_with_level(Level::Debug).expect("Should be able to connect to the browser's console");
+    console_error_panic_hook::set_once();
 
     // Grab the window and document elements for DOM manipulation
     let window: Window = web_sys::window().expect("The window object should exist.");
