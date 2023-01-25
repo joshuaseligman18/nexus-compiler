@@ -38,6 +38,7 @@ pub fn lex(source_code: &str) -> Vec<Token> {
 
     // Initially not in a comment
     let mut in_comment: bool = false;
+    let mut comment_position: (usize, usize) = (0, 0);
     let comment_regex: RegexSet = RegexSet::new(&[r"^/\*$", r"^\*/$"]).unwrap();
 
     // Iterate through the end of the string
@@ -48,6 +49,11 @@ pub fn lex(source_code: &str) -> Vec<Token> {
             let next_2: &str = &source_code[cur_start..cur_start + 2];
             // If it is a comment symbol
             if comment_regex.is_match(next_2) {
+                // Get the updated comment start position
+                if !in_comment {
+                    comment_position = (line_number, col_number);
+                }
+
                 // Flip and skip both characters
                 in_comment = !in_comment;
                 cur_start += 2;
@@ -178,7 +184,7 @@ pub fn lex(source_code: &str) -> Vec<Token> {
         nexus_log::log(
             nexus_log::LogTypes::Warning,
             nexus_log::Sources::Lexer,
-            String::from("Unclosed comment")
+            format!("Unclosed comment starting at {:?}", comment_position)
         );
     }
 
