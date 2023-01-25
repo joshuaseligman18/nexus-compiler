@@ -23,5 +23,7 @@ features = [
     'Document',
     'Element',
     'HtmlElement',
-    'HtmlTextAreaElement'
+    'HtmlTextAreaElement',
+    'HtmlSelectElement',
+    'HtmlOptionElement'
 ]

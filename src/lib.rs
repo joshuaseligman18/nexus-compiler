@@ -6,7 +6,7 @@ mod nexus;
 mod util;
 mod editor;
 
-use editor::buttons;
+use editor::*;
 
 // Function to initialize Nexus
 #[wasm_bindgen]
@@ -21,6 +21,7 @@ pub fn nexus_init() {
 
     // Set up the event listeners
     buttons::set_up_buttons(&document);
+    tests::create_test_environment(&document);
 
     info!("Nexus initialized");
 }
