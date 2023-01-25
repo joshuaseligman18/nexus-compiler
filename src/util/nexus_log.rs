@@ -3,7 +3,7 @@ use web_sys::{HtmlTextAreaElement, Document, Window};
 
 // Defines the type of logs
 // https://stackoverflow.com/questions/69015213/how-can-i-display-an-enum-in-lowercase
-#[derive (Debug, strum_macros::Display)]
+#[derive (Debug, strum::Display)]
 #[strum (serialize_all = "UPPERCASE")]
 pub enum LogTypes {
     Info,
@@ -12,7 +12,7 @@ pub enum LogTypes {
 }
 
 // Defines where the logs can come from
-#[derive (Debug, strum_macros::Display)]
+#[derive (Debug, strum::Display)]
 #[strum (serialize_all = "UPPERCASE")]
 pub enum Sources {
     Nexus,

@@ -16,7 +16,7 @@ pub fn nexus_init() {
     console_error_panic_hook::set_once();
 
     // Grab the window and document elements for DOM manipulation
-    let window: Window = web_sys::window().expect("The window object should exist.");
+    let window: Window = web_sys::window().expect("The window object should exist");
     let document: Document = window.document().expect("The document object should exist");
 
     // Set up the event listeners

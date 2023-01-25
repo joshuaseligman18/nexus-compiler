@@ -1,8 +1,64 @@
-use crate::{nexus::token::{Token, TokenType, Keywords, Symbols}, util::nexus_log};
+use crate::{nexus::token::{Token, TokenType, Keywords, Symbols, self}, util::nexus_log};
 use log::{debug, info, error};
 use regex::{Regex, RegexSet};
 
-pub fn lex(source_code: &str) -> Result<(Vec<Token>, i32), (i32, i32)> {
+// Function to lex a program
+pub fn lex_program(source_code: &str) -> Result<Vec<Token>, ()> {
+    let lex_out: Result<(Vec<Token>, i32), (i32, i32)> = lex(source_code);
+    if lex_out.is_ok() {
+        // Grab the token stream and number of warnings
+        let (token_stream, num_warnings): (Vec<Token>, i32) = lex_out.unwrap();
+
+        // Create the output string and log it
+        let mut out_string: String = format!("Lexer completed with 0 errors and {} warning", num_warnings);
+        if num_warnings == 1 {
+            out_string.push_str(".");    
+        } else {
+            out_string.push_str("s.");
+        }
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::Sources::Lexer,
+            out_string
+        );
+
+        // Return the token stream
+        return Ok(token_stream);
+    } else {
+        // Get the number of errors and warnings
+        let (num_errors, num_warnings): (i32, i32) = lex_out.unwrap_err();
+
+        // Generate the output string
+        let mut out_string: String = format!("Lexer failed with {} error", num_errors);
+        if num_errors == 1 {
+            out_string.push_str(" and ");
+        } else {
+            out_string.push_str("s and ");
+        }
+
+        out_string.push_str(format!("{} warning", num_warnings).as_str());
+        if num_warnings == 1 {
+            out_string.push_str("");    
+        } else {
+            out_string.push_str("s.");
+        }
+
+        // Log the output string
+        nexus_log::log(
+            nexus_log::LogTypes::Error,
+            nexus_log::Sources::Lexer,
+            out_string
+        );
+
+        // Nothing has to be returned so just let the compiler know it failed
+        return Err(());
+    }
+}
+
+// Function to lex a program
+// Ok result: (token stream, number of warnings)
+// Err result: (number of errors, number of warnings)
+fn lex(source_code: &str) -> Result<(Vec<Token>, i32), (i32, i32)> {
     // Initialize the number of errors and warnings to 0
     let mut num_errors: i32 = 0;
     let mut num_warnings: i32 = 0;
