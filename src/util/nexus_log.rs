@@ -8,7 +8,8 @@ use web_sys::{HtmlTextAreaElement, Document, Window};
 pub enum LogTypes {
     Info,
     Warning,
-    Error
+    Error,
+    Debug
 }
 
 // Defines where the logs can come from
@@ -29,6 +30,20 @@ pub fn log(log_type: LogTypes, src: Sources, msg: String) {
 
     // Add the new message to the logs
     log_value.push_str(format!("[{} - {}]: {}\n", log_type, src, msg).as_str());
+
+    // Set the new value
+    log_area.set_value(&log_value);
+}
+
+pub fn insert_empty_line() {
+    // Get the log area
+    let log_area: HtmlTextAreaElement = get_log_area();
+
+    // Get the original value
+    let mut log_value: String = log_area.value();
+
+    // Add the new message to the logs
+    log_value.push_str("\n");
 
     // Set the new value
     log_area.set_value(&log_value);

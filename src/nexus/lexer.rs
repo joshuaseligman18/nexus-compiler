@@ -162,24 +162,24 @@ impl Lexer {
                     match &new_token_ref.token_type {
                         // Log the keyword information
                         TokenType::Keyword(keyword_type) => nexus_log::log(
-                            nexus_log::LogTypes::Info,
+                            nexus_log::LogTypes::Debug,
                             nexus_log::Sources::Lexer,
-                            format!("Keyword - {:?} [ {} ] found at position {:?}", keyword_type, new_token_ref.text, new_token_ref.position)
+                            format!("Keyword - {:?} [ {} ] found at {:?}", keyword_type, new_token_ref.text, new_token_ref.position)
                         ),
 
                         // Log the identifier information
                         TokenType::Identifier(id) => nexus_log::log(
-                            nexus_log::LogTypes::Info, 
+                            nexus_log::LogTypes::Debug, 
                             nexus_log::Sources::Lexer,
-                            format!("Identifier [ {} ] found at position {:?}", id, new_token_ref.position)
+                            format!("Identifier [ {} ] found at {:?}", id, new_token_ref.position)
                         ),
                         
                         // Log the symbol information
                         TokenType::Symbol(symbol_type) => {
                             nexus_log::log(
-                                nexus_log::LogTypes::Info,
+                                nexus_log::LogTypes::Debug,
                                 nexus_log::Sources::Lexer,
-                                format!("Symbol - {:?} [ {} ] found at position {:?}", symbol_type, new_token_ref.text, new_token_ref.position)
+                                format!("Symbol - {:?} [ {} ] found at {:?}", symbol_type, new_token_ref.text, new_token_ref.position)
                             );
 
                             // Mark the end found if needed
@@ -191,16 +191,16 @@ impl Lexer {
 
                         // Log the digit information
                         TokenType::Digit(num) => nexus_log::log(
-                            nexus_log::LogTypes::Info,
+                            nexus_log::LogTypes::Debug,
                             nexus_log::Sources::Lexer,
-                            format!("Digit [ {} ] found at position {:?}", num, new_token_ref.position)
+                            format!("Digit [ {} ] found at {:?}", num, new_token_ref.position)
                         ),
                         
                         // Log the char information
                         TokenType::Char(char) => nexus_log::log(
-                            nexus_log::LogTypes::Info,
+                            nexus_log::LogTypes::Debug,
                             nexus_log::Sources::Lexer,
-                            format!("Char [ {} ] found at position {:?}", char, new_token_ref.position)
+                            format!("Char [ {} ] found at {:?}", char, new_token_ref.position)
                         ),
 
                         // Unrecognized tokens throw errors
@@ -218,13 +218,13 @@ impl Lexer {
                                 nexus_log::log(
                                     nexus_log::LogTypes::Error,
                                     nexus_log::Sources::Lexer,
-                                    format!("Error at {:?}; Unrecognized symbol '{}' in string starting at {:?}", new_token_ref.position, new_token_ref.text, token_stream[i as usize].position)
+                                    format!("Error at {:?}; Unrecognized token '{}' in string starting at {:?}; Strings may only contain lowercase letters (a - z)", new_token_ref.position, new_token_ref.text, token_stream[i as usize].position)
                                 )
                             } else {
                                 nexus_log::log(
                                     nexus_log::LogTypes::Error,
                                     nexus_log::Sources::Lexer,
-                                    format!("Error at {:?}; Unrecognized symbol '{}'", new_token_ref.position, new_token_ref.text)
+                                    format!("Error at {:?}; Unrecognized token '{}'", new_token_ref.position, new_token_ref.text)
                                 );
                             }
                             num_errors += 1;
