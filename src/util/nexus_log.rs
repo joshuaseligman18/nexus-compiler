@@ -2,6 +2,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{HtmlTextAreaElement, Document, Window};
 
 // Defines the type of logs
+// https://stackoverflow.com/questions/69015213/how-can-i-display-an-enum-in-lowercase
 #[derive (Debug, strum_macros::Display)]
 #[strum (serialize_all = "UPPERCASE")]
 pub enum LogTypes {

@@ -2,6 +2,8 @@ use crate::{nexus::token::{Token, TokenType, Keywords, Symbols}, util::nexus_log
 use log::{debug, info, error};
 use regex::{Regex, RegexSet};
 
+use super::token;
+
 pub fn lex(source_code: &str) -> Vec<Token> {
     
     // This represents all possible terminal characters for which to mark the end of the current search
@@ -142,11 +144,20 @@ pub fn lex(source_code: &str) -> Vec<Token> {
                 // New line should update the line and column numbers
                 if cur_char.eq("\n") {
                     if in_string {
+                        // Get the index of the open quote token by doing a backwards linear search
+                        let mut i: i32 = token_stream.len() as i32 - 1;
+                        while i >= 0 {
+                            match &token_stream[i as usize].token_type {
+                                // Can break upon finding the token
+                                TokenType::Symbol(Symbols::Quote) => break,
+                                _ => i -= 1,
+                            };
+                        }
                         // The string was not closed, so throw an error
                         nexus_log::log(
                             nexus_log::LogTypes::Error,
                             nexus_log::Sources::Lexer,
-                            String::from("Unclosed string")
+                            format!("Unclosed string starting at {:?}", token_stream[i as usize].position)
                         );
                         // Will finish lexing, so reset in_string
                         in_string = false;
