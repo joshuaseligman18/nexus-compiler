@@ -85,35 +85,35 @@ pub fn lex(source_code: &str) -> Vec<Token> {
                     TokenType::Keyword(keyword_type) => nexus_log::log(
                         nexus_log::LogTypes::Info,
                         nexus_log::Sources::Lexer,
-                        format!("Keyword - {:?} [{}] found at position {:?}", keyword_type, new_token_ref.text, new_token_ref.position)
+                        format!("Keyword - {:?} [ {} ] found at position {:?}", keyword_type, new_token_ref.text, new_token_ref.position)
                     ),
 
                     // Log the identifier information
                     TokenType::Identifier(id) => nexus_log::log(
                         nexus_log::LogTypes::Info, 
                         nexus_log::Sources::Lexer,
-                        format!("Identifier [{}] found at position {:?}", id, new_token_ref.position)
+                        format!("Identifier [ {} ] found at position {:?}", id, new_token_ref.position)
                     ),
                     
                     // Log the symbol information
                     TokenType::Symbol(symbol_type) => nexus_log::log(
                         nexus_log::LogTypes::Info,
                         nexus_log::Sources::Lexer,
-                        format!("Symbol - {:?} [{}] found at position {:?}", symbol_type, new_token_ref.text, new_token_ref.position)
+                        format!("Symbol - {:?} [ {} ] found at position {:?}", symbol_type, new_token_ref.text, new_token_ref.position)
                     ),
 
                     // Log the digit information
                     TokenType::Digit(num) => nexus_log::log(
                         nexus_log::LogTypes::Info,
                         nexus_log::Sources::Lexer,
-                        format!("Digit [{}] found at position {:?}", num, new_token_ref.position)
+                        format!("Digit [ {} ] found at position {:?}", num, new_token_ref.position)
                     ),
                     
                     // Log the char information
                     TokenType::Char(char) => nexus_log::log(
                         nexus_log::LogTypes::Info,
                         nexus_log::Sources::Lexer,
-                        format!("Char [{}] found at position {:?}", char, new_token_ref.position)
+                        format!("Char [ {} ] found at position {:?}", char, new_token_ref.position)
                     ),
 
                     // Unrecognized tokens throw errors
