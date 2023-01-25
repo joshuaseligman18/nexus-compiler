@@ -1,3 +1,37 @@
+/*
+https://colorhunt.co/palette/f5f5f5f0545430475e121212
+White: #F5F5F5
+Red: #F05454
+Blue: #30475E
+Black: #121212
+*/
+
+body, textarea {
+    color: #121212;
+    background-color: #F5F5F5;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+button, select {
+    border: 0px;
+    color: #F5F5F5;
+    font-size: 14px;
+    padding: 5px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+button:hover, select:hover {
+    cursor: pointer;
+}
+
+#compile-btn, #tests {
+    background-color: #30475E;
+}
+
+#clear-btn, #load-test-btn {
+    background-color: #F05454;
+}
+
 #main-area {
     display: flex;
     flex-direction: row;
@@ -11,14 +45,27 @@
 
 #ta-code-input, #nexus-log-area {
     resize: none;
-    width: 40%;
+    width: 48%;
     height: 350px;
+    font-size: 12px;
 }
 
-#button-area {
-    height: 350px;
+#top-bar {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: space-evenly;
+    margin-bottom: 10px;
+}
+
+#test-area, #basic-btns {
+    width: 50%;
+
+    /* https://stackoverflow.com/questions/38394818/central-align-of-elements-css-without-flexbox */
+    display: table;
+    text-align: center;
+}
+
+h1 {
+    margin-bottom: 0;
 }

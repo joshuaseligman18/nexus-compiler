@@ -15,14 +15,19 @@
         <h1>Nexus Compiler</h1>
         <h3>Josh Seligman</h3>
     </div>
-    <select id="tests"></select>
-    <button id="load-test-btn">Load Test</button>
+
+    <div id="top-bar">
+        <div id="test-area">
+            <select id="tests"></select>
+            <button id="load-test-btn">Load Test</button>
+        </div>
+        <div id="basic-btns">
+            <button id="compile-btn">Compile</button>
+            <button id="clear-btn">Clear Output</button>
+        </div>
+    </div>
     <div id="main-area">
         <textarea id="ta-code-input"></textarea>
-        <div id="button-area">
-            <button id="compile-btn">Compile</button>
-            <button id="clear-btn">Clear</button>
-        </div>
         <textarea id="nexus-log-area" readonly></textarea>
     </div>
 </body>
