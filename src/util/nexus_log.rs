@@ -1,38 +1,25 @@
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlTextAreaElement, Document, Window};
 
-// Function to log to the textarea
-pub fn info(src: String, msg: String) {
-    // Get the log area
-    let log_area: HtmlTextAreaElement = get_log_area();
-
-    // Get the original value
-    let mut log_value: String = log_area.value();
-
-    // Add the new message to the logs
-    log_value.push_str(format!("[INFO - {}]: {}\n", src, msg).as_str());
-
-    // Set the new value
-    log_area.set_value(&log_value);
+// Defines the type of logs
+#[derive (Debug, strum_macros::Display)]
+#[strum (serialize_all = "UPPERCASE")]
+pub enum LogTypes {
+    Info,
+    Warning,
+    Error
 }
 
-// Function to log an error to the textarea
-pub fn error(src: String, msg: String) {
-    // Get the log area
-    let log_area: HtmlTextAreaElement = get_log_area();
-
-    // Get the original value
-    let mut log_value: String = log_area.value();
-
-    // Add the new message to the logs
-    log_value.push_str(format!("[ERROR - {}]: {}\n", src, msg).as_str());
-
-    // Set the new value
-    log_area.set_value(&log_value);
+// Defines where the logs can come from
+#[derive (Debug, strum_macros::Display)]
+#[strum (serialize_all = "UPPERCASE")]
+pub enum Sources {
+    Nexus,
+    Lexer
 }
 
-// Function to log an warning to the textarea
-pub fn warning(src: String, msg: String) {
+// Function that logs a message with the given type and source
+pub fn log(log_type: LogTypes, src: Sources, msg: String) {
     // Get the log area
     let log_area: HtmlTextAreaElement = get_log_area();
 
@@ -40,7 +27,7 @@ pub fn warning(src: String, msg: String) {
     let mut log_value: String = log_area.value();
 
     // Add the new message to the logs
-    log_value.push_str(format!("[WARNING - {}]: {}\n", src, msg).as_str());
+    log_value.push_str(format!("[{} - {}]: {}\n", log_type, src, msg).as_str());
 
     // Set the new value
     log_area.set_value(&log_value);

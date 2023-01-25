@@ -82,22 +82,46 @@ pub fn lex(source_code: &str) -> Vec<Token> {
                 let new_token_ref: &Token = &token_stream[token_stream.len() - 1];
                 match &new_token_ref.token_type {
                     // Log the keyword information
-                    TokenType::Keyword(keyword_type) => nexus_log::info(String::from("LEXER"), format!("Keyword - {:?} [{}] found at position {:?}", keyword_type, new_token_ref.text, new_token_ref.position)),
+                    TokenType::Keyword(keyword_type) => nexus_log::log(
+                        nexus_log::LogTypes::Info,
+                        nexus_log::Sources::Lexer,
+                        format!("Keyword - {:?} [{}] found at position {:?}", keyword_type, new_token_ref.text, new_token_ref.position)
+                    ),
 
                     // Log the identifier information
-                    TokenType::Identifier(id) => nexus_log::info(String::from("LEXER"), format!("Identifier [{}] found at position {:?}", id, new_token_ref.position)),
+                    TokenType::Identifier(id) => nexus_log::log(
+                        nexus_log::LogTypes::Info, 
+                        nexus_log::Sources::Lexer,
+                        format!("Identifier [{}] found at position {:?}", id, new_token_ref.position)
+                    ),
                     
                     // Log the symbol information
-                    TokenType::Symbol(symbol_type) => nexus_log::info(String::from("LEXER"), format!("Symbol - {:?} [{}] found at position {:?}", symbol_type, new_token_ref.text, new_token_ref.position)),
+                    TokenType::Symbol(symbol_type) => nexus_log::log(
+                        nexus_log::LogTypes::Info,
+                        nexus_log::Sources::Lexer,
+                        format!("Symbol - {:?} [{}] found at position {:?}", symbol_type, new_token_ref.text, new_token_ref.position)
+                    ),
 
                     // Log the digit information
-                    TokenType::Digit(num) => nexus_log::info(String::from("LEXER"), format!("Digit [{}] found at position {:?}", num, new_token_ref.position)),
+                    TokenType::Digit(num) => nexus_log::log(
+                        nexus_log::LogTypes::Info,
+                        nexus_log::Sources::Lexer,
+                        format!("Digit [{}] found at position {:?}", num, new_token_ref.position)
+                    ),
                     
                     // Log the char information
-                    TokenType::Char(char) => nexus_log::info(String::from("LEXER"), format!("Char [{}] found at position {:?}", char, new_token_ref.position)),
+                    TokenType::Char(char) => nexus_log::log(
+                        nexus_log::LogTypes::Info,
+                        nexus_log::Sources::Lexer,
+                        format!("Char [{}] found at position {:?}", char, new_token_ref.position)
+                    ),
 
                     // Unrecognized tokens throw errors
-                    TokenType::Unrecognized(_) => nexus_log::error(String::from("LEXER"), format!("Error at {:?}; Unrecognized symbol '{}'", new_token_ref.position, new_token_ref.text)),
+                    TokenType::Unrecognized(_) => nexus_log::log(
+                        nexus_log::LogTypes::Error,
+                        nexus_log::Sources::Lexer,
+                        format!("Error at {:?}; Unrecognized symbol '{}'", new_token_ref.position, new_token_ref.text)
+                    ),
                 }    
 
                 // Go back to an unrecognized empty token
@@ -119,7 +143,11 @@ pub fn lex(source_code: &str) -> Vec<Token> {
                 if cur_char.eq("\n") {
                     if in_string {
                         // The string was not closed, so throw an error
-                        nexus_log::error(String::from("LEXER"), String::from("Unclosed string"));
+                        nexus_log::log(
+                            nexus_log::LogTypes::Error,
+                            nexus_log::Sources::Lexer,
+                            String::from("Unclosed string")
+                        );
                         // Will finish lexing, so reset in_string
                         in_string = false;
                     }
@@ -136,7 +164,11 @@ pub fn lex(source_code: &str) -> Vec<Token> {
 
     // If comment is still open at end of program, the user should be warned
     if in_comment {
-        nexus_log::warning(String::from("LEXER"), String::from("Unclosed comment"));
+        nexus_log::log(
+            nexus_log::LogTypes::Warning,
+            nexus_log::Sources::Lexer,
+            String::from("Unclosed comment")
+        );
     }
 
     return token_stream;
