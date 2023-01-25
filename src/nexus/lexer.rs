@@ -125,11 +125,30 @@ pub fn lex(source_code: &str) -> Vec<Token> {
                     ),
 
                     // Unrecognized tokens throw errors
-                    TokenType::Unrecognized(_) => nexus_log::log(
-                        nexus_log::LogTypes::Error,
-                        nexus_log::Sources::Lexer,
-                        format!("Error at {:?}; Unrecognized symbol '{}'", new_token_ref.position, new_token_ref.text)
-                    ),
+                    TokenType::Unrecognized(_) => {
+                        if in_string {
+                            // Get the index of the open quote token by doing a backwards linear search
+                            let mut i: i32 = token_stream.len() as i32 - 1;
+                            while i >= 0 {
+                                match &token_stream[i as usize].token_type {
+                                    // Can break upon finding the token
+                                    TokenType::Symbol(Symbols::Quote) => break,
+                                    _ => i -= 1,
+                                };
+                            }
+                            nexus_log::log(
+                                nexus_log::LogTypes::Error,
+                                nexus_log::Sources::Lexer,
+                                format!("Error at {:?}; Unrecognized symbol '{}' in string starting at {:?}", new_token_ref.position, new_token_ref.text, token_stream[i as usize].position)
+                            )
+                        } else {
+                            nexus_log::log(
+                                nexus_log::LogTypes::Error,
+                                nexus_log::Sources::Lexer,
+                                format!("Error at {:?}; Unrecognized symbol '{}'", new_token_ref.position, new_token_ref.text)
+                            );
+                        }
+                    },
                 }    
 
                 // Go back to an unrecognized empty token
