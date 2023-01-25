@@ -2,9 +2,11 @@ use log::{info, debug};
 use regex::{Regex, Match};
 
 use crate::util::nexus_log;
-use crate::nexus::{lexer, token::Token};
+use crate::nexus::{lexer::Lexer, token::Token};
 
 pub fn compile(source_code: String) {
+    let mut lexer: Lexer = Lexer::new();
+
     // Get the programs
     let programs: Vec<&str> = get_individual_programs(&source_code);
 
@@ -26,7 +28,7 @@ pub fn compile(source_code: String) {
         );
 
         // Lex the program
-        let lex_res: Result<Vec<Token>, ()> = lexer::lex_program(program);
+        let lex_res: Result<Vec<Token>, ()> = lexer.lex_program(program);
         if lex_res.is_err() {
             // No need to move on if lex failed, so can go to next program
             continue;
