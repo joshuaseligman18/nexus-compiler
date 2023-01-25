@@ -18,8 +18,8 @@ impl Lexer {
     }
 
     // Function to lex a program
-    pub fn lex_program(&mut self, source_code: &str) -> Result<Vec<Token>, ()> {
-        let lex_out: Result<(Vec<Token>, i32), (i32, i32)> = self.lex(source_code);
+    pub fn lex_program(&mut self, source_code: &str, starting_position: &mut usize) -> Result<Vec<Token>, ()> {
+        let lex_out: Result<(Vec<Token>, i32), (i32, i32)> = self.lex(source_code, starting_position);
         if lex_out.is_ok() {
             // Grab the token stream and number of warnings
             let (token_stream, num_warnings): (Vec<Token>, i32) = lex_out.unwrap();
@@ -73,7 +73,7 @@ impl Lexer {
     // Function to lex a program
     // Ok result: (token stream, number of warnings)
     // Err result: (number of errors, number of warnings)
-    fn lex(&mut self, source_code: &str) -> Result<(Vec<Token>, i32), (i32, i32)> {
+    fn lex(&mut self, source_code: &str, starting_position: &mut usize) -> Result<(Vec<Token>, i32), (i32, i32)> {
         // Initialize the number of errors and warnings to 0
         let mut num_errors: i32 = 0;
         let mut num_warnings: i32 = 0;
@@ -91,15 +91,14 @@ impl Lexer {
         let mut token_stream: Vec<Token> = Vec::with_capacity(char_count);
 
         // The start and end indices in the source code string for the token
-        // cur_start == best_end means that the token is empty (space or newline by itself)
-        let mut cur_start: usize = 0;
-        let mut best_end: usize = 0;
+        // starting_position == best_end means that the token is empty (space or newline by itself)
+        let mut best_end: usize = starting_position.to_owned();
 
         // The cur token type
         let mut cur_token_type: TokenType = TokenType::Unrecognized(String::from(""));
 
         // The current position in the source code
-        let mut trailer: usize = 0;
+        let mut trailer: usize = starting_position.to_owned();
 
         // Initially not in a string
         let mut in_string: bool = false;
@@ -109,12 +108,14 @@ impl Lexer {
         let mut comment_position: (usize, usize) = (0, 0);
         let comment_regex: RegexSet = RegexSet::new(&[r"^/\*$", r"^\*/$"]).unwrap();
 
+        let mut end_found: bool = false;
+
         // Iterate through the end of the string
-        while cur_start < source_code.len() { 
+        while !end_found && *starting_position < source_code.len() { 
             // If it is the start of a search and we have space for a comment (/* or */)
-            if cur_start == trailer && cur_start < source_code.len() - 1 {
+            if *starting_position == trailer && *starting_position < source_code.len() - 1 {
                 // Get the next 2 characters
-                let next_2: &str = &source_code[cur_start..cur_start + 2];
+                let next_2: &str = &source_code[*starting_position..*starting_position + 2];
 
                 let comment_matches = comment_regex.matches(next_2);
                 // If it is a comment symbol
@@ -126,7 +127,7 @@ impl Lexer {
 
                     // Flip and skip both characters
                     in_comment = !in_comment;
-                    cur_start += 2;
+                    *starting_position += 2;
                     best_end += 2;
                     trailer += 2;
                 }
@@ -141,9 +142,9 @@ impl Lexer {
             // Check if it is a terminal character or if we are in string and the character is not a \n
             // If \n when in string, then we have an unclosed string and should throw an error in the else block
             if !in_comment && !cur_char.is_empty() && (!terminal_chars.is_match(cur_char) || (in_string && !cur_char.eq("\n"))) {
-                // Need to check the substring from cur_start
+                // Need to check the substring from starting_position
                 // Get the current substring in question
-                let cur_sub: &str = &source_code[cur_start..trailer + 1];
+                let cur_sub: &str = &source_code[*starting_position..trailer + 1];
                 
                 // Check to see if we need to upgrade the token
                 if self.upgrade_token(cur_sub, &mut cur_token_type, &mut in_string) {
@@ -152,9 +153,9 @@ impl Lexer {
                 }
             } else {
                 // Make sure we have something
-                if best_end - cur_start > 0 {
+                if best_end - *starting_position > 0 {
                     // Create the new token and add it to the stream
-                    let new_token: Token = Token::new(cur_token_type.to_owned(), source_code[cur_start..best_end].to_string(), self.line_number, self.col_number);
+                    let new_token: Token = Token::new(cur_token_type.to_owned(), source_code[*starting_position..best_end].to_string(), self.line_number, self.col_number);
                     token_stream.push(new_token);
 
                     let new_token_ref: &Token = &token_stream[token_stream.len() - 1];
@@ -174,11 +175,19 @@ impl Lexer {
                         ),
                         
                         // Log the symbol information
-                        TokenType::Symbol(symbol_type) => nexus_log::log(
-                            nexus_log::LogTypes::Info,
-                            nexus_log::Sources::Lexer,
-                            format!("Symbol - {:?} [ {} ] found at position {:?}", symbol_type, new_token_ref.text, new_token_ref.position)
-                        ),
+                        TokenType::Symbol(symbol_type) => {
+                            nexus_log::log(
+                                nexus_log::LogTypes::Info,
+                                nexus_log::Sources::Lexer,
+                                format!("Symbol - {:?} [ {} ] found at position {:?}", symbol_type, new_token_ref.text, new_token_ref.position)
+                            );
+
+                            // Mark the end found if needed
+                            match symbol_type {
+                                Symbols::EOP => end_found = true,
+                                _ => {}
+                            }
+                        },
 
                         // Log the digit information
                         TokenType::Digit(num) => nexus_log::log(
@@ -220,21 +229,21 @@ impl Lexer {
                             }
                             num_errors += 1;
                         },
-                    }    
+                    }
 
                     // Go back to an unrecognized empty token
                     cur_token_type = TokenType::Unrecognized(String::from(""));
 
                     // Update the column number to accommodate the length of the token
-                    self.col_number += best_end - cur_start;
+                    self.col_number += best_end - *starting_position;
 
                     // Move the trailer to the best end - 1 (will get incremented at the loop bottom)
                     trailer = best_end - 1;
-                    // Move cur_start to the beginning of the next possible token
-                    cur_start = trailer + 1;
+                    // Move starting_position to the beginning of the next possible token
+                    *starting_position = trailer + 1;
                 } else {
                     // Token is empty
-                    cur_start += 1;
+                    *starting_position += 1;
                     best_end += 1;
 
                     // New line should update the line and column numbers
@@ -281,9 +290,12 @@ impl Lexer {
             num_warnings += 1;
         }
 
+        // Check for the $ at the end of the program
         if token_stream.len() > 0 {
             match &token_stream[token_stream.len() - 1].token_type {
+                // We are good if we have EOP
                 TokenType::Symbol(Symbols::EOP) => {},
+                // Otherwise log out the warning
                 _ => {
                     nexus_log::log(
                         nexus_log::LogTypes::Warning,
@@ -294,6 +306,7 @@ impl Lexer {
                 }
             }
         } else {
+            // Empty programs by definition have no tokens and, thus, no EOP token
             nexus_log::log(
                 nexus_log::LogTypes::Warning,
                 nexus_log::Sources::Lexer,
@@ -311,6 +324,7 @@ impl Lexer {
         }
     }
 
+    // Function to upgrade a token based on new information
     fn upgrade_token(&self, substr: &str, best_token_type: &mut TokenType, in_string: &mut bool) -> bool {
         // Create the keywords
         let keywords: RegexSet = RegexSet::new(&[

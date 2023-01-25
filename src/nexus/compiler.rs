@@ -7,9 +7,6 @@ use crate::nexus::{lexer::Lexer, token::Token};
 pub fn compile(source_code: String) {
     let mut lexer: Lexer = Lexer::new();
 
-    // Get the programs
-    let programs: Vec<&str> = get_individual_programs(&source_code);
-
     // Clean up the output area
     nexus_log::clear_logs();
     nexus_log::log(
@@ -18,49 +15,28 @@ pub fn compile(source_code: String) {
         String::from("Compile called")
     );
 
+    // Keep track of the starting position of the current program
+    let mut program_start: usize = 0;
+
+    // Keep track of the number of programs
+    let mut program_number: u32 = 1;
+
     // Go through each program
-    for (i, program) in programs.iter().enumerate() {
+    while program_start < source_code.len() {
         // Log the program we are on
         nexus_log::log(
             nexus_log::LogTypes::Info,
             nexus_log::Sources::Nexus,
-            format!("Compiling program {} of {}", i + 1, programs.len())
+            format!("Compiling program {}", program_number)
         );
 
         // Lex the program
-        let lex_res: Result<Vec<Token>, ()> = lexer.lex_program(program);
+        let lex_res: Result<Vec<Token>, ()> = lexer.lex_program(&source_code, &mut program_start);
         if lex_res.is_err() {
             // No need to move on if lex failed, so can go to next program
             continue;
         }
         debug!("{:?}", lex_res.unwrap());
+        program_number += 1;
     }
-}
-
-// Function that separates multiple inputted programs
-fn get_individual_programs(source_code: &str) -> Vec<&str> {
-    // This is a vector of all the individual program source code
-    let mut programs: Vec<&str> = Vec::new();
-
-    let trimmed_source_code: &str = source_code.trim();
-
-    // Split programs on the $
-    let end_program_regex: Regex = Regex::new(r"\$").unwrap();
-
-    // The start index of the current program
-    let mut cur_program_start: usize = 0;
-
-    // We need to find all of the $ in the code
-    for eop_match in end_program_regex.find_iter(trimmed_source_code) {
-        // Extract the program code and update the start index
-        programs.push(&trimmed_source_code[cur_program_start..eop_match.end()]);
-        cur_program_start = eop_match.end();
-    }
-
-    // Get the last program if needed
-    if cur_program_start < trimmed_source_code.len() {
-        programs.push(&trimmed_source_code[cur_program_start..]);
-    }
-
-    return programs;
 }
