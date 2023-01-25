@@ -268,6 +268,18 @@ fn lex(source_code: &str) -> Result<(Vec<Token>, i32), (i32, i32)> {
         num_warnings += 1;
     }
 
+    match &token_stream[token_stream.len() - 1].token_type {
+        TokenType::Symbol(Symbols::EOP) => {},
+        _ => {
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::Sources::Lexer,
+                String::from("Program did not end with EOP symbol [ $ ]")
+            );
+            num_warnings += 1;
+        }
+    }
+
     if num_errors == 0 {
         // Return the token stream and number of warnings if no errors
         return Ok((token_stream, num_warnings));
@@ -304,6 +316,7 @@ fn upgrade_token(substr: &str, best_token_type: &mut TokenType, in_string: &mut 
         r"^!=$",
         r"^=$",
         r#"^"$"#,
+        r"^\$$"
     ]).unwrap();
 
     // Digits are 0-9
@@ -369,6 +382,7 @@ fn upgrade_token(substr: &str, best_token_type: &mut TokenType, in_string: &mut 
                         *best_token_type = TokenType::Symbol(Symbols::Quote);
                         *in_string = true;
                     },
+                    9 => *best_token_type = TokenType::Symbol(Symbols::EOP),
                     // Should never be reached
                     _ => panic!("Invalid regex found for symbols")
                 }

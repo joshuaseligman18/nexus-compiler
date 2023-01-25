@@ -40,6 +40,8 @@ fn get_individual_programs(source_code: &str) -> Vec<&str> {
     // This is a vector of all the individual program source code
     let mut programs: Vec<&str> = Vec::new();
 
+    let trimmed_source_code: &str = source_code.trim();
+
     // Split programs on the $
     let end_program_regex: Regex = Regex::new(r"\$").unwrap();
 
@@ -47,11 +49,15 @@ fn get_individual_programs(source_code: &str) -> Vec<&str> {
     let mut cur_program_start: usize = 0;
 
     // We need to find all of the $ in the code
-    for eop_match in end_program_regex.find_iter(source_code) {
+    for eop_match in end_program_regex.find_iter(trimmed_source_code) {
         // Extract the program code and update the start index
-        let program: &str = &source_code[cur_program_start..eop_match.end()];
-        programs.push(program);
+        programs.push(&trimmed_source_code[cur_program_start..eop_match.end()]);
         cur_program_start = eop_match.end();
+    }
+
+    // Get the last program if needed
+    if cur_program_start < trimmed_source_code.len() {
+        programs.push(&trimmed_source_code[cur_program_start..]);
     }
 
     return programs;

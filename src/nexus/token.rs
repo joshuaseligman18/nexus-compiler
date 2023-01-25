@@ -56,4 +56,5 @@ pub enum Symbols {
     NeqOp, // !=
     AssignmentOp, // =
     Quote, // "
+    EOP // $
 }
