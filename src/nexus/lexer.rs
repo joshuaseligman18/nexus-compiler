@@ -115,8 +115,10 @@ impl Lexer {
             if cur_start == trailer && cur_start < source_code.len() - 1 {
                 // Get the next 2 characters
                 let next_2: &str = &source_code[cur_start..cur_start + 2];
+
+                let comment_matches = comment_regex.matches(next_2);
                 // If it is a comment symbol
-                if comment_regex.is_match(next_2) {
+                if !in_comment && comment_matches.matched(0) || in_comment && comment_matches.matched(1) {
                     // Get the updated comment start position
                     if !in_comment {
                         comment_position = (self.line_number, self.col_number);
