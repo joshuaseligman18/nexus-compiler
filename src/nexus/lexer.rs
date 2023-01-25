@@ -2,9 +2,10 @@ use crate::{nexus::token::{Token, TokenType, Keywords, Symbols}, util::nexus_log
 use log::{debug, info, error};
 use regex::{Regex, RegexSet};
 
-use super::token;
-
-pub fn lex(source_code: &str) -> Vec<Token> {
+pub fn lex(source_code: &str) -> Result<(Vec<Token>, i32), (i32, i32)> {
+    // Initialize the number of errors and warnings to 0
+    let mut num_errors: i32 = 0;
+    let mut num_warnings: i32 = 0;
     
     // This represents all possible terminal characters for which to mark the end of the current search
     let terminal_chars = Regex::new(r"^\s$").unwrap();
@@ -148,6 +149,7 @@ pub fn lex(source_code: &str) -> Vec<Token> {
                                 format!("Error at {:?}; Unrecognized symbol '{}'", new_token_ref.position, new_token_ref.text)
                             );
                         }
+                        num_errors += 1;
                     },
                 }    
 
@@ -184,6 +186,8 @@ pub fn lex(source_code: &str) -> Vec<Token> {
                             nexus_log::Sources::Lexer,
                             format!("Unclosed string starting at {:?}", token_stream[i as usize].position)
                         );
+                        num_errors += 1;
+
                         // Will finish lexing, so reset in_string
                         in_string = false;
                     }
@@ -205,9 +209,16 @@ pub fn lex(source_code: &str) -> Vec<Token> {
             nexus_log::Sources::Lexer,
             format!("Unclosed comment starting at {:?}", comment_position)
         );
+        num_warnings += 1;
     }
 
-    return token_stream;
+    if num_errors == 0 {
+        // Return the token stream and number of warnings if no errors
+        return Ok((token_stream, num_warnings));
+    } else {
+        // Otherwise, we failed and should inform the user on the return of this function
+        return Err((num_errors, num_warnings));
+    }
 }
 
 fn upgrade_token(substr: &str, best_token_type: &mut TokenType, in_string: &mut bool) -> bool {
