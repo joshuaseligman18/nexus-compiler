@@ -281,16 +281,25 @@ impl Lexer {
             num_warnings += 1;
         }
 
-        match &token_stream[token_stream.len() - 1].token_type {
-            TokenType::Symbol(Symbols::EOP) => {},
-            _ => {
-                nexus_log::log(
-                    nexus_log::LogTypes::Warning,
-                    nexus_log::Sources::Lexer,
-                    String::from("Program did not end with EOP symbol [ $ ]")
-                );
-                num_warnings += 1;
+        if token_stream.len() > 0 {
+            match &token_stream[token_stream.len() - 1].token_type {
+                TokenType::Symbol(Symbols::EOP) => {},
+                _ => {
+                    nexus_log::log(
+                        nexus_log::LogTypes::Warning,
+                        nexus_log::Sources::Lexer,
+                        String::from("Program did not end with EOP symbol [ $ ]")
+                    );
+                    num_warnings += 1;
+                }
             }
+        } else {
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::Sources::Lexer,
+                String::from("Program did not end with EOP symbol [ $ ]")
+            );
+            num_warnings += 1;
         }
 
         if num_errors == 0 {
