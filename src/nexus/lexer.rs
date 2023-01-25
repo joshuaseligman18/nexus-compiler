@@ -1,6 +1,6 @@
-use crate::{nexus::token::{Token, Keywords, Symbols}, util::nexus_log};
+use crate::{nexus::token::{Token, TokenType, Keywords, Symbols}, util::nexus_log};
 use log::{debug, info, error};
-use regex::{Regex, RegexSet, SetMatches};
+use regex::{Regex, RegexSet};
 
 pub fn lex(source_code: &str) -> Vec<Token> {
     
@@ -25,8 +25,8 @@ pub fn lex(source_code: &str) -> Vec<Token> {
     let mut cur_start: usize = 0;
     let mut best_end: usize = 0;
 
-    // The cur token (implementation may change)
-    let mut cur_token: Token = Token::Unrecognized(String::from(""));
+    // The cur token type
+    let mut cur_token_type: TokenType = TokenType::Unrecognized(String::from(""));
 
     // The current position in the source code
     let mut trailer: usize = 0;
@@ -68,19 +68,40 @@ pub fn lex(source_code: &str) -> Vec<Token> {
             let cur_sub: &str = &source_code[cur_start..trailer + 1];
             
             // Check to see if we need to upgrade the token
-            if upgrade_token(cur_sub, &mut cur_token, &mut in_string) {
+            if upgrade_token(cur_sub, &mut cur_token_type, &mut in_string) {
                 // Move the end to the character after the substring ends
                 best_end = trailer + 1;
             }
         } else {
             // Make sure we have something
             if best_end - cur_start > 0 {
-                match cur_token {
+                // Create the new token and add it to the stream
+                let new_token: Token = Token::new(cur_token_type.to_owned(), source_code[cur_start..best_end].to_string(), line_number, col_number);
+                token_stream.push(new_token);
+
+                let new_token_ref: &Token = &token_stream[token_stream.len() - 1];
+                match &new_token_ref.token_type {
+                    // Log the keyword information
+                    TokenType::Keyword(keyword_type) => nexus_log::info(String::from("LEXER"), format!("Keyword - {:?} [{}] found at position {:?}", keyword_type, new_token_ref.text, new_token_ref.position)),
+
+                    // Log the identifier information
+                    TokenType::Identifier(id) => nexus_log::info(String::from("LEXER"), format!("Identifier [{}] found at position {:?}", id, new_token_ref.position)),
+                    
+                    // Log the symbol information
+                    TokenType::Symbol(symbol_type) => nexus_log::info(String::from("LEXER"), format!("Symbol - {:?} [{}] found at position {:?}", symbol_type, new_token_ref.text, new_token_ref.position)),
+
+                    // Log the digit information
+                    TokenType::Digit(num) => nexus_log::info(String::from("LEXER"), format!("Digit [{}] found at position {:?}", num, new_token_ref.position)),
+                    
+                    // Log the char information
+                    TokenType::Char(char) => nexus_log::info(String::from("LEXER"), format!("Char [{}] found at position {:?}", char, new_token_ref.position)),
+
                     // Unrecognized tokens throw errors
-                    Token::Unrecognized(_) => nexus_log::error(String::from("LEXER"), format!("{:?} at ({}, {})", cur_token, line_number, col_number)),
-                    // Everything else is valid and is printed out
-                    _ => nexus_log::info(String::from("LEXER"), format!("{:?} at ({}, {})", cur_token, line_number, col_number)),
-                }
+                    TokenType::Unrecognized(_) => nexus_log::error(String::from("LEXER"), format!("Error at {:?}; Unrecognized symbol '{}'", new_token_ref.position, new_token_ref.text)),
+                }    
+
+                // Go back to an unrecognized empty token
+                cur_token_type = TokenType::Unrecognized(String::from(""));
 
                 // Update the column number to accommodate the length of the token
                 col_number += best_end - cur_start;
@@ -89,11 +110,6 @@ pub fn lex(source_code: &str) -> Vec<Token> {
                 trailer = best_end - 1;
                 // Move cur_start to the beginning of the next possible token
                 cur_start = trailer + 1;
-
-                token_stream.push(cur_token.to_owned());
-
-                // Go back to an unrecognized empty token
-                cur_token = Token::Unrecognized(String::from(""));
             } else {
                 // Token is empty
                 cur_start += 1;
@@ -126,7 +142,7 @@ pub fn lex(source_code: &str) -> Vec<Token> {
     return token_stream;
 }
 
-fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool) -> bool {
+fn upgrade_token(substr: &str, best_token_type: &mut TokenType, in_string: &mut bool) -> bool {
     // Create the keywords
     let keywords: RegexSet = RegexSet::new(&[
         r"^if$",
@@ -163,34 +179,33 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool
     if *in_string {
         // Spaces and characters are valid
         if characters.is_match(substr) || substr.eq(" ") {
-            *best_token_type = Token::Char(String::from(substr));
+            *best_token_type = TokenType::Char(String::from(substr));
             return true;
         } else if substr.eq("\"") {
             // " is the end of the string
-            *best_token_type = Token::Symbol(Symbols::Quote);
+            *best_token_type = TokenType::Symbol(Symbols::Quote);
             *in_string = false;
             return true;
         } else if substr.len() == 1 {
             // Invalid token
-            *best_token_type = Token::Unrecognized(String::from(substr));
+            *best_token_type = TokenType::Unrecognized(String::from(substr));
             return true;
         }
     } else {
         if keywords.is_match(substr) {
             // Get the possible keyword matches
             let keyword_matches: Vec<usize> = keywords.matches(substr).into_iter().collect();
-            debug!("{:?}", keyword_matches);
             if keyword_matches.len() > 0 {
                 // The order here matches the order in which they are defined in the constructor
                 match keyword_matches[0] {
-                    0 => *best_token_type = Token::Keyword(Keywords::If),
-                    1 => *best_token_type = Token::Keyword(Keywords::While),
-                    2 => *best_token_type = Token::Keyword(Keywords::Print),
-                    3 => *best_token_type = Token::Keyword(Keywords::String),
-                    4 => *best_token_type = Token::Keyword(Keywords::Int),
-                    5 => *best_token_type = Token::Keyword(Keywords::Boolean),
-                    6 => *best_token_type = Token::Keyword(Keywords::True),
-                    7 => *best_token_type = Token::Keyword(Keywords::False),
+                    0 => *best_token_type = TokenType::Keyword(Keywords::If),
+                    1 => *best_token_type = TokenType::Keyword(Keywords::While),
+                    2 => *best_token_type = TokenType::Keyword(Keywords::Print),
+                    3 => *best_token_type = TokenType::Keyword(Keywords::String),
+                    4 => *best_token_type = TokenType::Keyword(Keywords::Int),
+                    5 => *best_token_type = TokenType::Keyword(Keywords::Boolean),
+                    6 => *best_token_type = TokenType::Keyword(Keywords::True),
+                    7 => *best_token_type = TokenType::Keyword(Keywords::False),
                     // Should never be reached
                     _ => panic!("Invalid regex found for keywords")
                 }
@@ -199,25 +214,24 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool
         } else if characters.is_match(substr) {
             // Otherwise it may be an identifier, digit, symbol, or unrecognized
             // We have an identifier
-            *best_token_type = Token::Identifier(String::from(substr));
+            *best_token_type = TokenType::Identifier(String::from(substr));
             return true;
         } else if symbols.is_match(substr) {
             // Get the possible symbol matches
             let symbol_matches: Vec<usize> = symbols.matches(substr).into_iter().collect();
-            debug!("{:?}", symbol_matches);
             if symbol_matches.len() > 0 {
                 // The order here matches the order in which they are defined in the constructor
                 match symbol_matches[0] {
-                    0 => *best_token_type = Token::Symbol(Symbols::L_Paren),
-                    1 => *best_token_type = Token::Symbol(Symbols::R_Paren),
-                    2 => *best_token_type = Token::Symbol(Symbols::L_Brace),
-                    3 => *best_token_type = Token::Symbol(Symbols::R_Brace),
-                    4 => *best_token_type = Token::Symbol(Symbols::Addition_Op),
-                    5 => *best_token_type = Token::Symbol(Symbols::Eq_Op),
-                    6 => *best_token_type = Token::Symbol(Symbols::Neq_Op),
-                    7 => *best_token_type = Token::Symbol(Symbols::Assignment_Op),
+                    0 => *best_token_type = TokenType::Symbol(Symbols::LParen),
+                    1 => *best_token_type = TokenType::Symbol(Symbols::RParen),
+                    2 => *best_token_type = TokenType::Symbol(Symbols::LBrace),
+                    3 => *best_token_type = TokenType::Symbol(Symbols::RBrace),
+                    4 => *best_token_type = TokenType::Symbol(Symbols::AdditionOp),
+                    5 => *best_token_type = TokenType::Symbol(Symbols::EqOp),
+                    6 => *best_token_type = TokenType::Symbol(Symbols::NeqOp),
+                    7 => *best_token_type = TokenType::Symbol(Symbols::AssignmentOp),
                     8 => {
-                        *best_token_type = Token::Symbol(Symbols::Quote);
+                        *best_token_type = TokenType::Symbol(Symbols::Quote);
                         *in_string = true;
                     },
                     // Should never be reached
@@ -227,11 +241,11 @@ fn upgrade_token(substr: &str, best_token_type: &mut Token, in_string: &mut bool
             }
         } else if digits.is_match(substr) {
             // We have a digit
-            *best_token_type = Token::Digit(substr.parse::<u32>().unwrap());
+            *best_token_type = TokenType::Digit(substr.parse::<u32>().unwrap());
             return true;
         } else if substr.len() == 1 {
             // We have an unrecognized symbol
-            *best_token_type = Token::Unrecognized(String::from(substr));
+            *best_token_type = TokenType::Unrecognized(String::from(substr));
             return true;
         }
     }
