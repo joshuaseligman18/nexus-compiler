@@ -92,8 +92,8 @@ fn get_tests() -> Vec<Test> {
         },
         Test {
             test_type: TestType::Lex,
-            test_name: String::from("Tabs"),
-            test_code: String::from("{\n\tprint(\"testing\ttabs\")\n}$")
+            test_name: String::from("Testing tabs"),
+            test_code: String::from("{\n  /*\tThis tab should be ok since it is in a comment.\n  \tThe others should throw errors. */\n\tprint(\"testing\ttabs\")\n}$")
         }
     ];
 

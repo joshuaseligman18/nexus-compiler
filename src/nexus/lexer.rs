@@ -291,7 +291,7 @@ impl Lexer {
                         self.col_number = 1;
                     } else {
                         // Tabs are not allowed, so throw an error
-                        if cur_char.eq("\t") {
+                        if cur_char.eq("\t") && !in_comment {
                             nexus_log::log(
                                 nexus_log::LogTypes::Error,
                                 nexus_log::Sources::Lexer,
