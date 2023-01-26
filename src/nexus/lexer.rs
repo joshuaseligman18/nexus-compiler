@@ -78,8 +78,8 @@ impl Lexer {
         let mut num_errors: i32 = 0;
         let mut num_warnings: i32 = 0;
         
-        // This represents all possible terminal characters for which to mark the end of the current search
-        let terminal_chars = Regex::new(r"^\s$").unwrap();
+        // This represents all possible terminal characters (newline and space) for which to mark the end of the current search
+        let terminal_chars = Regex::new(r"^[\n ]$").unwrap();
 
         // Worst case is that we have source_code length minus amount of whitespace number of tokens, so allocate that much space to prevent copying of the vector
         let mut char_count: usize = 0;
@@ -239,11 +239,19 @@ impl Lexer {
                                     )
                                 }
                             } else {
-                                nexus_log::log(
-                                    nexus_log::LogTypes::Error,
-                                    nexus_log::Sources::Lexer,
-                                    format!("Error at {:?}; Unrecognized token '{}'", new_token_ref.position, new_token_ref.text)
-                                );
+                                match token.as_str() {
+                                    // Make sure the tab gets noticed in the error message
+                                    "\t" => nexus_log::log(
+                                        nexus_log::LogTypes::Error,
+                                        nexus_log::Sources::Lexer,
+                                        format!("Error at {:?}; Unrecognized token 'TAB'; Only spaces and newlines are valid forms of whitespace outside of comments", new_token_ref.position)
+                                    ),
+                                    _ => nexus_log::log(
+                                        nexus_log::LogTypes::Error,
+                                        nexus_log::Sources::Lexer,
+                                        format!("Error at {:?}; Unrecognized token '{}'", new_token_ref.position, new_token_ref.text)
+                                    )
+                                }
                             }
                             num_errors += 1;
                         },
@@ -290,15 +298,6 @@ impl Lexer {
                         self.line_number += 1;
                         self.col_number = 1;
                     } else {
-                        // Tabs are not allowed, so throw an error
-                        if cur_char.eq("\t") && !in_comment {
-                            nexus_log::log(
-                                nexus_log::LogTypes::Error,
-                                nexus_log::Sources::Lexer,
-                                format!("Error at {:?}; Unrecognized token 'TAB'", (self.line_number, self.col_number))
-                            );
-                            num_errors += 1;
-                        }
                         self.col_number += 1;
                     }
                 }
