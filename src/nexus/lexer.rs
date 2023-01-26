@@ -230,12 +230,12 @@ impl Lexer {
                                     "\t" => nexus_log::log(
                                         nexus_log::LogTypes::Error,
                                         nexus_log::LogSources::Lexer,
-                                        format!("Error at {:?}; Unrecognized token 'TAB' in string starting at {:?}; Strings may only contain lowercase letters (a - z)", new_token_ref.position, token_stream[i as usize].position)
+                                        format!("Error at {:?}; Unrecognized token 'TAB' in string starting at {:?}; Strings may only contain lowercase letters (a - z) and spaces", new_token_ref.position, token_stream[i as usize].position)
                                     ),
                                     _ => nexus_log::log(
                                         nexus_log::LogTypes::Error,
                                         nexus_log::LogSources::Lexer,
-                                        format!("Error at {:?}; Unrecognized token '{}' in string starting at {:?}; Strings may only contain lowercase letters (a - z)", new_token_ref.position, new_token_ref.text, token_stream[i as usize].position)
+                                        format!("Error at {:?}; Unrecognized token '{}' in string starting at {:?}; Strings may only contain lowercase letters (a - z) and spaces", new_token_ref.position, new_token_ref.text, token_stream[i as usize].position)
                                     )
                                 }
                             } else {
