@@ -89,6 +89,11 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Lex,
             test_name: String::from("The pesky $"),
             test_code: String::from("{\n  /* This $ is in a comment and should do nothing.\n  The next $ should be the end of the program */\n}$\n  /* This $ should be an invalid character in the string */\n  print(\"hello $ world\")\n  /* A warning should be shown for not having the $ at the end of the program */\n}")
+        },
+        Test {
+            test_type: TestType::Lex,
+            test_name: String::from("Tabs"),
+            test_code: String::from("{\n\tprint(\"testing\ttabs\")\n}$")
         }
     ];
 

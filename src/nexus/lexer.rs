@@ -197,14 +197,24 @@ impl Lexer {
                         ),
                         
                         // Log the char information
-                        TokenType::Char(char) => nexus_log::log(
-                            nexus_log::LogTypes::Debug,
-                            nexus_log::Sources::Lexer,
-                            format!("Char [ {} ] found at {:?}", char, new_token_ref.position)
-                        ),
+                        TokenType::Char(char) => {
+                            match char.as_str() {
+                                // Make sure space is verbally mentioned in the output and not just a space character
+                                " " => nexus_log::log(
+                                    nexus_log::LogTypes::Debug,
+                                    nexus_log::Sources::Lexer,
+                                    format!("Char [ SPACE ] found at {:?}", new_token_ref.position)
+                                ),
+                                _ => nexus_log::log(
+                                    nexus_log::LogTypes::Debug,
+                                    nexus_log::Sources::Lexer,
+                                    format!("Char [ {} ] found at {:?}", char, new_token_ref.position)
+                                )
+                            }
+                        },
 
                         // Unrecognized tokens throw errors
-                        TokenType::Unrecognized(_) => {
+                        TokenType::Unrecognized(token) => {
                             if in_string {
                                 // Get the index of the open quote token by doing a backwards linear search
                                 let mut i: i32 = token_stream.len() as i32 - 1;
@@ -215,11 +225,19 @@ impl Lexer {
                                         _ => i -= 1,
                                     };
                                 }
-                                nexus_log::log(
-                                    nexus_log::LogTypes::Error,
-                                    nexus_log::Sources::Lexer,
-                                    format!("Error at {:?}; Unrecognized token '{}' in string starting at {:?}; Strings may only contain lowercase letters (a - z)", new_token_ref.position, new_token_ref.text, token_stream[i as usize].position)
-                                )
+                                match token.as_str() {
+                                    // Make sure the tab gets noticed in the error message
+                                    "\t" => nexus_log::log(
+                                        nexus_log::LogTypes::Error,
+                                        nexus_log::Sources::Lexer,
+                                        format!("Error at {:?}; Unrecognized token 'TAB' in string starting at {:?}; Strings may only contain lowercase letters (a - z)", new_token_ref.position, token_stream[i as usize].position)
+                                    ),
+                                    _ => nexus_log::log(
+                                        nexus_log::LogTypes::Error,
+                                        nexus_log::Sources::Lexer,
+                                        format!("Error at {:?}; Unrecognized token '{}' in string starting at {:?}; Strings may only contain lowercase letters (a - z)", new_token_ref.position, new_token_ref.text, token_stream[i as usize].position)
+                                    )
+                                }
                             } else {
                                 nexus_log::log(
                                     nexus_log::LogTypes::Error,
@@ -272,6 +290,15 @@ impl Lexer {
                         self.line_number += 1;
                         self.col_number = 1;
                     } else {
+                        // Tabs are not allowed, so throw an error
+                        if cur_char.eq("\t") {
+                            nexus_log::log(
+                                nexus_log::LogTypes::Error,
+                                nexus_log::Sources::Lexer,
+                                format!("Error at {:?}; Unrecognized token 'TAB'", (self.line_number, self.col_number))
+                            );
+                            num_errors += 1;
+                        }
                         self.col_number += 1;
                     }
                 }
