@@ -1,6 +1,6 @@
 use log::debug;
 use wasm_bindgen::{JsCast, prelude::Closure};
-use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, HtmlElement, HtmlTextAreaElement};
+use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, HtmlElement, HtmlTextAreaElement, Window};
 
 use crate::util::test::*;
 
@@ -20,7 +20,7 @@ pub fn create_test_environment(document: &Document) {
         .expect("Should be able to cast to an HtmlElement object");
 
     load_tests(document, &test_options);
-    add_test_button_fn(document, &test_options, &load_test_btn)
+    add_test_button_fn(document, &load_test_btn)
 }
 
 // Function to load the tests into the select element
@@ -45,7 +45,7 @@ fn load_tests(document: &Document, test_selection: &HtmlSelectElement) {
 }
 
 // Function to set up the tests
-fn add_test_button_fn(document: &Document, test_selection: &HtmlSelectElement, load_test_btn: &HtmlElement) {
+fn add_test_button_fn(document: &Document, load_test_btn: &HtmlElement) {
     // Get the text area to paste the code into
     let code_input: HtmlTextAreaElement = document
         .get_element_by_id("ta-code-input")
@@ -54,13 +54,13 @@ fn add_test_button_fn(document: &Document, test_selection: &HtmlSelectElement, l
         .expect("The element should be recognized as a textarea");
 
 
-    // Get the value to paste
-    let test_value: String = test_selection.value();
-
-    // Create a function that will be used as the event listener and add it to the load test button
-    let load_test_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
-        // Paste the value
-        code_input.set_value(&test_value);
+        
+        // Create a function that will be used as the event listener and add it to the load test button
+        let load_test_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
+            // Get the value to paste
+            let test_value: String = get_current_test_value();
+            // Paste the value
+            code_input.set_value(&test_value);
     }) as Box<dyn FnMut()>);
 
     load_test_btn.add_event_listener_with_callback("click", load_test_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
@@ -75,7 +75,38 @@ fn get_tests() -> Vec<Test> {
             test_name: String::from("Alan's tests"),
             test_code: String::from("{}$\n{{{{{{}}}}}}$\n{{{{{{}}} /* comments are ignored */ }}}}$\n{ /* comments are still ignored */ int @}$\n{\nint a\na = a\nstring b\na=b\n}$")
         },
+        Test {
+            test_type: TestType::Lex,
+            test_name: String::from("Everything"),
+            test_code: String::from("{\n  /* This is a COMMENT 007 */\n  string s\n  s = \"hello world\"\n  int a\n  a = 0\n  while (a != 5) {\n    a = a + 1\n  }\n  if (a == 5) {\n    print(\"success\")\n  }\n  boolean b\n  b = true\n  if (b != false) {\n    print(s)\n  }\n}$")
+        },
+        Test {
+            test_type: TestType::Lex,
+            test_name: String::from("Everything but spaces"),
+            test_code: String::from("{/* This is a COMMENT 007 */stringss=\"hello world\"intaa=0while(a!=5){a=a+1}if(a==5){print(\"success\")}booleanbb=trueif(b!=false){print(s)}}$")
+        },
+        Test {
+            test_type: TestType::Lex,
+            test_name: String::from("The pesky $"),
+            test_code: String::from("{\n  /* This $ is in a comment and should do nothing.\n  The next $ should be the end of the program */\n}$\n  /* This $ should be an invalid character in the string */\n  print(\"hello $ world\")\n  /* A warning should be shown for not having the $ at the end of the program */\n}")
+        }
     ];
 
     return tests;
+}
+
+// Function to get the current test
+fn get_current_test_value() -> String {
+    // Grab the window and document elements for DOM manipulation
+    let window: Window = web_sys::window().expect("The window object should exist");
+    let document: Document = window.document().expect("The document object should exist");
+
+    // Get the select element and return its value
+    let test_options: HtmlSelectElement = document
+        .get_element_by_id("tests")
+        .expect("There should be a tests element")
+        .dyn_into::<HtmlSelectElement>()
+        .expect("The element should be recognized as a select element");
+    
+    return test_options.value();
 }
