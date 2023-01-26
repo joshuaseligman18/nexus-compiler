@@ -53,7 +53,7 @@ button:hover, select:hover {
     font-size: 12px;
 }
 
-#top-bar {
+#top-bar, #bottom-bar {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -61,12 +61,41 @@ button:hover, select:hover {
     margin-bottom: 10px;
 }
 
-#test-area, #basic-btns {
+#test-area, #basic-btns, #bottom-bar-left {
     width: 50%;
 
     /* https://stackoverflow.com/questions/38394818/central-align-of-elements-css-without-flexbox */
     display: table;
     text-align: center;
+}
+
+#log-mode-area {
+    width: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+}
+
+#verbose-mode-table {
+    width: 90%;
+}
+
+#verbose-mode-table td {
+    text-align: center;
+    width: 20%;
+}
+
+.verbose, .simple {
+    cursor: pointer;
+    color: #F5F5F5;
+}
+
+.verbose {
+    background-color: #70AE6E;
+}
+
+.simple {
+    background-color: #F05454;
 }
 
 h1 {

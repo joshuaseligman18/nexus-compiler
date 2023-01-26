@@ -12,7 +12,7 @@ pub fn compile(source_code: String) {
     nexus_log::clear_logs();
     nexus_log::log(
         nexus_log::LogTypes::Info,
-        nexus_log::Sources::Nexus,
+        nexus_log::LogSources::Nexus,
         String::from("Nexus compile called")
     );
 
@@ -29,7 +29,7 @@ pub fn compile(source_code: String) {
         // Log the program we are on
         nexus_log::log(
             nexus_log::LogTypes::Info,
-            nexus_log::Sources::Nexus,
+            nexus_log::LogSources::Nexus,
             format!("Compiling program {}", program_number)
         );
         program_number += 1;

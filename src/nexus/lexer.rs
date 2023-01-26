@@ -33,7 +33,7 @@ impl Lexer {
             }
             nexus_log::log(
                 nexus_log::LogTypes::Info,
-                nexus_log::Sources::Lexer,
+                nexus_log::LogSources::Lexer,
                 out_string
             );
 
@@ -61,7 +61,7 @@ impl Lexer {
             // Log the output string
             nexus_log::log(
                 nexus_log::LogTypes::Error,
-                nexus_log::Sources::Lexer,
+                nexus_log::LogSources::Lexer,
                 out_string
             );
 
@@ -163,14 +163,14 @@ impl Lexer {
                         // Log the keyword information
                         TokenType::Keyword(keyword_type) => nexus_log::log(
                             nexus_log::LogTypes::Debug,
-                            nexus_log::Sources::Lexer,
+                            nexus_log::LogSources::Lexer,
                             format!("Keyword - {:?} [ {} ] found at {:?}", keyword_type, new_token_ref.text, new_token_ref.position)
                         ),
 
                         // Log the identifier information
                         TokenType::Identifier(id) => nexus_log::log(
                             nexus_log::LogTypes::Debug, 
-                            nexus_log::Sources::Lexer,
+                            nexus_log::LogSources::Lexer,
                             format!("Identifier [ {} ] found at {:?}", id, new_token_ref.position)
                         ),
                         
@@ -178,7 +178,7 @@ impl Lexer {
                         TokenType::Symbol(symbol_type) => {
                             nexus_log::log(
                                 nexus_log::LogTypes::Debug,
-                                nexus_log::Sources::Lexer,
+                                nexus_log::LogSources::Lexer,
                                 format!("Symbol - {:?} [ {} ] found at {:?}", symbol_type, new_token_ref.text, new_token_ref.position)
                             );
 
@@ -192,7 +192,7 @@ impl Lexer {
                         // Log the digit information
                         TokenType::Digit(num) => nexus_log::log(
                             nexus_log::LogTypes::Debug,
-                            nexus_log::Sources::Lexer,
+                            nexus_log::LogSources::Lexer,
                             format!("Digit [ {} ] found at {:?}", num, new_token_ref.position)
                         ),
                         
@@ -202,12 +202,12 @@ impl Lexer {
                                 // Make sure space is verbally mentioned in the output and not just a space character
                                 " " => nexus_log::log(
                                     nexus_log::LogTypes::Debug,
-                                    nexus_log::Sources::Lexer,
+                                    nexus_log::LogSources::Lexer,
                                     format!("Char [ SPACE ] found at {:?}", new_token_ref.position)
                                 ),
                                 _ => nexus_log::log(
                                     nexus_log::LogTypes::Debug,
-                                    nexus_log::Sources::Lexer,
+                                    nexus_log::LogSources::Lexer,
                                     format!("Char [ {} ] found at {:?}", char, new_token_ref.position)
                                 )
                             }
@@ -229,12 +229,12 @@ impl Lexer {
                                     // Make sure the tab gets noticed in the error message
                                     "\t" => nexus_log::log(
                                         nexus_log::LogTypes::Error,
-                                        nexus_log::Sources::Lexer,
+                                        nexus_log::LogSources::Lexer,
                                         format!("Error at {:?}; Unrecognized token 'TAB' in string starting at {:?}; Strings may only contain lowercase letters (a - z)", new_token_ref.position, token_stream[i as usize].position)
                                     ),
                                     _ => nexus_log::log(
                                         nexus_log::LogTypes::Error,
-                                        nexus_log::Sources::Lexer,
+                                        nexus_log::LogSources::Lexer,
                                         format!("Error at {:?}; Unrecognized token '{}' in string starting at {:?}; Strings may only contain lowercase letters (a - z)", new_token_ref.position, new_token_ref.text, token_stream[i as usize].position)
                                     )
                                 }
@@ -243,12 +243,12 @@ impl Lexer {
                                     // Make sure the tab gets noticed in the error message
                                     "\t" => nexus_log::log(
                                         nexus_log::LogTypes::Error,
-                                        nexus_log::Sources::Lexer,
+                                        nexus_log::LogSources::Lexer,
                                         format!("Error at {:?}; Unrecognized token 'TAB'; Only spaces and newlines are valid forms of whitespace outside of comments", new_token_ref.position)
                                     ),
                                     _ => nexus_log::log(
                                         nexus_log::LogTypes::Error,
-                                        nexus_log::Sources::Lexer,
+                                        nexus_log::LogSources::Lexer,
                                         format!("Error at {:?}; Unrecognized token '{}'", new_token_ref.position, new_token_ref.text)
                                     )
                                 }
@@ -287,7 +287,7 @@ impl Lexer {
                             // The string was not closed, so throw an error
                             nexus_log::log(
                                 nexus_log::LogTypes::Error,
-                                nexus_log::Sources::Lexer,
+                                nexus_log::LogSources::Lexer,
                                 format!("Unclosed string starting at {:?}", token_stream[i as usize].position)
                             );
                             num_errors += 1;
@@ -310,7 +310,7 @@ impl Lexer {
         if in_comment {
             nexus_log::log(
                 nexus_log::LogTypes::Warning,
-                nexus_log::Sources::Lexer,
+                nexus_log::LogSources::Lexer,
                 format!("Unclosed comment starting at {:?}", comment_position)
             );
             num_warnings += 1;
@@ -325,7 +325,7 @@ impl Lexer {
                 _ => {
                     nexus_log::log(
                         nexus_log::LogTypes::Warning,
-                        nexus_log::Sources::Lexer,
+                        nexus_log::LogSources::Lexer,
                         String::from("Program did not end with EOP symbol [ $ ]")
                     );
                     num_warnings += 1;
@@ -335,7 +335,7 @@ impl Lexer {
             // Empty programs by definition have no tokens and, thus, no EOP token
             nexus_log::log(
                 nexus_log::LogTypes::Warning,
-                nexus_log::Sources::Lexer,
+                nexus_log::LogSources::Lexer,
                 String::from("Program did not end with EOP symbol [ $ ]")
             );
             num_warnings += 1;

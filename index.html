@@ -16,14 +16,37 @@
         <h3>Josh Seligman</h3>
     </div>
 
-    <div id="top-bar">
-        <div id="test-area">
-            <select id="tests"></select>
-            <button id="load-test-btn">Load Test</button>
+    <div id="top-area">
+        <div id="top-bar">
+            <div id="test-area">
+                <select id="tests"></select>
+                <button id="load-test-btn">Load Test</button>
+            </div>
+            <div id="basic-btns">
+                <button id="compile-btn">Compile</button>
+                <button id="clear-btn">Clear Output</button>
+            </div>
         </div>
-        <div id="basic-btns">
-            <button id="compile-btn">Compile</button>
-            <button id="clear-btn">Clear Output</button>
+        <div id="bottom-bar">
+            <div id="bottom-bar-left"></div>
+            <div id="log-mode-area">
+                <table id="verbose-mode-table">
+                    <tr>
+                        <td>Nexus</td>
+                        <td>Lexer</td>
+                        <td>Parser</td>
+                        <td>Semantic Analyzer</td>
+                        <td>Code Generator</td>
+                    </tr>
+                    <tr>
+                        <td class="verbose" id="nexus-log-mode">Verbose</td>
+                        <td class="verbose" id="lexer-log-mode">Verbose</td>
+                        <td class="verbose" id="parser-log-mode">Verbose</td>
+                        <td class="verbose" id="semantic-log-mode">Verbose</td>
+                        <td class="verbose" id="codegen-log-mode">Verbose</td>
+                    </tr>
+                </table>
+            </div>
         </div>
     </div>
     <div id="main-area">
