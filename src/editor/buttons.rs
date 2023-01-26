@@ -1,5 +1,5 @@
 use wasm_bindgen::{prelude::Closure, JsCast};
-use web_sys::{Document, HtmlTextAreaElement, HtmlElement, Event};
+use web_sys::{Document, HtmlTextAreaElement, HtmlElement, Event, Element};
 
 use crate::{nexus::compiler, util::nexus_log};
 
@@ -13,11 +13,9 @@ pub fn set_up_buttons(document: &Document) {
         .expect("The element should be recognized as a textarea");
     
     // Grab the compile button
-    let compile_btn: HtmlElement = document
+    let compile_btn: Element = document
         .get_element_by_id("compile-btn")
-        .expect("There should be an element called compile-btn")
-        .dyn_into::<HtmlElement>()
-        .expect("Should be able to cast to an HtmlElement object");
+        .expect("There should be an element called compile-btn");
 
     // Create a function that will be used as the event listener and add it to the compile button
     let compile_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
@@ -28,11 +26,9 @@ pub fn set_up_buttons(document: &Document) {
     compile_btn_fn.forget();
 
     // Button to clear the logs
-    let clear_btn: HtmlElement = document
+    let clear_btn: Element = document
         .get_element_by_id("clear-btn")
-        .expect("There should be an element called clear-btn")
-        .dyn_into::<HtmlElement>()
-        .expect("Should be able to cast to an HtmlElement object");
+        .expect("There should be an element called clear-btn");
 
     // Create a function that will be used as the event listener and add it to the clear logs button
     let clear_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
@@ -43,35 +39,25 @@ pub fn set_up_buttons(document: &Document) {
     clear_btn_fn.forget();
 
     // Get each of the log mode buttons
-    let nexus_log_mode: HtmlElement = document
+    let nexus_log_mode: Element = document
         .get_element_by_id("nexus-log-mode")
-        .expect("There should be an element called nexus-log-mode")
-        .dyn_into::<HtmlElement>()
-        .expect("Should be able to cast to an HtmlElement object");
+        .expect("There should be an element called nexus-log-mode");
 
-    let lexer_log_mode: HtmlElement = document
+    let lexer_log_mode: Element = document
         .get_element_by_id("lexer-log-mode")
-        .expect("There should be an element called lexer-log-mode")
-        .dyn_into::<HtmlElement>()
-        .expect("Should be able to cast to an HtmlElement object");
+        .expect("There should be an element called lexer-log-mode");
 
-    let parser_log_mode: HtmlElement = document
+    let parser_log_mode: Element = document
         .get_element_by_id("parser-log-mode")
-        .expect("There should be an element called parser-log-mode")
-        .dyn_into::<HtmlElement>()
-        .expect("Should be able to cast to an HtmlElement object");
+        .expect("There should be an element called parser-log-mode");
 
-    let semantic_log_mode: HtmlElement = document
+    let semantic_log_mode: Element = document
         .get_element_by_id("semantic-log-mode")
-        .expect("There should be an element called semantic-log-mode")
-        .dyn_into::<HtmlElement>()
-        .expect("Should be able to cast to an HtmlElement object");
+        .expect("There should be an element called semantic-log-mode");
 
-    let codegen_log_mode: HtmlElement = document
+    let codegen_log_mode: Element = document
         .get_element_by_id("codegen-log-mode")
-        .expect("There should be an element called codegen-log-mode")
-        .dyn_into::<HtmlElement>()
-        .expect("Should be able to cast to an HtmlElement object");
+        .expect("There should be an element called codegen-log-mode");
 
     // Universal function for toggling log mode buttons
     let toggle_log_mode_fn: Closure<dyn FnMut(_)> = Closure::wrap(Box::new(move |e: Event| {

@@ -1,6 +1,6 @@
 use log::debug;
 use wasm_bindgen::{JsCast, prelude::Closure};
-use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, HtmlElement, HtmlTextAreaElement, Window};
+use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, HtmlElement, HtmlTextAreaElement, Window, Element};
 
 use crate::util::test::*;
 
@@ -13,11 +13,9 @@ pub fn create_test_environment(document: &Document) {
         .expect("The element should be recognized as a select element");
 
     // Grab the compile button
-    let load_test_btn: HtmlElement = document
+    let load_test_btn: Element = document
         .get_element_by_id("load-test-btn")
-        .expect("There should be an element called load-test-btn")
-        .dyn_into::<HtmlElement>()
-        .expect("Should be able to cast to an HtmlElement object");
+        .expect("There should be an element called load-test-btn");
 
     load_tests(document, &test_options);
     add_test_button_fn(document, &load_test_btn)
@@ -45,7 +43,7 @@ fn load_tests(document: &Document, test_selection: &HtmlSelectElement) {
 }
 
 // Function to set up the tests
-fn add_test_button_fn(document: &Document, load_test_btn: &HtmlElement) {
+fn add_test_button_fn(document: &Document, load_test_btn: &Element) {
     // Get the text area to paste the code into
     let code_input: HtmlTextAreaElement = document
         .get_element_by_id("ta-code-input")
@@ -55,12 +53,12 @@ fn add_test_button_fn(document: &Document, load_test_btn: &HtmlElement) {
 
 
         
-        // Create a function that will be used as the event listener and add it to the load test button
-        let load_test_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
-            // Get the value to paste
-            let test_value: String = get_current_test_value();
-            // Paste the value
-            code_input.set_value(&test_value);
+    // Create a function that will be used as the event listener and add it to the load test button
+    let load_test_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
+        // Get the value to paste
+        let test_value: String = get_current_test_value();
+        // Paste the value
+        code_input.set_value(&test_value);
     }) as Box<dyn FnMut()>);
 
     load_test_btn.add_event_listener_with_callback("click", load_test_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
