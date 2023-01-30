@@ -18,8 +18,8 @@ impl Lexer {
     }
 
     // Function to lex a program
-    pub fn lex(&mut self, source_code: &str, starting_position: &mut usize) -> Result<Vec<Token>, ()> {
-        let lex_out: Result<(Vec<Token>, i32), (i32, i32)> = self.lex_program(source_code, starting_position);
+    pub fn lex_program(&mut self, source_code: &str, starting_position: &mut usize) -> Result<Vec<Token>, ()> {
+        let lex_out: Result<(Vec<Token>, i32), (i32, i32)> = self.lex(source_code, starting_position);
         if lex_out.is_ok() {
             // Grab the token stream and number of warnings
             let (token_stream, num_warnings): (Vec<Token>, i32) = lex_out.unwrap();
@@ -73,7 +73,7 @@ impl Lexer {
     // Function to lex a program
     // Ok result: (token stream, number of warnings)
     // Err result: (number of errors, number of warnings)
-    fn lex_program(&mut self, source_code: &str, starting_position: &mut usize) -> Result<(Vec<Token>, i32), (i32, i32)> {
+    fn lex(&mut self, source_code: &str, starting_position: &mut usize) -> Result<(Vec<Token>, i32), (i32, i32)> {
         // Initialize the number of errors and warnings to 0
         let mut num_errors: i32 = 0;
         let mut num_warnings: i32 = 0;
@@ -354,6 +354,7 @@ impl Lexer {
             // Return the token stream and number of warnings if no errors
             return Ok((token_stream, num_warnings));
         } else {
+            // Rust will automatically drop the token stream and free up the memory since it is owned in this function and is about to go out of scope
             // Otherwise, we failed and should inform the user on the return of this function
             return Err((num_errors, num_warnings));
         }

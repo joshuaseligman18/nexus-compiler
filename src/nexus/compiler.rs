@@ -35,7 +35,7 @@ pub fn compile(source_code: String) {
         program_number += 1;
 
         // Lex the program
-        let lex_res: Result<Vec<Token>, ()> = lexer.lex(&source_code, &mut program_start);
+        let lex_res: Result<Vec<Token>, ()> = lexer.lex_program(&source_code, &mut program_start);
         if lex_res.is_err() {
             // No need to move on if lex failed, so can go to next program
             continue;
