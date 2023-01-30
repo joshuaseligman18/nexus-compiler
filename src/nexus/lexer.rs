@@ -18,8 +18,8 @@ impl Lexer {
     }
 
     // Function to lex a program
-    pub fn lex_program(&mut self, source_code: &str, starting_position: &mut usize) -> Result<Vec<Token>, ()> {
-        let lex_out: Result<(Vec<Token>, i32), (i32, i32)> = self.lex(source_code, starting_position);
+    pub fn lex(&mut self, source_code: &str, starting_position: &mut usize) -> Result<Vec<Token>, ()> {
+        let lex_out: Result<(Vec<Token>, i32), (i32, i32)> = self.lex_program(source_code, starting_position);
         if lex_out.is_ok() {
             // Grab the token stream and number of warnings
             let (token_stream, num_warnings): (Vec<Token>, i32) = lex_out.unwrap();
@@ -65,7 +65,7 @@ impl Lexer {
                 out_string
             );
 
-            // Nothing has to be returned so just let the compiler know it failed
+            // Nothing has to be returned because error messages have been logged already so just let the compiler know it failed
             return Err(());
         }
     }
@@ -73,20 +73,20 @@ impl Lexer {
     // Function to lex a program
     // Ok result: (token stream, number of warnings)
     // Err result: (number of errors, number of warnings)
-    fn lex(&mut self, source_code: &str, starting_position: &mut usize) -> Result<(Vec<Token>, i32), (i32, i32)> {
+    fn lex_program(&mut self, source_code: &str, starting_position: &mut usize) -> Result<(Vec<Token>, i32), (i32, i32)> {
         // Initialize the number of errors and warnings to 0
         let mut num_errors: i32 = 0;
         let mut num_warnings: i32 = 0;
 
         // Worst case is that we have source_code length minus amount of whitespace number of tokens, so allocate that much space to prevent copying of the vector
-        // let mut char_count: usize = 0;
-        // for i in 0..source_code.len() {
-        //     if !terminal_chars.is_match(&source_code[i..i+1]) {
-        //         char_count += 1;
-        //     }
-        // }
-        // let mut token_stream: Vec<Token> = Vec::with_capacity(char_count);
-        let mut token_stream: Vec<Token> = Vec::new();
+        // This is a time for space tradeoff that will be fixed later when we know the final length of the vector so the extra space can be freed
+        let mut char_count: usize = 0;
+        for i in 0..source_code.len() {
+            if (&source_code[i..i + 1]).ne(" ") && (&source_code[i..i + 1]).ne("\n") {
+                char_count += 1;
+            }
+        }
+        let mut token_stream: Vec<Token> = Vec::with_capacity(char_count);
 
         // The start and end indices in the source code string for the token
         // starting_position == best_end means that the token is empty (space or newline by itself)
@@ -278,7 +278,6 @@ impl Lexer {
                     *starting_position += 1;
                     best_end += 1;
 
-                    // New line should update the line and column numbers
                     if cur_char.eq("\n") {
                         if in_string {
                             // Get the index of the open quote token by doing a backwards linear search
@@ -301,6 +300,8 @@ impl Lexer {
                             // Will finish lexing, so reset in_string
                             in_string = false;
                         }
+
+                        // New line should update the line and column numbers
                         self.line_number += 1;
                         self.col_number = 1;
                     } else {
@@ -348,6 +349,8 @@ impl Lexer {
         }
 
         if num_errors == 0 {
+            // Free up the unused memory that we initially allocated
+            token_stream.shrink_to_fit();
             // Return the token stream and number of warnings if no errors
             return Ok((token_stream, num_warnings));
         } else {
