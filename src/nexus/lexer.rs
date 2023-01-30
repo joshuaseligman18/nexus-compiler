@@ -1,6 +1,6 @@
 use crate::{nexus::token::{Token, TokenType, Keywords, Symbols}, util::nexus_log};
 use log::{debug, info, error};
-use regex::{Regex, RegexSet};
+use regex::{Regex, RegexSet, SetMatches};
 
 // Struct to maintain the state of the line numbers when compiling multiple programs
 pub struct Lexer {
@@ -77,18 +77,16 @@ impl Lexer {
         // Initialize the number of errors and warnings to 0
         let mut num_errors: i32 = 0;
         let mut num_warnings: i32 = 0;
-        
-        // This represents all possible terminal characters (newline and space) for which to mark the end of the current search
-        let terminal_chars = Regex::new(r"^[\n ]$").unwrap();
 
         // Worst case is that we have source_code length minus amount of whitespace number of tokens, so allocate that much space to prevent copying of the vector
-        let mut char_count: usize = 0;
-        for i in 0..source_code.len() {
-            if !terminal_chars.is_match(&source_code[i..i+1]) {
-                char_count += 1;
-            }
-        }
-        let mut token_stream: Vec<Token> = Vec::with_capacity(char_count);
+        // let mut char_count: usize = 0;
+        // for i in 0..source_code.len() {
+        //     if !terminal_chars.is_match(&source_code[i..i+1]) {
+        //         char_count += 1;
+        //     }
+        // }
+        // let mut token_stream: Vec<Token> = Vec::with_capacity(char_count);
+        let mut token_stream: Vec<Token> = Vec::new();
 
         // The start and end indices in the source code string for the token
         // starting_position == best_end means that the token is empty (space or newline by itself)
@@ -111,7 +109,7 @@ impl Lexer {
         let mut end_found: bool = false;
 
         // Iterate through the end of the string
-        while !end_found && *starting_position < source_code.len() { 
+        while !end_found && *starting_position < source_code.len() {
             // If it is the start of a search and we have space for a comment (/* or */)
             if *starting_position == trailer && *starting_position < source_code.len() - 1 {
                 // Get the next 2 characters
@@ -139,9 +137,17 @@ impl Lexer {
                 cur_char = &source_code[trailer..trailer + 1];
             }
 
-            // Check if it is a terminal character or if we are in string and the character is not a \n
+            let mut terminal_found: bool = false;
+            // Check prevents index out of bounds on the low end
+            if trailer > 0 {
+                // Check to see if we hit a terminal character
+                terminal_found = self.check_terminal(&cur_char, &source_code[trailer - 1..trailer], &in_string, &starting_position, &trailer);
+            }
+
+            // Check if it is a terminal character or if we are in string and the character is not a \n or "
             // If \n when in string, then we have an unclosed string and should throw an error in the else block
-            if !in_comment && !cur_char.is_empty() && (!terminal_chars.is_match(cur_char) || (in_string && !cur_char.eq("\n"))) {
+            // If " when in string, we found a symbol and can close the string and treat the " as a terminal character
+            if !in_comment && !cur_char.is_empty() && !terminal_found {
                 // Need to check the substring from starting_position
                 // Get the current substring in question
                 let cur_sub: &str = &source_code[*starting_position..trailer + 1];
@@ -462,5 +468,62 @@ impl Lexer {
         }
         // No upgrade
         return false;
+    }
+
+    fn check_terminal(&self, current_char: &str, prev_char: &str, in_string: &bool, starting_position: &usize, trailer: &usize) -> bool {
+         // This represents all possible terminal characters (newline and space) for which to mark the end of the current search
+        // Also includes simplified symbols that take up a single character each
+        let terminal_chars: RegexSet = RegexSet::new(&[
+            r"^\n$",
+            r"^ $",
+            r"^=$",
+            r#"^"$"#,
+            r"^!$",
+            r"^\($",
+            r"^\)$",
+            r"^\{$",
+            r"^\}$",
+            r"^\+$",
+            r"^\$$"
+        ]).unwrap();
+
+        // Check to see if there is a match for terminal characters
+        let terminal_match: SetMatches = terminal_chars.matches(current_char);
+
+        // Assume we have not found a terminal character
+        let mut out: bool = false;
+
+        // We have found a terminal character
+        if terminal_match.matched_any() {
+            if terminal_match.matched(0) {
+                // Whitespace is always terminal
+                out = true;
+            } else if terminal_match.matched(1) && !*in_string {
+                out = true;
+            } else if terminal_match.matched(2) {
+                // Equal sign character
+                // Make sure that we have at least 1 other character in consideration
+                // = can be assignment or can become == with the next character
+                if *trailer > *starting_position {
+                    // Narrow the search range by checking if we have characters in front
+                    if *trailer > *starting_position + 1 {
+                        // Treat the = as a terminal (= or == is not important yet)
+                        out = true;
+                    } else if *trailer == *starting_position + 1 {
+                        // If there is exactly 1 character in front
+                        // = is a terminal character only if it is not the second character of an == or != symbol
+                        if prev_char.ne("=") && prev_char.ne("!") {
+                            out = true;
+                        }
+                    }
+                }
+            } else {
+                // These symbols are all terminal if they are not the first character in the checked range
+                if *trailer > *starting_position {
+                    out = true;
+                }
+            }
+        }
+        return out;
     }
 }
