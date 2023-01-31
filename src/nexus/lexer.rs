@@ -4,22 +4,26 @@ use regex::{Regex, RegexSet, SetMatches};
 
 // Struct to maintain the state of the line numbers when compiling multiple programs
 pub struct Lexer {
-    line_number: usize,
-    col_number: usize
+    pub source_code: String, // The source code
+    pub line_number: usize, // The line number we are on
+    pub col_number: usize, // The current column number
+    pub current_position: usize // The current position in the string
 }
 
 impl Lexer {
     // Creates the new lexer and initializes the starting position to be (1, 1)
-    pub fn new() -> Self {
+    pub fn new(program_code: &str) -> Self {
         return Lexer {
+            source_code: String::from(program_code),
             line_number: 1,
-            col_number: 1
+            col_number: 1,
+            current_position: 0
         }
     }
 
     // Function to lex a program
-    pub fn lex_program(&mut self, source_code: &str, starting_position: &mut usize) -> Result<Vec<Token>, ()> {
-        let lex_out: Result<(Vec<Token>, i32), (i32, i32)> = self.lex(source_code, starting_position);
+    pub fn lex_program(&mut self) -> Result<Vec<Token>, ()> {
+        let lex_out: Result<(Vec<Token>, i32), (i32, i32)> = self.lex();
         if lex_out.is_ok() {
             // Grab the token stream and number of warnings
             let (token_stream, num_warnings): (Vec<Token>, i32) = lex_out.unwrap();
@@ -73,7 +77,7 @@ impl Lexer {
     // Function to lex a program
     // Ok result: (token stream, number of warnings)
     // Err result: (number of errors, number of warnings)
-    fn lex(&mut self, source_code: &str, starting_position: &mut usize) -> Result<(Vec<Token>, i32), (i32, i32)> {
+    fn lex(&mut self) -> Result<(Vec<Token>, i32), (i32, i32)> {
         // Initialize the number of errors and warnings to 0
         let mut num_errors: i32 = 0;
         let mut num_warnings: i32 = 0;
@@ -81,22 +85,22 @@ impl Lexer {
         // Worst case is that we have source_code length minus amount of whitespace number of tokens, so allocate that much space to prevent copying of the vector
         // This is a time for space tradeoff that will be fixed later when we know the final length of the vector so the extra space can be freed
         let mut char_count: usize = 0;
-        for i in 0..source_code.len() {
-            if (&source_code[i..i + 1]).ne(" ") && (&source_code[i..i + 1]).ne("\n") {
+        for i in 0..self.source_code.len() {
+            if (&self.source_code[i..i + 1]).ne(" ") && (&self.source_code[i..i + 1]).ne("\n") {
                 char_count += 1;
             }
         }
         let mut token_stream: Vec<Token> = Vec::with_capacity(char_count);
 
         // The start and end indices in the source code string for the token
-        // starting_position == best_end means that the token is empty (space or newline by itself)
-        let mut best_end: usize = starting_position.to_owned();
+        // current_position == best_end means that the token is empty (space or newline by itself)
+        let mut best_end: usize = self.current_position.to_owned();
 
         // The cur token type
         let mut cur_token_type: TokenType = TokenType::Unrecognized(String::from(""));
 
         // The current position in the source code
-        let mut trailer: usize = starting_position.to_owned();
+        let mut trailer: usize = self.current_position.to_owned();
 
         // Initially not in a string
         let mut in_string: bool = false;
@@ -109,11 +113,11 @@ impl Lexer {
         let mut end_found: bool = false;
 
         // Iterate through the end of the string
-        while !end_found && *starting_position < source_code.len() {
+        while !end_found && self.current_position < self.source_code.len() {
             // If it is the start of a search and we have space for a comment (/* or */)
-            if *starting_position == trailer && *starting_position < source_code.len() - 1 {
+            if self.current_position == trailer && self.current_position < self.source_code.len() - 1 {
                 // Get the next 2 characters
-                let next_2: &str = &source_code[*starting_position..*starting_position + 2];
+                let next_2: &str = &self.source_code[self.current_position..self.current_position + 2];
 
                 let comment_matches = comment_regex.matches(next_2);
                 // If it is a comment symbol
@@ -125,7 +129,7 @@ impl Lexer {
 
                     // Flip and skip both characters
                     in_comment = !in_comment;
-                    *starting_position += 2;
+                    self.current_position += 2;
                     best_end += 2;
                     trailer += 2;
                 }
@@ -133,24 +137,22 @@ impl Lexer {
             
             // Get the current character if legal
             let mut cur_char: &str = "";
-            if trailer < source_code.len() {
-                cur_char = &source_code[trailer..trailer + 1];
+            if trailer < self.source_code.len() {
+                cur_char = &self.source_code[trailer..trailer + 1];
             }
 
             let mut terminal_found: bool = false;
             // Check prevents index out of bounds on the low end
             if trailer > 0 {
                 // Check to see if we hit a terminal character
-                terminal_found = self.check_terminal(&cur_char, &source_code[trailer - 1..trailer], &in_string, &starting_position, &trailer);
+                terminal_found = self.check_terminal(&cur_char, &self.source_code[trailer - 1..trailer], &in_string, &trailer);
             }
 
-            // Check if it is a terminal character or if we are in string and the character is not a \n or "
-            // If \n when in string, then we have an unclosed string and should throw an error in the else block
-            // If " when in string, we found a symbol and can close the string and treat the " as a terminal character
+            // Check if it is a terminal character or in a comment
             if !in_comment && !cur_char.is_empty() && !terminal_found {
-                // Need to check the substring from starting_position
+                // Need to check the substring from current_position
                 // Get the current substring in question
-                let cur_sub: &str = &source_code[*starting_position..trailer + 1];
+                let cur_sub: &str = &self.source_code[self.current_position..trailer + 1];
                 
                 // Check to see if we need to upgrade the token
                 if self.upgrade_token(cur_sub, &mut cur_token_type, &mut in_string) {
@@ -159,9 +161,9 @@ impl Lexer {
                 }
             } else {
                 // Make sure we have something
-                if best_end - *starting_position > 0 {
+                if best_end - self.current_position > 0 {
                     // Create the new token and add it to the stream
-                    let new_token: Token = Token::new(cur_token_type.to_owned(), source_code[*starting_position..best_end].to_string(), self.line_number, self.col_number);
+                    let new_token: Token = Token::new(cur_token_type.to_owned(), self.source_code[self.current_position..best_end].to_string(), self.line_number, self.col_number);
                     token_stream.push(new_token);
 
                     let new_token_ref: &Token = &token_stream[token_stream.len() - 1];
@@ -267,15 +269,15 @@ impl Lexer {
                     cur_token_type = TokenType::Unrecognized(String::from(""));
 
                     // Update the column number to accommodate the length of the token
-                    self.col_number += best_end - *starting_position;
+                    self.col_number += best_end - self.current_position;
 
                     // Move the trailer to the best end - 1 (will get incremented at the loop bottom)
                     trailer = best_end - 1;
-                    // Move starting_position to the beginning of the next possible token
-                    *starting_position = trailer + 1;
+                    // Move current_position to the beginning of the next possible token
+                    self.current_position = trailer + 1;
                 } else {
                     // Token is empty
-                    *starting_position += 1;
+                    self.current_position += 1;
                     best_end += 1;
 
                     if cur_char.eq("\n") {
@@ -474,7 +476,7 @@ impl Lexer {
         return false;
     }
 
-    fn check_terminal(&self, current_char: &str, prev_char: &str, in_string: &bool, starting_position: &usize, trailer: &usize) -> bool {
+    fn check_terminal(&self, current_char: &str, prev_char: &str, in_string: &bool, trailer: &usize) -> bool {
          // This represents all possible terminal characters (newline and space) for which to mark the end of the current search
         // Also includes simplified symbols that take up a single character each
         let terminal_chars: RegexSet = RegexSet::new(&[
@@ -500,20 +502,21 @@ impl Lexer {
         // We have found a terminal character
         if terminal_match.matched_any() {
             if terminal_match.matched(0) {
-                // Whitespace is always terminal
+                // Newline is always terminal
                 out = true;
             } else if terminal_match.matched(1) && !*in_string {
+                // Spaces are terminal except for when we are in a string
                 out = true;
             } else if terminal_match.matched(2) {
                 // Equal sign character
                 // Make sure that we have at least 1 other character in consideration
                 // = can be assignment or can become == with the next character
-                if *trailer > *starting_position {
+                if *trailer > self.current_position {
                     // Narrow the search range by checking if we have characters in front
-                    if *trailer > *starting_position + 1 {
+                    if *trailer > self.current_position + 1 {
                         // Treat the = as a terminal (= or == is not important yet)
                         out = true;
-                    } else if *trailer == *starting_position + 1 {
+                    } else if *trailer == self.current_position + 1 {
                         // If there is exactly 1 character in front
                         // = is a terminal character only if it is not the second character of an == or != symbol
                         if prev_char.ne("=") && prev_char.ne("!") {
@@ -523,11 +526,30 @@ impl Lexer {
                 }
             } else {
                 // These symbols are all terminal if they are not the first character in the checked range
-                if *trailer > *starting_position {
+                if *trailer > self.current_position {
                     out = true;
                 }
             }
         }
         return out;
     }
+
+    // Check to see if we can lex another program
+    pub fn has_program_to_lex(&self) -> bool {
+        // We have a program to lex if there is still content in the string that is not purely whitespace
+        return self.current_position < self.source_code.len() && self.has_content();
+    }
+
+    // Function to make sure there is still content to go through
+    fn has_content(&self) -> bool {
+    // String only has whitespace
+    let whitespace_regex: Regex = Regex::new(r"^\s*$").unwrap();
+
+    // Determine if it is only whitespace or if there is content
+    if whitespace_regex.is_match(&self.source_code[self.current_position..]) {
+        return false;
+    } else {
+        return true;
+    }
+}
 }
