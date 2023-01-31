@@ -92,6 +92,11 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Lex,
             test_name: String::from("Testing tabs"),
             test_code: String::from("{\n  /*\tThis tab should be ok since it is in a comment.\n  \tThe others should throw errors. */\n\tprint(\"testing\ttabs\")\n}$")
+        },
+        Test {
+            test_type: TestType::Lex,
+            test_name: String::from("Multi-line things"),
+            test_code: String::from("{\n  /* This is a\n  multi-line comment */\n  string s\n  s = \"hello world\n  this should be throwing an error\"\n}$")
         }
     ];
 
