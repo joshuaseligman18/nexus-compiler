@@ -1,0 +1,237 @@
+\documentclass[letterpaper, 10pt, DIV=13]{scrartcl}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{amsmath, amsfonts, amsthm, xfrac}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{longtable}
+
+\numberwithin{equation}{section}
+\numberwithin{figure}{section}
+\numberwithin{table}{section}
+
+\usepackage{sectsty}
+\allsectionsfont{\normalfont\scshape} % Make all section titles in default font and small caps.
+
+\usepackage{fancyhdr} % Custom headers and footers
+\pagestyle{fancyplain} % Makes all pages in the document conform to the custom headers and footers
+
+\fancyhead{} % No page header - if you want one, create it in the same way as the footers below
+\fancyfoot[L]{} % Empty left footer
+\fancyfoot[C]{} % Empty center footer
+\fancyfoot[R]{\thepage} % Page numbering for right footer
+
+\renewcommand{\headrulewidth}{0pt} % Remove header underlines
+\renewcommand{\footrulewidth}{0pt} % Remove footer underlines
+\setlength{\headheight}{13.6pt} % Customize the height of the header
+
+\setlength\parindent{0pt}
+\pagenumbering{gobble}
+
+\title {
+	\normalfont
+	\huge{Programming in the Past} \\
+	\vspace{10pt}
+	\large{CMPT 331 - Spring 2023 | Dr. Labouseur}
+}
+
+\author{\normalfont Josh Seligman | joshua.seligman1@marist.edu}
+
+\pagenumbering{arabic}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+\lstset{
+  backgroundcolor=\color{white},   % choose the background color
+  basicstyle=\footnotesize,        % size of fonts used for the code
+  breaklines=true,                 % automatic line breaking only at whitespace
+  captionpos=b,                    % sets the caption-position to bottom
+  commentstyle=\color{mygreen},    % comment style
+  escapeinside={\%*}{*},          % if you want to add LaTeX within your code
+  keywordstyle=\color{blue},       % keyword style
+  stringstyle=\color{mymauve},     % string literal style
+}
+
+\begin{document}
+\maketitle
+
+\section{Crafting a Compiler}
+\subsection{Exercise 1.11}
+The Measure Of Software Similarity (MOSS) [SWA03] tool can detect similarity of programs written in a variety of modern programming languages. Its main application has been in detecting similarity of programs submitted in computer science classes, where such similarity may indicate plagiarism (students, beware!). In theory, detecting equivalence of two programs is undecidable, butMOSS does a very good job of finding similarity in spite of that limitation. \\ Investigate the techniques MOSS uses to find similarity. How does MOSS differ from other approaches for detecting possible plagiarism?
+\\\\
+The MOSS similarity detection begins by stripping whitespace and identifiers from the code to put it in a position that is language independent for the rest of the algorithm to use. Next, it uses hashing to create what are known as document fingerprints, which represent the basic structure of the code. Lastly, MOSS compares these fingerprints with the fingerprints of other documents, which marks the similarity. This is different from other approaches as it makes sure that whitespace and single word matches do not impact the algorithm results as well as the position of the code (order in which functions are defined). Thus, the MOSS detection algorithm compares the true meaning of the code rather than the superficial characteristics like variable names and whitespace.
+\\\\
+Sources: http://theory.stanford.edu/~aiken/publications/papers/sigmod03.pdf,\\https://yangdanny97.github.io/blog/2019/05/03/MOSS
+
+\subsection{Exercise 3.1}
+What token sequence is produced? For which tokens must extra information be returned in addition to the token code?
+\begin{lstlisting}[frame=single, language=C]
+main(){
+    const float payment = 384.00;
+    float bal;
+    int month = 0;
+    bal=15000;
+    while (bal>0){
+        printf("Month: %2d Balance: %10.2f\n", month, bal);
+        bal=bal-payment+0.015*bal;
+        month=month+1;
+    }
+}
+\end{lstlisting}
+
+\begin{center}
+\begin{longtable}{|c|c|}
+    \hline
+    Token & Additional Information \\
+    \hline
+    Identifier & main \\
+    \hline
+    LParen & N/A \\
+    \hline
+    RParen & N/A \\
+    \hline
+    LBrace & N/A \\
+    \hline
+    Const & N/A \\
+    \hline
+    Float & N/A \\ 
+    \hline
+    Identifier & payment \\
+    \hline
+    AssignmentOperator & N/A \\
+    \hline
+    Number & 384.00 \\
+    \hline
+    Semicolon & N/A \\
+    \hline
+    Float & N/A \\
+    \hline
+    Identifier & bal \\
+    \hline
+    Semicolon & N/A \\
+    \hline
+    Int & N/A \\
+    \hline
+    Identifier & month \\
+    \hline
+    AssignmentOperator & N/A \\
+    \hline
+    Number & 0 \\
+    \hline
+    Semicolon & N/A \\
+    \hline
+    Identifier & bal \\
+    \hline
+    AssignmentOperator & N/A \\
+    \hline
+    Number & 1500 \\
+    \hline
+    Semicolon & N/A \\
+    \hline
+    While & N/A \\
+    \hline
+    LParen & N/A \\
+    \hline
+    Identifier & bal \\
+    \hline
+    GreaterThan & N/A \\
+    \hline
+    Number & 0 \\
+    \hline
+    LBrace & N/A \\
+    \hline
+    Identifier & printf \\
+    \hline
+    LParen & N/A \\
+    \hline
+    Quote & N/A \\
+    \hline
+    Characters & Month: \%2d Balance: \%10.2f\textbackslash n \\
+    \hline
+    Quote & N/A \\
+    \hline
+    Comma & N/A \\
+    \hline
+    Identifier & month \\
+    \hline
+    Comma & N/A \\
+    \hline
+    Identifier & bal \\
+    \hline
+    RParen & N/A \\
+    \hline
+    Semicolon & N/A \\
+    \hline
+    Identifier & bal \\
+    \hline
+    AssignmentOperator & N/A \\
+    \hline
+    Identifier & bal \\
+    \hline
+    Subtraction & N/A \\
+    \hline
+    Identifier & payment \\
+    \hline
+    Addition & N/A \\
+    \hline
+    Number & 0.015 \\
+    \hline
+    Multiply & N/A \\
+    \hline
+    Identifier & bal \\
+    \hline
+    Semicolon & N/A \\
+    \hline
+    Identifier & month \\
+    \hline
+    AssignmentOperator & N/A \\
+    \hline
+    Identifier & month \\
+    \hline
+    Addition & N/A \\
+    \hline
+    Number & 1 \\
+    \hline
+    Semicolon & N/A \\
+    \hline
+    RBrace & N/A \\
+    \hline
+    RBrace & N/A \\
+    \hline
+\end{longtable}
+\end{center}
+
+\section{Dragon}
+\subsection{Exercise 1.1.4}
+A compiler that translates a high-level language into another high-level language is called a source-to-source translator. What advantages are there to using C as a target language for a compiler?
+\\\\
+Using C as a target language for a compiler can be effective as you just have to translate the language to C rather than dealing with any platform-specifics. Also, C compilers are extremely common, so the new language can be run on any computer that can run C, which increases portability of the new language.
+
+\subsection{Exercise 1.6.1}
+For the block-structured C code of Fig. 1.13(a), indicate the values assigned to w, x, y, and z.
+\begin{lstlisting}[frame=single, language=C]
+int w, x, y, z;
+int i = 4; int j = 5;
+{
+    int j = 7;
+    i = 6;
+    w = i + j;
+}
+x = i + j;
+{
+    int i = 8;
+    y = i + j;
+}
+z = i + j;
+\end{lstlisting}
+
+w gets assigned 13 because the j within the first block scope has a value of 7 and the i defined in the main scope gets assigned the value of 6.
+\\\\
+x is assigned 11 because the main scope i is assigned 6 and the j is unaffected because the j in the first scope is a separate variable.
+\\\\
+y is assigned 13 because the new i variable is 8 and j is still 5.
+\\\\
+z is assigned 11 because i and j have not been changed since the assignment to x
+
+\end{document}
