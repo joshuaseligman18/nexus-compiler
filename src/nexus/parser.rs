@@ -1,6 +1,6 @@
 use log::debug;
 
-use crate::{nexus::token::{Token, TokenType, Symbols}, util::nexus_log};
+use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log};
 
 pub struct Parser {
     cur_token_index: usize
@@ -57,6 +57,8 @@ impl Parser {
             return Err(());
         }
 
+        self.parse_statement_list(token_stream);
+
         // Check for right brace
         let rbrace_err: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::RBrace));
         if rbrace_err.is_err() {
@@ -100,5 +102,58 @@ impl Parser {
         // Consume the token if it is ok
         self.cur_token_index += 1;
         return Ok(());
+    }
+
+    fn parse_statement_list(&mut self, token_stream: &Vec<Token>) {
+        // Log that we are parsing a statement list
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing StatementList")
+        );
+
+        // Make sure that the statement list is not empty
+        if !token_stream[self.cur_token_index].token_type.eq(&TokenType::Symbol(Symbols::RBrace)) {
+            self.parse_statement(token_stream);
+            if !token_stream[self.cur_token_index].token_type.eq(&TokenType::Symbol(Symbols::RBrace)) {
+                self.parse_statement_list(token_stream);
+            }
+        }
+    }
+
+    fn parse_statement(&mut self, token_stream: &Vec<Token>) {
+        // Log that we are parsing a statement
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing Statement")
+        );
+        match &token_stream[self.cur_token_index].token_type {
+            TokenType::Keyword(Keywords::Print) => self.parse_print_statement(token_stream),
+            TokenType::Identifier(_) => {}, // Parse assignment statement
+            TokenType::Keyword(Keywords::Int) | TokenType::Keyword(Keywords::String) | TokenType::Keyword(Keywords::Boolean) => {}, // Parse var declaration
+            TokenType::Keyword(Keywords::While) => {}, // Parse while statement
+            TokenType::Keyword(Keywords::If) => {},// Parse if statement,
+            TokenType::Symbol(Symbols::LBrace) => self.parse_block(token_stream).unwrap(),
+            _ => {} // Figure out something to do to end the recursion
+        }
+    }
+
+    fn parse_print_statement(&mut self, token_stream: &Vec<Token>) {//-> Result<bool, ()> {
+        // Log that we are parsing a print statement
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing PrintStatement")
+        );
+        // If it is not a print statement, no error actually happened, just did not match
+        if self.match_token(token_stream, TokenType::Keyword(Keywords::Print)).is_err() {
+            // Return false
+            // return Ok(false);
+        } else {
+            // Do all expression things
+        }
+
+        // return Ok(true);
     }
 }
