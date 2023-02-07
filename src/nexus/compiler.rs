@@ -37,6 +37,7 @@ pub fn compile(source_code: &str) {
             // No need to move on if lex failed, so can go to next program
             continue;
         }
-        debug!("{:?}", lex_res.unwrap());
+        let token_stream: Vec<Token> = lex_res.unwrap();
+        debug!("{:?}; {}, {}", token_stream, token_stream.len(), token_stream.capacity());
     }
 }

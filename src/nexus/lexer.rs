@@ -1,5 +1,3 @@
-use std::thread::current;
-
 use crate::{nexus::token::{Token, TokenType, Keywords, Symbols}, util::nexus_log};
 use log::{debug, info, error};
 use regex::{Regex, RegexSet, SetMatches};
@@ -9,7 +7,12 @@ pub struct Lexer {
     pub source_code: String, // The source code
     pub line_number: usize, // The line number we are on
     pub col_number: usize, // The current column number
-    pub current_position: usize // The current position in the string
+    pub current_position: usize, // The current position in the string
+    keywords: RegexSet, // The regex set for keywords
+    characters: Regex, // The regex for characters
+    symbols: RegexSet, // The regex set for symbols
+    digits: Regex, // The regex for digits
+    terminal_chars: RegexSet // The regex set for terminal characters
 }
 
 impl Lexer {
@@ -19,7 +22,53 @@ impl Lexer {
             source_code: String::from(program_code),
             line_number: 1,
             col_number: 1,
-            current_position: 0
+            current_position: 0,
+            
+            // All of the acceptable keywords
+            keywords: RegexSet::new(&[
+                r"^if$",
+                r"^while$",
+                r"^print$",
+                r"^string$",
+                r"^int$",
+                r"^boolean$",
+                r"^true$",
+                r"^false$",
+            ]).unwrap(),
+
+            // a-z
+            characters: Regex::new(r"^[a-z]$").unwrap(),
+
+            // (, ), {, }, ==, =, +, ", !=, or $
+            symbols: RegexSet::new(&[
+                r"^\($",
+                r"^\)$",
+                r"^\{$",
+                r"^\}$",
+                r"^\+$",
+                r"^==$",
+                r"^!=$",
+                r"^=$",
+                r#"^"$"#,
+                r"^\$$"
+            ]).unwrap(),
+
+            // 0-9
+            digits: Regex::new(r"^[0-9]$").unwrap(),
+
+            // White space and simplified symbols (only 1 char each)
+            terminal_chars: RegexSet::new(&[
+                r"^(\n|\t| )$",
+                r"^=$",
+                r#"^"$"#,
+                r"^!$",
+                r"^\($",
+                r"^\)$",
+                r"^\{$",
+                r"^\}$",
+                r"^\+$",
+                r"^\$$"
+            ]).unwrap()
         }
     }
 
@@ -84,15 +133,10 @@ impl Lexer {
         let mut num_errors: i32 = 0;
         let mut num_warnings: i32 = 0;
 
-        // Worst case is that we have source_code length minus amount of whitespace number of tokens, so allocate that much space to prevent copying of the vector
-        // This is a time for space tradeoff that will be fixed later when we know the final length of the vector so the extra space can be freed
-        let mut char_count: usize = 0;
-        for i in 0..self.source_code.len() {
-            if (&self.source_code[i..i + 1]).ne(" ") && (&self.source_code[i..i + 1]).ne("\n") {
-                char_count += 1;
-            }
-        }
-        let mut token_stream: Vec<Token> = Vec::with_capacity(char_count);
+        // We will start off with an empty vector
+        // It will double allocation when capacity is reached and reallocate/copy the vector
+        // Better than initially allocating a ton of memory considering that these programs are small
+        let mut token_stream: Vec<Token> = Vec::new();
 
         // The start and end indices in the source code string for the token
         // current_position == best_end means that the token is empty (space or newline by itself)
@@ -227,12 +271,12 @@ impl Lexer {
                         TokenType::Unrecognized(token) => {
                             if in_string {
                                 // Get the index of the open quote token by doing a backwards linear search
-                                let mut i: i32 = token_stream.len() as i32 - 1;
-                                while i >= 0 {
-                                    match &token_stream[i as usize].token_type {
+                                let mut open_quote_pos: i32 = token_stream.len() as i32 - 1;
+                                while open_quote_pos >= 0 {
+                                    match &token_stream[open_quote_pos as usize].token_type {
                                         // Can break upon finding the token
                                         TokenType::Symbol(Symbols::Quote) => break,
-                                        _ => i -= 1,
+                                        _ => open_quote_pos -= 1,
                                     };
                                 }
                                 match token.as_str() {
@@ -240,12 +284,12 @@ impl Lexer {
                                     "\t" => nexus_log::log(
                                         nexus_log::LogTypes::Error,
                                         nexus_log::LogSources::Lexer,
-                                        format!("Error at {:?}; Unrecognized token 'TAB' in string starting at {:?}; Strings may only contain lowercase letters (a - z) and spaces", new_token_ref.position, token_stream[i as usize].position)
+                                        format!("Error at {:?}; Unrecognized token 'TAB' in string starting at {:?}; Strings may only contain lowercase letters (a - z) and spaces", new_token_ref.position, token_stream[open_quote_pos as usize].position)
                                     ),
                                     _ => nexus_log::log(
                                         nexus_log::LogTypes::Error,
                                         nexus_log::LogSources::Lexer,
-                                        format!("Error at {:?}; Unrecognized token '{}' in string starting at {:?}; Strings may only contain lowercase letters (a - z) and spaces", new_token_ref.position, new_token_ref.text, token_stream[i as usize].position)
+                                        format!("Error at {:?}; Unrecognized token '{}' in string starting at {:?}; Strings may only contain lowercase letters (a - z) and spaces", new_token_ref.position, new_token_ref.text, token_stream[open_quote_pos as usize].position)
                                     )
                                 }
                             } else {
@@ -345,8 +389,6 @@ impl Lexer {
         }
 
         if num_errors == 0 {
-            // Free up the unused memory that we initially allocated
-            token_stream.shrink_to_fit();
             // Return the token stream and number of warnings if no errors
             return Ok((token_stream, num_warnings));
         } else {
@@ -358,43 +400,10 @@ impl Lexer {
 
     // Function to upgrade a token based on new information
     fn upgrade_token(&self, substr: &str, best_token_type: &mut TokenType, in_string: &mut bool) -> bool {
-        // Create the keywords
-        let keywords: RegexSet = RegexSet::new(&[
-            r"^if$",
-            r"^while$",
-            r"^print$",
-            r"^string$",
-            r"^int$",
-            r"^boolean$",
-            r"^true$",
-            r"^false$",
-        ]).unwrap();
-
-        // Characters are a-z all lowercase and only 1 character
-        let characters: Regex = Regex::new(r"^[a-z]$").unwrap();
-
-        // Symbols can be (, ), {, }, ==, =, +, ", or !=
-        let symbols: RegexSet = RegexSet::new(&[
-            r"^\($",
-            r"^\)$",
-            r"^\{$",
-            r"^\}$",
-            r"^\+$",
-            r"^==$",
-            r"^!=$",
-            r"^=$",
-            r#"^"$"#,
-            r"^\$$"
-        ]).unwrap();
-
-        // Digits are 0-9
-        let digits: Regex = Regex::new(r"^[0-9]$").unwrap();
-        
-
         // See if we are in a string
         if *in_string {
             // Spaces and characters are valid
-            if characters.is_match(substr) || substr.eq(" ") {
+            if self.characters.is_match(substr) || substr.eq(" ") {
                 *best_token_type = TokenType::Char(String::from(substr));
                 return true;
             } else if substr.eq("\"") {
@@ -408,9 +417,9 @@ impl Lexer {
                 return true;
             }
         } else {
-            if keywords.is_match(substr) {
+            if self.keywords.is_match(substr) {
                 // Get the possible keyword matches
-                let keyword_matches: Vec<usize> = keywords.matches(substr).into_iter().collect();
+                let keyword_matches: Vec<usize> = self.keywords.matches(substr).into_iter().collect();
                 if keyword_matches.len() > 0 {
                     // The order here matches the order in which they are defined in the constructor
                     match keyword_matches[0] {
@@ -427,14 +436,14 @@ impl Lexer {
                     }
                     return true;
                 }
-            } else if characters.is_match(substr) {
+            } else if self.characters.is_match(substr) {
                 // Otherwise it may be an identifier, digit, symbol, or unrecognized
                 // We have an identifier
                 *best_token_type = TokenType::Identifier(String::from(substr));
                 return true;
-            } else if symbols.is_match(substr) {
+            } else if self.symbols.is_match(substr) {
                 // Get the possible symbol matches
-                let symbol_matches: Vec<usize> = symbols.matches(substr).into_iter().collect();
+                let symbol_matches: Vec<usize> = self.symbols.matches(substr).into_iter().collect();
                 if symbol_matches.len() > 0 {
                     // The order here matches the order in which they are defined in the constructor
                     match symbol_matches[0] {
@@ -456,7 +465,7 @@ impl Lexer {
                     }
                     return true;
                 }
-            } else if digits.is_match(substr) {
+            } else if self.digits.is_match(substr) {
                 // We have a digit
                 *best_token_type = TokenType::Digit(substr.parse::<u32>().unwrap());
                 return true;
@@ -471,23 +480,8 @@ impl Lexer {
     }
 
     fn check_terminal(&self, current_char: &str, prev_char: &str, in_string: &bool, trailer: &usize) -> bool {
-         // This represents all possible terminal characters (newline and space) for which to mark the end of the current search
-        // Also includes simplified symbols that take up a single character each
-        let terminal_chars: RegexSet = RegexSet::new(&[
-            r"^\s$",
-            r"^=$",
-            r#"^"$"#,
-            r"^!$",
-            r"^\($",
-            r"^\)$",
-            r"^\{$",
-            r"^\}$",
-            r"^\+$",
-            r"^\$$"
-        ]).unwrap();
-
         // Check to see if there is a match for terminal characters
-        let terminal_match: SetMatches = terminal_chars.matches(current_char);
+        let terminal_match: SetMatches = self.terminal_chars.matches(current_char);
 
         // Assume we have not found a terminal character
         let mut out: bool = false;
@@ -537,14 +531,14 @@ impl Lexer {
 
     // Function to make sure there is still content to go through
     fn has_content(&self) -> bool {
-    // String only has whitespace
-    let whitespace_regex: Regex = Regex::new(r"^\s*$").unwrap();
+        // String only has whitespace
+        let whitespace_regex: Regex = Regex::new(r"^\s*$").unwrap();
 
-    // Determine if it is only whitespace or if there is content
-    if whitespace_regex.is_match(&self.source_code[self.current_position..]) {
-        return false;
-    } else {
-        return true;
+        // Determine if it is only whitespace or if there is content
+        if whitespace_regex.is_match(&self.source_code[self.current_position..]) {
+            return false;
+        } else {
+            return true;
+        }
     }
-}
 }
