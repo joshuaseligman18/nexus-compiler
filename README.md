@@ -1,5 +1,8 @@
 # nexus-compiler
 
+## Project Locations
+* Project 1 (Lexer) - main and project1 branches
+
 ## Setup Instructions
 1. Install Rust, which can be found [here](https://www.rust-lang.org/tools/install).
 2. Make sure `cargo` is added to your $PATH environment variable. Its default location is ~/.cargo/bin.
