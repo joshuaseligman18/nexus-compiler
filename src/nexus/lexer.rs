@@ -1,3 +1,5 @@
+use std::thread::current;
+
 use crate::{nexus::token::{Token, TokenType, Keywords, Symbols}, util::nexus_log};
 use log::{debug, info, error};
 use regex::{Regex, RegexSet, SetMatches};
@@ -247,19 +249,11 @@ impl Lexer {
                                     )
                                 }
                             } else {
-                                match token.as_str() {
-                                    // Make sure the tab gets noticed in the error message
-                                    "\t" => nexus_log::log(
-                                        nexus_log::LogTypes::Error,
-                                        nexus_log::LogSources::Lexer,
-                                        format!("Error at {:?}; Unrecognized token 'TAB'; Only spaces and newlines are valid forms of whitespace outside of comments", new_token_ref.position)
-                                    ),
-                                    _ => nexus_log::log(
-                                        nexus_log::LogTypes::Error,
-                                        nexus_log::LogSources::Lexer,
-                                        format!("Error at {:?}; Unrecognized token '{}'", new_token_ref.position, new_token_ref.text)
-                                    )
-                                }
+                                nexus_log::log(
+                                    nexus_log::LogTypes::Error,
+                                    nexus_log::LogSources::Lexer,
+                                    format!("Error at {:?}; Unrecognized token '{}'", new_token_ref.position, new_token_ref.text)
+                                )
                             }
                             num_errors += 1;
                         },
@@ -480,8 +474,7 @@ impl Lexer {
          // This represents all possible terminal characters (newline and space) for which to mark the end of the current search
         // Also includes simplified symbols that take up a single character each
         let terminal_chars: RegexSet = RegexSet::new(&[
-            r"^\n$",
-            r"^ $",
+            r"^\s$",
             r"^=$",
             r#"^"$"#,
             r"^!$",
@@ -502,12 +495,14 @@ impl Lexer {
         // We have found a terminal character
         if terminal_match.matched_any() {
             if terminal_match.matched(0) {
-                // Newline is always terminal
-                out = true;
-            } else if terminal_match.matched(1) && !*in_string {
-                // Spaces are terminal except for when we are in a string
-                out = true;
-            } else if terminal_match.matched(2) {
+                if current_char.eq(" ") || current_char.eq("\t") {
+                    if !*in_string {
+                        out = true;
+                    }
+                } else {
+                    out = true;
+                }
+            } else if terminal_match.matched(1) {
                 // Equal sign character
                 // Make sure that we have at least 1 other character in consideration
                 // = can be assignment or can become == with the next character
