@@ -21,7 +21,7 @@ impl Token {
 }
 
 // Defines the token types and what they hold
-#[derive (Debug, Clone)]
+#[derive (Debug, Clone, PartialEq)]
 pub enum TokenType {
     Keyword(Keywords),
     Identifier(String),
@@ -32,7 +32,7 @@ pub enum TokenType {
 }
 
 // Defines the keywords
-#[derive (Debug, Clone)]
+#[derive (Debug, Clone, PartialEq)]
 pub enum Keywords {
     If,
     While,
@@ -45,7 +45,7 @@ pub enum Keywords {
 }
 
 // Defines the possible symbols
-#[derive (Debug, Clone)]
+#[derive (Debug, Clone, PartialEq)]
 pub enum Symbols {
     LParen, // (
     RParen, // )
