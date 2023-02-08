@@ -362,13 +362,40 @@ impl Parser {
 
         match &token_stream[self.cur_token_index].token_type {
             TokenType::Symbol(Symbols::LParen) => {
+                // Start with a left paren
+                let lparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::LParen));
+                if lparen_res.is_err() {
+                    bool_expr_res = lparen_res;
+                } else {
+                    // Then move on to the left side of the expression
+                    let expr1_res: Result<(), String> = self.parse_expression(token_stream);
+                    if expr1_res.is_err() {
+                        bool_expr_res = expr1_res;
+                    } else {
+                        // Next check for a boolean operator
+                        let bool_op_res: Result<(), String> = self.parse_bool_op(token_stream);
+                        if bool_op_res.is_err() {
+                            bool_expr_res = bool_op_res;
+                        } else {
+                            // Next check for the other side of the expression
+                            let expr2_res: Result<(), String> = self.parse_expression(token_stream);
+                            if expr2_res.is_err() {
+                                bool_expr_res = expr2_res;
+                            } else {
+                                // Lastly close it with a paren
+                                let rparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::RParen));
+                                bool_expr_res = rparen_res;
+                            }
+                        }
+                    }
+                }
             },
 
-            // The false keyword
+            // The false and true keywords
             TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => bool_expr_res = self.parse_bool_val(token_stream),
-            _ => {
-                
-            }
+
+            // Invalid boolean expression
+            _ => bool_expr_res = Err(format!("Invalid boolean expression token [ {:?} ] at {:?}; Valid boolean expression beginning tokens are {:?}, {:?}, {:?}", token_stream[self.cur_token_index].token_type, token_stream[self.cur_token_index].position, TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)))
         }
 
         return bool_expr_res;
@@ -424,7 +451,43 @@ impl Parser {
         return self.match_token(token_stream, TokenType::Char(String::from("a-z or space")));
     }
 
+    fn parse_bool_op(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing a boolean operator
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing boolop")
+        );
+
+         // Try to consume the == token
+         let eq_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::EqOp));
+
+         // If == was bad, then try again with !=
+         if eq_res.is_err() && eq_res.as_ref().unwrap_err().starts_with("Invalid") {
+             let neq_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::NeqOp));
+ 
+             // Check to see if the error was an invalid error
+             if neq_res.is_err() && neq_res.as_ref().unwrap_err().starts_with("Invalid") {
+                 // Return a better error if a bool val was not found
+                 let cur_token: &Token = &token_stream[self.cur_token_index];
+                 return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?} or {:?}", cur_token.position, cur_token.token_type, TokenType::Symbol(Symbols::EqOp), TokenType::Symbol(Symbols::NeqOp)));
+             } else {
+                 // Otherwise we can just return the result
+                 return neq_res;
+             }
+         } else {
+             return eq_res;
+         }
+    }
+
     fn parse_bool_val(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing a boolean operator
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing boolval")
+        );
+
         // Try to consume the false token
         let false_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::False));
 
