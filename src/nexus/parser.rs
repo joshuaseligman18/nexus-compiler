@@ -206,7 +206,7 @@ impl Parser {
             TokenType::Keyword(Keywords::Print) => statement_res = self.parse_print_statement(token_stream),
 
             // Assignment statements
-            TokenType::Identifier(_) => {}, // Parse assignment statement
+            TokenType::Identifier(_) => statement_res = self.parse_assignment_statement(token_stream), // Parse assignment statement
 
             // VarDecl statements
             TokenType::Keyword(Keywords::Int) | TokenType::Keyword(Keywords::String) | TokenType::Keyword(Keywords::Boolean) => {}, // Parse var declaration
@@ -266,6 +266,35 @@ impl Parser {
         return Ok(());
     }
 
+    fn parse_assignment_statement(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing a print statement
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing AssignmentStatement")
+        );
+
+        // Assignment statements begin with an identifier
+        let id_res: Result<(), String> = self.parse_identifier(token_stream);
+        if id_res.is_err() {
+            return id_res;
+        }
+
+        // Check for a =
+        let assignment_op_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::AssignmentOp));
+        if assignment_op_res.is_err() {
+            return assignment_op_res;
+        }
+
+        // The right hand side of the statement is an expression
+        let expr_res: Result<(), String> = self.parse_expression(token_stream);
+        if expr_res.is_err() {
+            return expr_res;
+        }
+
+        return Ok(());
+    }
+
     fn parse_expression(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
         // Log that we are parsing an expression
         nexus_log::log(
@@ -316,7 +345,7 @@ impl Parser {
         // The token that was checked was not consumed so the next match_token call will check that token
         if int_op_res.is_ok() {
             // Get the second half of the expression if there is an integer operator and return the error if needed
-            // Type check does not matter, so can parse 3 + "007" for now and semantic analysis will catch it
+            // Type check does not matter, so can parse 3 + "hello" for now and semantic analysis will catch it
             let second_half_res: Result<(), String> = self.parse_expression(token_stream);
             if second_half_res.is_err() {
                 return second_half_res;
