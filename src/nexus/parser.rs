@@ -133,8 +133,20 @@ impl Parser {
                         _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token))
                     }
                 },
+                TokenType::Keyword(keyword_actual) => {
+                    match &expected_token {
+                        // Check to make sure they are both keywords
+                        TokenType::Keyword(keyword_expected) => {
+                            // See if there is a discrepancy is the actual keywords
+                            // If not, then do nothing because there is a match
+                            if keyword_actual.ne(&keyword_expected) {
+                                return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token))
+                            }
+                        },
+                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token))
+                    }
+                },
                 _ => {
-
                 }
             }
         } else {
@@ -267,7 +279,7 @@ impl Parser {
             TokenType::Symbol(Symbols::Quote) => expression_res = self.parse_string_expression(token_stream),
 
             // BooleanExpr
-            TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => {},
+            TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => expression_res = self.parse_bool_expression(token_stream),
 
             // Id
             TokenType::Identifier(_) => expression_res = self.parse_identifier(token_stream),
@@ -338,6 +350,30 @@ impl Parser {
         return Ok(());
     }
 
+    fn parse_bool_expression(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing a boolean expression
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing BooleanExpr")
+        );
+
+        let mut bool_expr_res: Result<(), String> = Ok(());
+
+        match &token_stream[self.cur_token_index].token_type {
+            TokenType::Symbol(Symbols::LParen) => {
+            },
+
+            // The false keyword
+            TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => bool_expr_res = self.parse_bool_val(token_stream),
+            _ => {
+                
+            }
+        }
+
+        return bool_expr_res;
+    }
+
     fn parse_identifier(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
         // Log that we are parsing an identifier
         nexus_log::log(
@@ -386,6 +422,28 @@ impl Parser {
 
         // Make sure we have a character token here
         return self.match_token(token_stream, TokenType::Char(String::from("a-z or space")));
+    }
+
+    fn parse_bool_val(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Try to consume the false token
+        let false_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::False));
+
+        // If false was bad, then try again with true
+        if false_res.is_err() && false_res.as_ref().unwrap_err().starts_with("Invalid") {
+            let true_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::True));
+
+            // Check to see if the error was an invalid error
+            if true_res.is_err() && true_res.as_ref().unwrap_err().starts_with("Invalid") {
+                // Return a better error if a bool val was not found
+                let cur_token: &Token = &token_stream[self.cur_token_index];
+                return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?} or {:?}", cur_token.position, cur_token, TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)));
+            } else {
+                // Otherwise we can just return the result
+                return true_res;
+            }
+        } else {
+            return false_res;
+        }
     }
 
     fn parse_int_op(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
