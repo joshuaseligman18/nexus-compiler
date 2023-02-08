@@ -108,6 +108,14 @@ impl Parser {
                         return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token));
                     }
                 },
+                TokenType::Identifier(_) => {
+                    match expected_token {
+                        // Do nothing because we have a match
+                        TokenType::Identifier(_) => {},
+                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
+
+                    }
+                }
                 _ => {
 
                 }
@@ -161,7 +169,7 @@ impl Parser {
 
         match &token_stream[self.cur_token_index].token_type {
             // Print statements
-            TokenType::Keyword(Keywords::Print) => self.parse_print_statement(token_stream),
+            TokenType::Keyword(Keywords::Print) => statement_res = self.parse_print_statement(token_stream),
 
             // Assignment statements
             TokenType::Identifier(_) => {}, // Parse assignment statement
@@ -186,21 +194,74 @@ impl Parser {
         return statement_res;
     }
 
-    fn parse_print_statement(&mut self, token_stream: &Vec<Token>) {//-> Result<bool, ()> {
+    fn parse_print_statement(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
         // Log that we are parsing a print statement
         nexus_log::log(
             nexus_log::LogTypes::Debug,
             nexus_log::LogSources::Parser,
             String::from("Parsing PrintStatement")
         );
-        // If it is not a print statement, no error actually happened, just did not match
-        if self.match_token(token_stream, TokenType::Keyword(Keywords::Print)).is_err() {
-            // Return false
-            // return Ok(false);
-        } else {
-            // Do all expression things
+
+        // Check for the print keyword
+        let keyword_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::Print));
+        if keyword_res.is_err() {
+            return keyword_res;
         }
 
-        // return Ok(true);
+        // Check for the left paren
+        let lparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::LParen));
+        if lparen_res.is_err() {
+            return lparen_res;
+        }
+
+        // First make sure that we have tokens available for an expression
+        if self.cur_token_index < token_stream.len() {
+            // Check to make sure we have a valid expression to print
+            let expr_res: Result<(), String> = self.parse_expression(token_stream);
+            if expr_res.is_err() {
+                return expr_res;
+            }
+        }
+
+        // Check for the right paren
+        let rparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::RParen));
+        if rparen_res.is_err() {
+            return rparen_res;
+        }
+
+        return Ok(());
+    }
+
+    fn parse_expression(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing an expression
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing Expr")
+        );
+
+        let mut expression_res: Result<(), String> = Ok(());
+
+        match &token_stream[self.cur_token_index].token_type {
+            // IntExpr
+            TokenType::Digit(_) => {},
+
+            // StringExpr
+            TokenType::Symbol(Symbols::Quote) => {},
+
+            // BooleanExpr
+            TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => {},
+
+            // Id
+            TokenType::Identifier(_) => expression_res = self.parse_identifier(token_stream),
+
+            _ => {},
+        }
+
+        return expression_res;
+    }
+
+    fn parse_identifier(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        return self.match_token(token_stream, TokenType::Identifier(String::from("")));
     }
 }
