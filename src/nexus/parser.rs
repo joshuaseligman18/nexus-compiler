@@ -112,6 +112,7 @@ impl Parser {
                     match expected_token {
                         // Do nothing because we have a match
                         TokenType::Identifier(_) => {},
+                        // Otherwise return an error
                         _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Identifier(\"a-z\")", cur_token.position, cur_token.token_type))
 
                     }
@@ -120,7 +121,16 @@ impl Parser {
                     match expected_token {
                         // Do nothing because we have a match
                         TokenType::Digit(_) => {},
+                        // Otherwise return an error
                         _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type))
+                    }
+                },
+                TokenType::Char(_) => {
+                    match expected_token {
+                        // Do nothing because we have a match
+                        TokenType::Char(_) => {},
+                        // Otherwise return an error
+                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token))
                     }
                 },
                 _ => {
@@ -254,7 +264,7 @@ impl Parser {
             TokenType::Digit(_) => expression_res = self.parse_int_expression(token_stream),
 
             // StringExpr
-            TokenType::Symbol(Symbols::Quote) => {},
+            TokenType::Symbol(Symbols::Quote) => expression_res = self.parse_string_expression(token_stream),
 
             // BooleanExpr
             TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => {},
@@ -299,6 +309,35 @@ impl Parser {
         return Ok(());
     }
 
+    fn parse_string_expression(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing a string expression
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing StringExpr")
+        );
+
+        // Check for the open quote
+        let open_quote_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::Quote));
+        if open_quote_res.is_err() {
+            return open_quote_res;
+        }
+
+        // Parse the string contents
+        let char_list_res: Result<(), String> = self.parse_char_list(token_stream);
+        if char_list_res.is_err() {
+            return char_list_res;
+        }
+
+        // Check for the close quote
+        let close_quote_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::Quote));
+        if close_quote_res.is_err() {
+            return close_quote_res;
+        }
+
+        return Ok(());
+    }
+
     fn parse_identifier(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
         // Log that we are parsing an identifier
         nexus_log::log(
@@ -307,6 +346,42 @@ impl Parser {
             String::from("Parsing Id")
         );
         return self.match_token(token_stream, TokenType::Identifier(String::from("a-z")));
+    }
+
+    fn parse_char_list(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Recursion base case
+        // We have reached the end of the character list
+        if self.cur_token_index < token_stream.len() && token_stream[self.cur_token_index].token_type.eq(&TokenType::Symbol(Symbols::Quote)) {
+            return Ok(());
+        }
+
+        // Log that we are parsing an CharList
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing CharList")
+        );
+
+        let char_res: Result<(), String> = self.parse_char(token_stream);
+        if char_res.is_err() {
+            // Break from error
+            return char_res;
+        } else {
+            // Otherwise continue for the rest of the string
+            return self.parse_char_list(token_stream);
+        }
+    }
+
+    fn parse_char(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing a Char
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing char/space")
+        );
+
+        // Make sure we have a character token here
+        return self.match_token(token_stream, TokenType::Char(String::from("a-z or space")));
     }
 
     fn parse_int_op(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
