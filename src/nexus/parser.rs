@@ -96,11 +96,12 @@ impl Parser {
 
     // Function to ensure the token is correct
     fn match_token(&mut self, token_stream: &Vec<Token>, expected_token: TokenType) -> Result<(), String> {
-        // Check for an index out of range error
-        if self.cur_token_index < token_stream.len() {
-            // Get the next token
-            let cur_token: &Token = &token_stream[self.cur_token_index];
+        // Get the next token
+        let cur_token_res: Option<Token> = self.peek_next_token(token_stream);
 
+        // Make sure we have a token
+        if cur_token_res.is_some() {
+            let cur_token: Token = cur_token_res.unwrap();
             match &cur_token.token_type {
                 // Check the symbols
                 TokenType::Symbol(_) => {
@@ -154,6 +155,8 @@ impl Parser {
                     }
                 },
                 _ => {
+                    // This should never be reached
+                    return Err(format!("Unrecognized token [ {:?} ] at {:?}", cur_token.text, cur_token.position))
                 }
             }
         } else {
@@ -175,12 +178,12 @@ impl Parser {
         );
 
         // Make sure that the statement list is not empty (for programs that are {}$)
-        if self.cur_token_index < token_stream.len() && !token_stream[self.cur_token_index].token_type.eq(&TokenType::Symbol(Symbols::RBrace)) {
+        if !self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::RBrace)) {
             // Parse the statement
             let statement_res: Result<(), String> = self.parse_statement(token_stream);
             if statement_res.is_err() {
                 return statement_res;
-            } else if self.cur_token_index < token_stream.len() && !token_stream[self.cur_token_index].token_type.eq(&TokenType::Symbol(Symbols::RBrace)) {
+            } else if !self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::RBrace)) {
                 // StatementList = Statement StatementList, so call parse on the next statement list
                 return self.parse_statement_list(token_stream);
             }  else {
@@ -200,31 +203,40 @@ impl Parser {
             String::from("Parsing Statement")
         );
 
-        // Assign a result object to statement_res based on the next token in the stream
-        let mut statement_res: Result<(), String> = 
-            match &token_stream[self.cur_token_index].token_type {
-                // Print statements
-                TokenType::Keyword(Keywords::Print) => self.parse_print_statement(token_stream),
+        // Look ahead to the next token
+        let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
+        if next_token_peek.is_some() {
+            let next_token: Token = next_token_peek.unwrap();
 
-                // Assignment statements
-                TokenType::Identifier(_) => self.parse_assignment_statement(token_stream),
+            // Assign a result object to statement_res based on the next token in the stream
+            let statement_res: Result<(), String> = 
+                match next_token.token_type {
+                    // Print statements
+                    TokenType::Keyword(Keywords::Print) => self.parse_print_statement(token_stream),
 
-                // VarDecl statements
-                TokenType::Keyword(Keywords::Int) | TokenType::Keyword(Keywords::String) | TokenType::Keyword(Keywords::Boolean) => self.parse_var_declaration(token_stream),
+                    // Assignment statements
+                    TokenType::Identifier(_) => self.parse_assignment_statement(token_stream),
 
-                // While statements
-                TokenType::Keyword(Keywords::While) => self.parse_while_statement(token_stream), 
+                    // VarDecl statements
+                    TokenType::Keyword(Keywords::Int) | TokenType::Keyword(Keywords::String) | TokenType::Keyword(Keywords::Boolean) => self.parse_var_declaration(token_stream),
 
-                // If statements
-                TokenType::Keyword(Keywords::If) => self.parse_if_statement(token_stream),
+                    // While statements
+                    TokenType::Keyword(Keywords::While) => self.parse_while_statement(token_stream), 
 
-                // Block statements
-                TokenType::Symbol(Symbols::LBrace) => self.parse_block(token_stream),
+                    // If statements
+                    TokenType::Keyword(Keywords::If) => self.parse_if_statement(token_stream),
 
-                // Invalid statement starter tokens
-                _ => Err(format!("Invalid statement token [ {:?} ] at {:?}; Valid statement beginning tokens are {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}", token_stream[self.cur_token_index].token_type, token_stream[self.cur_token_index].position, TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)))
-            };
-        return statement_res;
+                    // Block statements
+                    TokenType::Symbol(Symbols::LBrace) => self.parse_block(token_stream),
+
+                    // Invalid statement starter tokens
+                    _ => Err(format!("Invalid statement token [ {:?} ] at {:?}; Valid statement beginning tokens are {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)))
+                };
+            return statement_res;
+        } else {
+            // Return an error because there is no token for the statement
+            return Err(format!("Missing statement token; Valid statement beginning tokens are {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}", TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)));
+        }
     }
 
     fn parse_print_statement(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
@@ -248,7 +260,7 @@ impl Parser {
         }
 
         // First make sure that we have tokens available for an expression
-        if self.cur_token_index < token_stream.len() {
+        if self.peek_next_token(token_stream).is_some() {
             // Check to make sure we have a valid expression to print
             let expr_res: Result<(), String> = self.parse_expression(token_stream);
             if expr_res.is_err() {
@@ -383,26 +395,36 @@ impl Parser {
             String::from("Parsing Expr")
         );
 
-        // Assign a result object to expression_res based on the next token in the stream
-        let mut expression_res: Result<(), String> =
-            match &token_stream[self.cur_token_index].token_type {
-                // IntExpr
-                TokenType::Digit(_) => self.parse_int_expression(token_stream),
+        // Look ahead to the next token
+        let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
+        if next_token_peek.is_some() {
+            let next_token: Token = next_token_peek.unwrap();
 
-                // StringExpr
-                TokenType::Symbol(Symbols::Quote) => self.parse_string_expression(token_stream),
-
-                // BooleanExpr
-                TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => self.parse_bool_expression(token_stream),
-
-                // Id
-                TokenType::Identifier(_) => self.parse_identifier(token_stream),
-
-                _ => Err(format!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}", token_stream[self.cur_token_index].token_type, token_stream[self.cur_token_index].position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z")))),
-            };
-
-        return expression_res;
+            // Assign a result object to expression_res based on the next token in the stream
+            let expression_res: Result<(), String> =
+                match next_token.token_type {
+                    // IntExpr
+                    TokenType::Digit(_) => self.parse_int_expression(token_stream),
+    
+                    // StringExpr
+                    TokenType::Symbol(Symbols::Quote) => self.parse_string_expression(token_stream),
+    
+                    // BooleanExpr
+                    TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => self.parse_bool_expression(token_stream),
+    
+                    // Id
+                    TokenType::Identifier(_) => self.parse_identifier(token_stream),
+    
+                    _ => Err(format!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z")))),
+                };
+    
+            return expression_res;
+        } else {
+            // There are no more tokens to parse
+            return Err(format!("Missing expression token; Valid expression beginning tokens are Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}", TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z"))));
+        }
     }
+
 
     fn parse_int_expression(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
         // Log that we are parsing an integer expression
@@ -472,47 +494,55 @@ impl Parser {
             String::from("Parsing BooleanExpr")
         );
 
-        let mut bool_expr_res: Result<(), String> = Ok(());
+        let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
+        if next_token_peek.is_some() {
+            let next_token: Token = next_token_peek.unwrap();
 
-        match &token_stream[self.cur_token_index].token_type {
-            TokenType::Symbol(Symbols::LParen) => {
-                // Start with a left paren
-                let lparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::LParen));
-                if lparen_res.is_err() {
-                    bool_expr_res = lparen_res;
-                } else {
-                    // Then move on to the left side of the expression
-                    let expr1_res: Result<(), String> = self.parse_expression(token_stream);
-                    if expr1_res.is_err() {
-                        bool_expr_res = expr1_res;
+            let mut bool_expr_res: Result<(), String> = Ok(());
+    
+            match next_token.token_type {
+                TokenType::Symbol(Symbols::LParen) => {
+                    // Start with a left paren
+                    let lparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::LParen));
+                    if lparen_res.is_err() {
+                        bool_expr_res = lparen_res;
                     } else {
-                        // Next check for a boolean operator
-                        let bool_op_res: Result<(), String> = self.parse_bool_op(token_stream);
-                        if bool_op_res.is_err() {
-                            bool_expr_res = bool_op_res;
+                        // Then move on to the left side of the expression
+                        let expr1_res: Result<(), String> = self.parse_expression(token_stream);
+                        if expr1_res.is_err() {
+                            bool_expr_res = expr1_res;
                         } else {
-                            // Next check for the other side of the expression
-                            let expr2_res: Result<(), String> = self.parse_expression(token_stream);
-                            if expr2_res.is_err() {
-                                bool_expr_res = expr2_res;
+                            // Next check for a boolean operator
+                            let bool_op_res: Result<(), String> = self.parse_bool_op(token_stream);
+                            if bool_op_res.is_err() {
+                                bool_expr_res = bool_op_res;
                             } else {
-                                // Lastly close it with a paren
-                                let rparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::RParen));
-                                bool_expr_res = rparen_res;
+                                // Next check for the other side of the expression
+                                let expr2_res: Result<(), String> = self.parse_expression(token_stream);
+                                if expr2_res.is_err() {
+                                    bool_expr_res = expr2_res;
+                                } else {
+                                    // Lastly close it with a paren
+                                    let rparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::RParen));
+                                    bool_expr_res = rparen_res;
+                                }
                             }
                         }
                     }
-                }
-            },
-
-            // The false and true keywords
-            TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => bool_expr_res = self.parse_bool_val(token_stream),
-
-            // Invalid boolean expression
-            _ => bool_expr_res = Err(format!("Invalid boolean expression token [ {:?} ] at {:?}; Valid boolean expression beginning tokens are {:?}, {:?}, {:?}", token_stream[self.cur_token_index].token_type, token_stream[self.cur_token_index].position, TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)))
+                },
+    
+                // The false and true keywords
+                TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => bool_expr_res = self.parse_bool_val(token_stream),
+    
+                // Invalid boolean expression
+                _ => bool_expr_res = Err(format!("Invalid boolean expression token [ {:?} ] at {:?}; Valid boolean expression beginning tokens are {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)))
+            }
+    
+            return bool_expr_res;
+        } else {
+            // There are no more tokens to parse
+            return Err(format!("Missing boolean expression token; Valid boolean expression beginning tokens are {:?}, {:?}, {:?}", TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)));
         }
-
-        return bool_expr_res;
     }
 
     fn parse_identifier(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
@@ -535,7 +565,7 @@ impl Parser {
 
         // Recursion base case
         // We have reached the end of the character list
-        if self.cur_token_index < token_stream.len() && token_stream[self.cur_token_index].token_type.eq(&TokenType::Symbol(Symbols::Quote)) {
+        if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::Quote)) {
             return Ok(());
         } else {
             let char_res: Result<(), String> = self.parse_char(token_stream);
@@ -543,7 +573,7 @@ impl Parser {
                 // Break from error
                 return char_res;
             } else {
-                if self.cur_token_index < token_stream.len() && token_stream[self.cur_token_index].token_type.eq(&TokenType::Symbol(Symbols::Quote)) {
+                if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::Quote)) {
                     return Ok(());
                 } else {
                     // Otherwise continue for the rest of the string
@@ -673,5 +703,75 @@ impl Parser {
         }
 
         return res;
+    }
+
+    fn peek_next_token(&mut self, token_stream: &Vec<Token>) -> Option<Token> {
+        // Make sure we are in-bounds
+        if self.cur_token_index < token_stream.len() {
+            // Clone the token and return
+            return Some(token_stream[self.cur_token_index].to_owned());
+        } else {
+            // If there are no more tokens, then we con return None
+            return None;
+        }
+    }
+
+    fn peek_and_match_next_token(&mut self, token_stream: &Vec<Token>,  expected_token: TokenType) -> bool {
+        let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
+        if next_token_peek.is_some() {
+            let next_token: Token = next_token_peek.unwrap();
+            match &next_token.token_type {
+                TokenType::Identifier(_) => {
+                    match expected_token {
+                        // If next is an identifier, make sure expected is also an identifier
+                        TokenType::Identifier(_) => return true,
+                        _ => return false
+                    }
+                },
+                TokenType::Keyword(actual_keyword) => {
+                    match expected_token {
+                        // If they are keywords, have to make sure it is the same keyword
+                        TokenType::Keyword(expected_keyword) => {
+                            if actual_keyword.eq(&expected_keyword) {
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        },
+                        _ => return false
+                    }
+                },
+                TokenType::Symbol(actual_symbol) => {
+                    match expected_token {
+                        // If they are symbols, have to make sure it is the same symbol
+                        TokenType::Symbol(expected_symbol) => {
+                            if actual_symbol.eq(&expected_symbol) {
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        },
+                        _ => return false
+                    }
+                },
+                TokenType::Char(_) => {
+                    match expected_token {
+                        // Check to make sure both are characters
+                        TokenType::Char(_) => return true,
+                        _ => return false
+                    }
+                },
+                TokenType::Digit(_) => {
+                    match expected_token {
+                        // Make sure both are digits
+                        TokenType::Digit(_) => return true,
+                        _ => return false
+                    }
+                },
+                _ => return false
+            }
+        } else {
+            return false;
+        }
     }
 }
