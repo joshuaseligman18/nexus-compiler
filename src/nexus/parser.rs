@@ -112,10 +112,17 @@ impl Parser {
                     match expected_token {
                         // Do nothing because we have a match
                         TokenType::Identifier(_) => {},
-                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
+                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Identifier(\"a-z\")", cur_token.position, cur_token.token_type))
 
                     }
-                }
+                },
+                TokenType::Digit(_) => {
+                    match expected_token {
+                        // Do nothing because we have a match
+                        TokenType::Digit(_) => {},
+                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type))
+                    }
+                },
                 _ => {
 
                 }
@@ -244,7 +251,7 @@ impl Parser {
 
         match &token_stream[self.cur_token_index].token_type {
             // IntExpr
-            TokenType::Digit(_) => {},
+            TokenType::Digit(_) => expression_res = self.parse_int_expression(token_stream),
 
             // StringExpr
             TokenType::Symbol(Symbols::Quote) => {},
@@ -255,13 +262,67 @@ impl Parser {
             // Id
             TokenType::Identifier(_) => expression_res = self.parse_identifier(token_stream),
 
-            _ => {},
+            _ => expression_res = Err(format!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}", token_stream[self.cur_token_index].token_type, token_stream[self.cur_token_index].position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z")))),
         }
 
         return expression_res;
     }
 
+    fn parse_int_expression(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing an integer expression
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing IntExpr")
+        );
+
+        let first_digit_res: Result<(), String> = self.match_token(token_stream, TokenType::Digit(0));
+        if first_digit_res.is_err() {
+            return first_digit_res;
+        }
+
+        // Check the integer operator
+        let int_op_res: Result<(), String> = self.parse_int_op(token_stream);
+
+        // Only continue if it is ok
+        // We do not need to throw an error here as we are assuming that the next token was not related
+        // The token that was checked was not consumed so the next match_token call will check that token
+        if int_op_res.is_ok() {
+            // Get the second half of the expression if there is an integer operator and return the error if needed
+            // Type check does not matter, so can parse 3 + "007" for now and semantic analysis will catch it
+            let second_half_res: Result<(), String> = self.parse_expression(token_stream);
+            if second_half_res.is_err() {
+                return second_half_res;
+            }
+        }
+
+        return Ok(());
+    }
+
     fn parse_identifier(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
-        return self.match_token(token_stream, TokenType::Identifier(String::from("")));
+        // Log that we are parsing an identifier
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing Id")
+        );
+        return self.match_token(token_stream, TokenType::Identifier(String::from("a-z")));
+    }
+
+    fn parse_int_op(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        let res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::AdditionOp));
+
+        // Only print if the token was consumed because it is being checked
+        // more as a peek rather than an actual expectation
+        if res.is_ok() {
+            // Log that we are parsing an integer operator
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::Parser,
+                String::from("Parsing intop")
+            );
+        }
+
+        return res;
     }
 }
