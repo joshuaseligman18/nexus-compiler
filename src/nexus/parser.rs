@@ -105,7 +105,10 @@ impl Parser {
                     // Make sure it is equal
                     if cur_token.token_type.ne(&expected_token) {
                         // Return an error message if the expected token does not line up
-                        return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token));
+                        match expected_token {
+                            TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
+                            _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
+                        }
                     }
                 },
                 TokenType::Identifier(_) => {
@@ -113,8 +116,8 @@ impl Parser {
                         // Do nothing because we have a match
                         TokenType::Identifier(_) => {},
                         // Otherwise return an error
-                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Identifier(\"a-z\")", cur_token.position, cur_token.token_type))
-
+                        TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
+                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token)),
                     }
                 },
                 TokenType::Digit(_) => {
@@ -122,7 +125,7 @@ impl Parser {
                         // Do nothing because we have a match
                         TokenType::Digit(_) => {},
                         // Otherwise return an error
-                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type))
+                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
                     }
                 },
                 TokenType::Char(_) => {
@@ -130,6 +133,7 @@ impl Parser {
                         // Do nothing because we have a match
                         TokenType::Char(_) => {},
                         // Otherwise return an error
+                        TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
                         _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token))
                     }
                 },
@@ -140,9 +144,10 @@ impl Parser {
                             // See if there is a discrepancy is the actual keywords
                             // If not, then do nothing because there is a match
                             if keyword_actual.ne(&keyword_expected) {
-                                return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token))
+                                return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token));
                             }
                         },
+                        TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
                         _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token))
                     }
                 },
