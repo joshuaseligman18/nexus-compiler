@@ -1,3 +1,5 @@
+use std::string;
+
 use log::debug;
 
 use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log};
@@ -198,33 +200,30 @@ impl Parser {
             String::from("Parsing Statement")
         );
 
-        // Assume we are ok
-        let mut statement_res: Result<(), String> = Ok(());
+        // Assign a result object to statement_res based on the next token in the stream
+        let mut statement_res: Result<(), String> = 
+            match &token_stream[self.cur_token_index].token_type {
+                // Print statements
+                TokenType::Keyword(Keywords::Print) => self.parse_print_statement(token_stream),
 
-        match &token_stream[self.cur_token_index].token_type {
-            // Print statements
-            TokenType::Keyword(Keywords::Print) => statement_res = self.parse_print_statement(token_stream),
+                // Assignment statements
+                TokenType::Identifier(_) => self.parse_assignment_statement(token_stream),
 
-            // Assignment statements
-            TokenType::Identifier(_) => statement_res = self.parse_assignment_statement(token_stream), // Parse assignment statement
+                // VarDecl statements
+                TokenType::Keyword(Keywords::Int) | TokenType::Keyword(Keywords::String) | TokenType::Keyword(Keywords::Boolean) => self.parse_var_declaration(token_stream),
 
-            // VarDecl statements
-            TokenType::Keyword(Keywords::Int) | TokenType::Keyword(Keywords::String) | TokenType::Keyword(Keywords::Boolean) => {}, // Parse var declaration
+                // While statements
+                // TokenType::Keyword(Keywords::While) => {}, // Parse while statement
 
-            // While statements
-            TokenType::Keyword(Keywords::While) => {}, // Parse while statement
+                // If statements
+                // TokenType::Keyword(Keywords::If) => {},// Parse if statement,
 
-            // If statements
-            TokenType::Keyword(Keywords::If) => {},// Parse if statement,
+                // Block statements
+                TokenType::Symbol(Symbols::LBrace) => self.parse_block(token_stream),
 
-            // Block statements
-            TokenType::Symbol(Symbols::LBrace) => statement_res = self.parse_block(token_stream),
-
-            // Invalid statement starter tokens
-            _ => {
-                statement_res = Err(format!("Invalid statement token [ {:?} ] at {:?}; Valid statement beginning tokens are {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}", token_stream[self.cur_token_index].token_type, token_stream[self.cur_token_index].position, TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)));
-            }
-        }
+                // Invalid statement starter tokens
+                _ => Err(format!("Invalid statement token [ {:?} ] at {:?}; Valid statement beginning tokens are {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}", token_stream[self.cur_token_index].token_type, token_stream[self.cur_token_index].position, TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)))
+            };
         return statement_res;
     }
 
@@ -295,6 +294,29 @@ impl Parser {
         return Ok(());
     }
 
+    fn parse_var_declaration(&mut self, token_stream: &Vec<Token>) -> Result<(), String>{
+        // Log that we are parsing a variable declaration
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing VarDecl")
+        );
+
+        // Make sure we have a valid type
+        let type_res: Result<(), String> = self.parse_type(token_stream);
+        if type_res.is_err() {
+            return type_res;
+        }
+
+        // Then make sure there is a valid identifier
+        let id_res: Result<(), String> = self.parse_identifier(token_stream);
+        if id_res.is_err() {
+            return id_res;
+        }
+
+        return Ok(());
+    }
+
     fn parse_expression(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
         // Log that we are parsing an expression
         nexus_log::log(
@@ -303,23 +325,23 @@ impl Parser {
             String::from("Parsing Expr")
         );
 
-        let mut expression_res: Result<(), String> = Ok(());
+        // Assign a result object to expression_res based on the next token in the stream
+        let mut expression_res: Result<(), String> =
+            match &token_stream[self.cur_token_index].token_type {
+                // IntExpr
+                TokenType::Digit(_) => self.parse_int_expression(token_stream),
 
-        match &token_stream[self.cur_token_index].token_type {
-            // IntExpr
-            TokenType::Digit(_) => expression_res = self.parse_int_expression(token_stream),
+                // StringExpr
+                TokenType::Symbol(Symbols::Quote) => self.parse_string_expression(token_stream),
 
-            // StringExpr
-            TokenType::Symbol(Symbols::Quote) => expression_res = self.parse_string_expression(token_stream),
+                // BooleanExpr
+                TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => self.parse_bool_expression(token_stream),
 
-            // BooleanExpr
-            TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => expression_res = self.parse_bool_expression(token_stream),
+                // Id
+                TokenType::Identifier(_) => self.parse_identifier(token_stream),
 
-            // Id
-            TokenType::Identifier(_) => expression_res = self.parse_identifier(token_stream),
-
-            _ => expression_res = Err(format!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}", token_stream[self.cur_token_index].token_type, token_stream[self.cur_token_index].position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z")))),
-        }
+                _ => Err(format!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}", token_stream[self.cur_token_index].token_type, token_stream[self.cur_token_index].position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z")))),
+            };
 
         return expression_res;
     }
@@ -473,6 +495,41 @@ impl Parser {
         }
     }
 
+    fn parse_type(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing a type
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing type")
+        );
+
+         // Try to consume the int token
+         let int_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::Int));
+
+         // If int was bad, then try again with string
+         if int_res.is_err() && int_res.as_ref().unwrap_err().starts_with("Invalid") {
+            let string_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::String));
+ 
+            // If string was bad, then try again with boolean
+            if string_res.is_err() && string_res.as_ref().unwrap_err().starts_with("Invalid") {
+                let bool_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::Boolean));
+
+                if bool_res.is_err() && bool_res.as_ref().unwrap_err().starts_with("Invalid") {
+                    // Return a better error if a bool val was not found
+                    let cur_token: &Token = &token_stream[self.cur_token_index];
+                    return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}, {:?}, or {:?}", cur_token.position, cur_token.token_type, TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean)));
+                } else {
+                    return bool_res;
+                }
+            } else {
+                // Otherwise we can just return the result
+                return string_res;
+            }
+        } else {
+            return int_res;
+        }
+    }
+
     fn parse_char(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
         // Log that we are parsing a Char
         nexus_log::log(
@@ -493,25 +550,25 @@ impl Parser {
             String::from("Parsing boolop")
         );
 
-         // Try to consume the == token
-         let eq_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::EqOp));
+        // Try to consume the == token
+        let eq_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::EqOp));
 
-         // If == was bad, then try again with !=
-         if eq_res.is_err() && eq_res.as_ref().unwrap_err().starts_with("Invalid") {
-             let neq_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::NeqOp));
+        // If == was bad, then try again with !=
+        if eq_res.is_err() && eq_res.as_ref().unwrap_err().starts_with("Invalid") {
+            let neq_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::NeqOp));
  
-             // Check to see if the error was an invalid error
-             if neq_res.is_err() && neq_res.as_ref().unwrap_err().starts_with("Invalid") {
-                 // Return a better error if a bool val was not found
-                 let cur_token: &Token = &token_stream[self.cur_token_index];
-                 return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?} or {:?}", cur_token.position, cur_token.token_type, TokenType::Symbol(Symbols::EqOp), TokenType::Symbol(Symbols::NeqOp)));
-             } else {
-                 // Otherwise we can just return the result
-                 return neq_res;
-             }
-         } else {
-             return eq_res;
-         }
+            // Check to see if the error was an invalid error
+            if neq_res.is_err() && neq_res.as_ref().unwrap_err().starts_with("Invalid") {
+                // Return a better error if a bool val was not found
+                let cur_token: &Token = &token_stream[self.cur_token_index];
+                return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?} or {:?}", cur_token.position, cur_token.token_type, TokenType::Symbol(Symbols::EqOp), TokenType::Symbol(Symbols::NeqOp)));
+            } else {
+                // Otherwise we can just return the result
+                return neq_res;
+            }
+        } else {
+            return eq_res;
+        }
     }
 
     fn parse_bool_val(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
