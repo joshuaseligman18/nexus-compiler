@@ -349,26 +349,30 @@ impl Parser {
     }
 
     fn parse_char_list(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
-        // Recursion base case
-        // We have reached the end of the character list
-        if self.cur_token_index < token_stream.len() && token_stream[self.cur_token_index].token_type.eq(&TokenType::Symbol(Symbols::Quote)) {
-            return Ok(());
-        }
-
-        // Log that we are parsing an CharList
+        // Log that we are parsing a CharList
         nexus_log::log(
             nexus_log::LogTypes::Debug,
             nexus_log::LogSources::Parser,
             String::from("Parsing CharList")
         );
 
-        let char_res: Result<(), String> = self.parse_char(token_stream);
-        if char_res.is_err() {
-            // Break from error
-            return char_res;
+        // Recursion base case
+        // We have reached the end of the character list
+        if self.cur_token_index < token_stream.len() && token_stream[self.cur_token_index].token_type.eq(&TokenType::Symbol(Symbols::Quote)) {
+            return Ok(());
         } else {
-            // Otherwise continue for the rest of the string
-            return self.parse_char_list(token_stream);
+            let char_res: Result<(), String> = self.parse_char(token_stream);
+            if char_res.is_err() {
+                // Break from error
+                return char_res;
+            } else {
+                if self.cur_token_index < token_stream.len() && token_stream[self.cur_token_index].token_type.eq(&TokenType::Symbol(Symbols::Quote)) {
+                    return Ok(());
+                } else {
+                    // Otherwise continue for the rest of the string
+                    return self.parse_char_list(token_stream);
+                }
+            }
         }
     }
 
