@@ -136,7 +136,7 @@ impl Parser {
                         TokenType::Char(_) => {},
                         // Otherwise return an error
                         TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
-                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token))
+                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
                     }
                 },
                 TokenType::Keyword(keyword_actual) => {
@@ -146,11 +146,11 @@ impl Parser {
                             // See if there is a discrepancy is the actual keywords
                             // If not, then do nothing because there is a match
                             if keyword_actual.ne(&keyword_expected) {
-                                return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token));
+                                return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token));
                             }
                         },
                         TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
-                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token, expected_token))
+                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
                     }
                 },
                 _ => {
@@ -213,10 +213,10 @@ impl Parser {
                 TokenType::Keyword(Keywords::Int) | TokenType::Keyword(Keywords::String) | TokenType::Keyword(Keywords::Boolean) => self.parse_var_declaration(token_stream),
 
                 // While statements
-                // TokenType::Keyword(Keywords::While) => {}, // Parse while statement
+                TokenType::Keyword(Keywords::While) => self.parse_while_statement(token_stream), 
 
                 // If statements
-                // TokenType::Keyword(Keywords::If) => {},// Parse if statement,
+                TokenType::Keyword(Keywords::If) => self.parse_if_statement(token_stream),
 
                 // Block statements
                 TokenType::Symbol(Symbols::LBrace) => self.parse_block(token_stream),
@@ -312,6 +312,64 @@ impl Parser {
         let id_res: Result<(), String> = self.parse_identifier(token_stream);
         if id_res.is_err() {
             return id_res;
+        }
+
+        return Ok(());
+    }
+
+    fn parse_while_statement(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing a while statement
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing WhileStatement")
+        );
+
+        // Make sure we have the while token
+        let while_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::While));
+        if while_res.is_err() {
+            return while_res;
+        }
+
+        // While has a boolean expression
+        let bool_expr_res: Result<(), String> = self.parse_bool_expression(token_stream);
+        if bool_expr_res.is_err() {
+            return bool_expr_res;
+        }
+
+        // The body of the loop is defined by a block
+        let block_res: Result<(), String> = self.parse_block(token_stream);
+        if block_res.is_err() {
+            return block_res;
+        }
+
+        return Ok(());
+    }
+
+    fn parse_if_statement(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log that we are parsing an if statement
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing IfStatement")
+        );
+
+        // Make sure we have the if token
+        let if_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::If));
+        if if_res.is_err() {
+            return if_res;
+        }
+
+        // If has a boolean expression
+        let bool_expr_res: Result<(), String> = self.parse_bool_expression(token_stream);
+        if bool_expr_res.is_err() {
+            return bool_expr_res;
+        }
+
+        // The body of the if-statement is a block
+        let block_res: Result<(), String> = self.parse_block(token_stream);
+        if block_res.is_err() {
+            return block_res;
         }
 
         return Ok(());
