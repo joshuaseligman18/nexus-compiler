@@ -65,11 +65,12 @@ impl Parser {
                 nexus_log::LogSources::Parser,
                 String::from("Parser failed")
             );
+        } else {
+            // Move up (make current None)
+            self.cst.move_up();
+            debug!("{:?}", self.cst.graph);
+            self.cst.create_image();
         }
-
-        // Move up (make current None)
-        self.cst.move_up();
-        debug!("{:?}", self.cst.graph);
     }
 
     fn parse_block(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
