@@ -1,18 +1,20 @@
-use std::string;
-
 use log::debug;
 
 use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log};
 
+use crate::nexus::cst::Cst;
+
 pub struct Parser {
-    cur_token_index: usize
+    cur_token_index: usize,
+    cst: Cst
 }
 
 impl Parser {
     // Constructor for the parser
     pub fn new() -> Self {
         return Parser {
-            cur_token_index: 0
+            cur_token_index: 0,
+            cst: Cst::new(),
         };
     }
 

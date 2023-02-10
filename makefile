@@ -5,7 +5,7 @@ build:
 clean:
 	# Clean up the target and pkg folders
 	cargo clean; \
-	if [ -d "/pkg" ]; \
+	if [ -d "pkg" ]; \
 	then \
 		rm -r pkg; \
 	fi
