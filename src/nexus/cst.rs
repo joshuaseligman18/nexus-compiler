@@ -5,7 +5,7 @@ use petgraph::graph::{NodeIndex, Graph};
 #[derive (Debug)]
 pub struct Cst {
     // A graph with a string as the node content and no edge weights
-    graph: Graph<String, ()>,
+    pub graph: Graph<String, ()>,
 
     // The root of the tree
     root: Option<usize>,

@@ -2,7 +2,7 @@ use log::debug;
 
 use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log};
 
-use crate::nexus::cst::Cst;
+use crate::nexus::cst::{Cst, CstNodeTypes};
 
 pub struct Parser {
     cur_token_index: usize,
@@ -31,6 +31,9 @@ impl Parser {
         self.cur_token_index = 0;
 
         let mut success: bool = true;
+
+        // Add the program node
+        self.cst.add_node(CstNodeTypes::Root, String::from("Program"));
 
         // A program consists of a block followed by an EOP marker
         // First will check block and then the token
@@ -63,6 +66,10 @@ impl Parser {
                 String::from("Parser failed")
             );
         }
+
+        // Move up (make current None)
+        self.cst.move_up();
+        debug!("{:?}", self.cst.graph);
     }
 
     fn parse_block(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
@@ -72,6 +79,8 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing Block")
         );
+
+        self.cst.add_node(CstNodeTypes::Branch, String::from("Block"));
 
         // Check for left brace
         let lbrace_err: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::LBrace));
@@ -91,6 +100,9 @@ impl Parser {
             // Return the error message if the right brace does not exist
             return rbrace_err;
         }
+
+        // Move up to the previous level
+        self.cst.move_up();
 
         // Return ok if we have received everything that goes into a block
         return Ok(());
@@ -114,6 +126,8 @@ impl Parser {
                             TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
                             _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
                         }
+                    } else {
+                        self.cst.add_node(CstNodeTypes::Leaf, cur_token.text)
                     }
                 },
                 TokenType::Identifier(_) => {
