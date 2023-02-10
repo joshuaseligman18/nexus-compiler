@@ -127,13 +127,14 @@ impl Parser {
                             _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
                         }
                     } else {
-                        self.cst.add_node(CstNodeTypes::Leaf, cur_token.text)
+                        // Add the node to the CST
+                        self.cst.add_node(CstNodeTypes::Leaf, cur_token.text);
                     }
                 },
                 TokenType::Identifier(_) => {
                     match expected_token {
-                        // Do nothing because we have a match
-                        TokenType::Identifier(_) => {},
+                        // Add the node to the cst
+                        TokenType::Identifier(_) => self.cst.add_node(CstNodeTypes::Leaf, cur_token.text),
                         // Otherwise return an error
                         TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
                         _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token)),
@@ -141,16 +142,16 @@ impl Parser {
                 },
                 TokenType::Digit(_) => {
                     match expected_token {
-                        // Do nothing because we have a match
-                        TokenType::Digit(_) => {},
+                        // Add the new node to the cst
+                        TokenType::Digit(_) => self.cst.add_node(CstNodeTypes::Leaf, cur_token.text),
                         // Otherwise return an error
                         _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
                     }
                 },
                 TokenType::Char(_) => {
                     match expected_token {
-                        // Do nothing because we have a match
-                        TokenType::Char(_) => {},
+                        // Add the node to the cst
+                        TokenType::Char(_) => self.cst.add_node(CstNodeTypes::Leaf, cur_token.text),
                         // Otherwise return an error
                         TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
                         _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
@@ -161,9 +162,11 @@ impl Parser {
                         // Check to make sure they are both keywords
                         TokenType::Keyword(keyword_expected) => {
                             // See if there is a discrepancy is the actual keywords
-                            // If not, then do nothing because there is a match
                             if keyword_actual.ne(&keyword_expected) {
                                 return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token));
+                            } else {
+                                // Add the node to the cst
+                                self.cst.add_node(CstNodeTypes::Leaf, cur_token.text);
                             }
                         },
                         TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
@@ -193,6 +196,8 @@ impl Parser {
             String::from("Parsing StatementList")
         );
 
+        self.cst.add_node(CstNodeTypes::Branch, String::from("StatementList"));
+
         // Make sure that the statement list is not empty (for programs that are {}$)
         if !self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::RBrace)) {
             // Parse the statement
@@ -203,10 +208,12 @@ impl Parser {
                 // StatementList = Statement StatementList, so call parse on the next statement list
                 return self.parse_statement_list(token_stream);
             }  else {
-                // There is no more to print, so 
+                // There is no more to print, so return
+                self.cst.move_up();
                 return Ok(());
             }
         } else {
+            self.cst.move_up();
             return Ok(());
         }
     }
@@ -218,6 +225,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing Statement")
         );
+
+        // Add the Statement node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("Statement"));
 
         // Look ahead to the next token
         let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
@@ -248,6 +258,8 @@ impl Parser {
                     // Invalid statement starter tokens
                     _ => Err(format!("Invalid statement token [ {:?} ] at {:?}; Valid statement beginning tokens are {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)))
                 };
+            // We have parsed through the statement and can move up
+            self.cst.move_up();
             return statement_res;
         } else {
             // Return an error because there is no token for the statement
@@ -262,6 +274,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing PrintStatement")
         );
+
+        // Add the PrintStatement node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("PrintStatement"));
 
         // Check for the print keyword
         let keyword_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::Print));
@@ -290,6 +305,8 @@ impl Parser {
             return rparen_res;
         }
 
+        // All good so we move up
+        self.cst.move_up();
         return Ok(());
     }
 
@@ -300,6 +317,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing AssignmentStatement")
         );
+
+        // Add the AssignmentStatement node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("AssignmentStatement"));
 
         // Assignment statements begin with an identifier
         let id_res: Result<(), String> = self.parse_identifier(token_stream);
@@ -319,6 +339,7 @@ impl Parser {
             return expr_res;
         }
 
+        self.cst.move_up();
         return Ok(());
     }
 
@@ -329,6 +350,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing VarDecl")
         );
+
+        // Add the VarDecl node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("VarDecl"));
 
         // Make sure we have a valid type
         let type_res: Result<(), String> = self.parse_type(token_stream);
@@ -342,6 +366,7 @@ impl Parser {
             return id_res;
         }
 
+        self.cst.move_up();
         return Ok(());
     }
 
@@ -352,6 +377,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing WhileStatement")
         );
+
+        // Add the WhileStatementNode
+        self.cst.add_node(CstNodeTypes::Branch, String::from("WhileStatement"));
 
         // Make sure we have the while token
         let while_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::While));
@@ -371,6 +399,7 @@ impl Parser {
             return block_res;
         }
 
+        self.cst.move_up();
         return Ok(());
     }
 
@@ -381,6 +410,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing IfStatement")
         );
+
+        // Add the IfStatement node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("IfStatement"));
 
         // Make sure we have the if token
         let if_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::If));
@@ -400,6 +432,7 @@ impl Parser {
             return block_res;
         }
 
+        self.cst.move_up();
         return Ok(());
     }
 
@@ -410,6 +443,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing Expr")
         );
+
+        // Add the Expr node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("Expr"));
 
         // Look ahead to the next token
         let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
@@ -434,6 +470,7 @@ impl Parser {
                     _ => Err(format!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z")))),
                 };
     
+            self.cst.move_up();
             return expression_res;
         } else {
             // There are no more tokens to parse
@@ -449,6 +486,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing IntExpr")
         );
+
+        // Add the IntExpr node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("IntExpr"));
 
         let first_digit_res: Result<(), String> = self.match_token(token_stream, TokenType::Digit(0));
         if first_digit_res.is_err() {
@@ -470,6 +510,7 @@ impl Parser {
             }
         }
 
+        self.cst.move_up();
         return Ok(());
     }
 
@@ -480,6 +521,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing StringExpr")
         );
+
+        // Add the StringExpr node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("StringExpr"));
 
         // Check for the open quote
         let open_quote_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::Quote));
@@ -499,6 +543,7 @@ impl Parser {
             return close_quote_res;
         }
 
+        self.cst.move_up();
         return Ok(());
     }
 
@@ -509,6 +554,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing BooleanExpr")
         );
+
+        // Add BooleanExpr node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("BooleanExpr"));
 
         let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
         if next_token_peek.is_some() {
@@ -554,6 +602,7 @@ impl Parser {
                 _ => bool_expr_res = Err(format!("Invalid boolean expression token [ {:?} ] at {:?}; Valid boolean expression beginning tokens are {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)))
             }
     
+            self.cst.move_up();
             return bool_expr_res;
         } else {
             // There are no more tokens to parse
@@ -568,7 +617,15 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing Id")
         );
-        return self.match_token(token_stream, TokenType::Identifier(String::from("a-z")));
+
+        // Add the Id node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("Id"));
+
+        // Match the id
+        let id_res: Result<(), String> = self.match_token(token_stream, TokenType::Identifier(String::from("a-z")));
+
+        self.cst.move_up();
+        return id_res;
     }
 
     fn parse_char_list(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
@@ -579,9 +636,13 @@ impl Parser {
             String::from("Parsing CharList")
         );
 
+        // Add the CharList node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("CharList"));
+
         // Recursion base case
         // We have reached the end of the character list
         if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::Quote)) {
+            self.cst.move_up();
             return Ok(());
         } else {
             let char_res: Result<(), String> = self.parse_char(token_stream);
@@ -590,6 +651,7 @@ impl Parser {
                 return char_res;
             } else {
                 if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::Quote)) {
+                    self.cst.move_up();
                     return Ok(());
                 } else {
                     // Otherwise continue for the rest of the string
@@ -607,11 +669,13 @@ impl Parser {
             String::from("Parsing type")
         );
 
+        self.cst.add_node(CstNodeTypes::Branch, String::from("type"));
+
          // Try to consume the int token
          let int_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::Int));
 
-         // If int was bad, then try again with string
-         if int_res.is_err() && int_res.as_ref().unwrap_err().starts_with("Invalid") {
+        // If int was bad, then try again with string
+        if int_res.is_err() && int_res.as_ref().unwrap_err().starts_with("Invalid") {
             let string_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::String));
  
             // If string was bad, then try again with boolean
@@ -623,13 +687,16 @@ impl Parser {
                     let cur_token: &Token = &token_stream[self.cur_token_index];
                     return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}, {:?}, or {:?}", cur_token.position, cur_token.token_type, TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean)));
                 } else {
+                    self.cst.move_up();
                     return bool_res;
                 }
             } else {
                 // Otherwise we can just return the result
+                self.cst.move_up();
                 return string_res;
             }
         } else {
+            self.cst.move_up();
             return int_res;
         }
     }
@@ -642,8 +709,15 @@ impl Parser {
             String::from("Parsing char/space")
         );
 
+        // Add the node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("char/space"));
+
         // Make sure we have a character token here
-        return self.match_token(token_stream, TokenType::Char(String::from("a-z or space")));
+        let char_res: Result<(), String> = self.match_token(token_stream, TokenType::Char(String::from("a-z or space")));
+
+        self.cst.move_up();
+
+        return char_res;
     }
 
     fn parse_bool_op(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
@@ -653,6 +727,8 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing boolop")
         );
+
+        self.cst.add_node(CstNodeTypes::Branch, String::from("boolop"));
 
         // Try to consume the == token
         let eq_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::EqOp));
@@ -668,9 +744,11 @@ impl Parser {
                 return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?} or {:?}", cur_token.position, cur_token.token_type, TokenType::Symbol(Symbols::EqOp), TokenType::Symbol(Symbols::NeqOp)));
             } else {
                 // Otherwise we can just return the result
+                self.cst.move_up();
                 return neq_res;
             }
         } else {
+            self.cst.move_up();
             return eq_res;
         }
     }
@@ -682,6 +760,9 @@ impl Parser {
             nexus_log::LogSources::Parser,
             String::from("Parsing boolval")
         );
+
+        // Add the boolval node
+        self.cst.add_node(CstNodeTypes::Branch, String::from("boolval"));
 
         // Try to consume the false token
         let false_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::False));
@@ -696,27 +777,37 @@ impl Parser {
                 let cur_token: &Token = &token_stream[self.cur_token_index];
                 return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?} or {:?}", cur_token.position, cur_token, TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)));
             } else {
+                self.cst.move_up();
                 // Otherwise we can just return the result
                 return true_res;
             }
         } else {
+            self.cst.move_up();
             return false_res;
         }
     }
 
     fn parse_int_op(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
-        let res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::AdditionOp));
+        let has_int_op_next: bool = self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::AdditionOp));
 
         // Only print if the token was consumed because it is being checked
         // more as a peek rather than an actual expectation
-        if res.is_ok() {
+        if has_int_op_next {
             // Log that we are parsing an integer operator
             nexus_log::log(
                 nexus_log::LogTypes::Debug,
                 nexus_log::LogSources::Parser,
                 String::from("Parsing intop")
             );
+
+            self.cst.add_node(CstNodeTypes::Branch, String::from("intop"));
         }
+
+        // Match the token or get the error
+        let res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::AdditionOp));
+
+        // Move up
+        self.cst.move_up();
 
         return res;
     }
