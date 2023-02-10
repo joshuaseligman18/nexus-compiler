@@ -1,6 +1,18 @@
 use std::{collections::HashMap};
 
-use petgraph::graph::{NodeIndex, Graph};
+use log::info;
+use petgraph::{graph::{NodeIndex, Graph}, dot::{Dot, Config}};
+
+use wasm_bindgen::prelude::*;
+
+// Code from https://github.com/rustwasm/wasm-bindgen/blob/main/examples/import_js/crate/src/lib.rs
+// Have to import the images js module
+#[wasm_bindgen(module = "/images.js")]
+extern "C" {
+    // Import the createGraph function from js so we can call it from the Rust code
+    #[wasm_bindgen(js_name = "createGraph")]
+    fn create_graph(dotSrc: &str);
+}
 
 #[derive (Debug)]
 pub struct Cst {
@@ -67,5 +79,16 @@ impl Cst {
         } else {
             self.current = Some(cur_parent.unwrap());
         }
+    }
+
+    // Function that creates 
+    pub fn create_image(&self) {
+        // Convert the graph into a dot format
+        let graph_dot: Dot<&Graph<String, ()>> = Dot::with_config(&self.graph, &[Config::EdgeNoLabel]);
+    
+        info!("{:?}", graph_dot);
+    
+        // Call the JS to create the graph on the webpage using d3.js
+        create_graph(format!("{:?}", graph_dot).as_str());
     }
 }
