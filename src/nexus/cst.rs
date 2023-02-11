@@ -6,12 +6,12 @@ use petgraph::{graph::{NodeIndex, Graph}, dot::{Dot, Config}};
 use wasm_bindgen::prelude::*;
 
 // Code from https://github.com/rustwasm/wasm-bindgen/blob/main/examples/import_js/crate/src/lib.rs
-// Have to import the images js module
-#[wasm_bindgen(module = "/images.js")]
+// Have to import the treeRenderer js module
+#[wasm_bindgen(module = "/treeRenderer.js")]
 extern "C" {
-    // Import the createGraph function from js so we can call it from the Rust code
-    #[wasm_bindgen(js_name = "createGraph")]
-    fn create_graph(dotSrc: &str);
+    // Import the createCst function from js so we can call it from the Rust code
+    #[wasm_bindgen(js_name = "createCst")]
+    fn create_cst_rendering(dotSrc: &str);
 }
 
 #[derive (Debug)]
@@ -91,6 +91,6 @@ impl Cst {
         info!("{:?}", graph_dot);
     
         // Call the JS to create the graph on the webpage using d3.js
-        create_graph(format!("{:?}", graph_dot).as_str());
+        create_cst_rendering(format!("{:?}", graph_dot).as_str());
     }
 }
