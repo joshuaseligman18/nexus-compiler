@@ -109,18 +109,24 @@ h1 {
     margin: 2.5%;
 }
 
+#cst-container {
+    /* https://stackoverflow.com/questions/8639383/how-do-i-center-an-svg-in-a-div */
+    display: block;
+    margin: auto;
+}
+
 /* Graph styles from https://codepen.io/Jarold/pen/PzbYPb */
 .node rect {
-    stroke: #333;
+    stroke: #121212;
     stroke-width: 2.5px;
-    fill: white;
+    fill: #F5F5F5;
 }
 
 .edgeLabel rect {
-    fill: white;
+    fill: #F5F5F5;
 }
 .edgePath {
-    stroke: #333;
+    stroke: #121212;
     stroke-width: 1.5px;
     fill: none;
 }
