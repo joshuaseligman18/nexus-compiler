@@ -207,7 +207,11 @@ impl Parser {
                 return statement_res;
             } else if !self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::RBrace)) {
                 // StatementList = Statement StatementList, so call parse on the next statement list
-                return self.parse_statement_list(token_stream);
+                let statement_list_res: Result<(), String> = self.parse_statement_list(token_stream);
+                if statement_list_res.is_ok() {
+                    self.cst.move_up();
+                }
+                return statement_list_res;
             }  else {
                 // There is no more to print, so return
                 self.cst.move_up();
@@ -260,7 +264,9 @@ impl Parser {
                     _ => Err(format!("Invalid statement token [ {:?} ] at {:?}; Valid statement beginning tokens are {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)))
                 };
             // We have parsed through the statement and can move up
-            self.cst.move_up();
+            if statement_res.is_ok() {
+                self.cst.move_up();
+            }
             return statement_res;
         } else {
             // Return an error because there is no token for the statement
@@ -471,7 +477,9 @@ impl Parser {
                     _ => Err(format!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z")))),
                 };
     
-            self.cst.move_up();
+            if expression_res.is_ok() {
+                self.cst.move_up();
+            }
             return expression_res;
         } else {
             // There are no more tokens to parse
@@ -603,7 +611,9 @@ impl Parser {
                 _ => bool_expr_res = Err(format!("Invalid boolean expression token [ {:?} ] at {:?}; Valid boolean expression beginning tokens are {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)))
             }
     
-            self.cst.move_up();
+            if bool_expr_res.is_ok() {
+                self.cst.move_up();
+            }
             return bool_expr_res;
         } else {
             // There are no more tokens to parse
@@ -625,7 +635,9 @@ impl Parser {
         // Match the id
         let id_res: Result<(), String> = self.match_token(token_stream, TokenType::Identifier(String::from("a-z")));
 
-        self.cst.move_up();
+        if id_res.is_ok() {
+            self.cst.move_up();
+        }
         return id_res;
     }
 
@@ -656,7 +668,11 @@ impl Parser {
                     return Ok(());
                 } else {
                     // Otherwise continue for the rest of the string
-                    return self.parse_char_list(token_stream);
+                    let char_list_res: Result<(), String> = self.parse_char_list(token_stream);
+                    if char_list_res.is_ok() {
+                        self.cst.move_up();
+                    }
+                    return char_list_res;
                 }
             }
         }
@@ -672,8 +688,8 @@ impl Parser {
 
         self.cst.add_node(CstNodeTypes::Branch, String::from("type"));
 
-         // Try to consume the int token
-         let int_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::Int));
+        // Try to consume the int token
+        let int_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::Int));
 
         // If int was bad, then try again with string
         if int_res.is_err() && int_res.as_ref().unwrap_err().starts_with("Invalid") {
@@ -688,16 +704,22 @@ impl Parser {
                     let cur_token: &Token = &token_stream[self.cur_token_index];
                     return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}, {:?}, or {:?}", cur_token.position, cur_token.token_type, TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean)));
                 } else {
-                    self.cst.move_up();
+                    if bool_res.is_ok() {
+                        self.cst.move_up();
+                    }
                     return bool_res;
                 }
             } else {
                 // Otherwise we can just return the result
-                self.cst.move_up();
+                if string_res.is_ok() {
+                    self.cst.move_up();
+                }
                 return string_res;
             }
         } else {
-            self.cst.move_up();
+            if int_res.is_ok() {
+                self.cst.move_up();
+            }
             return int_res;
         }
     }
@@ -716,7 +738,9 @@ impl Parser {
         // Make sure we have a character token here
         let char_res: Result<(), String> = self.match_token(token_stream, TokenType::Char(String::from("a-z or space")));
 
-        self.cst.move_up();
+        if char_res.is_ok() {
+            self.cst.move_up();
+        }
 
         return char_res;
     }
@@ -745,11 +769,15 @@ impl Parser {
                 return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?} or {:?}", cur_token.position, cur_token.token_type, TokenType::Symbol(Symbols::EqOp), TokenType::Symbol(Symbols::NeqOp)));
             } else {
                 // Otherwise we can just return the result
-                self.cst.move_up();
+                if neq_res.is_ok() {
+                    self.cst.move_up();
+                }
                 return neq_res;
             }
         } else {
-            self.cst.move_up();
+            if eq_res.is_ok() {
+                self.cst.move_up();
+            }
             return eq_res;
         }
     }
@@ -778,12 +806,16 @@ impl Parser {
                 let cur_token: &Token = &token_stream[self.cur_token_index];
                 return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?} or {:?}", cur_token.position, cur_token, TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)));
             } else {
-                self.cst.move_up();
+                if true_res.is_ok() {
+                    self.cst.move_up();
+                }
                 // Otherwise we can just return the result
                 return true_res;
             }
         } else {
-            self.cst.move_up();
+            if false_res.is_ok() {
+                self.cst.move_up();
+            }
             return false_res;
         }
     }
@@ -808,7 +840,9 @@ impl Parser {
         let res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::AdditionOp));
 
         // Move up
-        self.cst.move_up();
+        if res.is_ok() {
+            self.cst.move_up();
+        }
 
         return res;
     }
