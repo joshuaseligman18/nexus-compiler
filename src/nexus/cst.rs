@@ -1,6 +1,6 @@
 use std::{collections::HashMap};
 
-use log::info;
+use log::{info, debug};
 use petgraph::{graph::{NodeIndex, Graph}, dot::{Dot, Config}};
 
 use wasm_bindgen::prelude::*;
@@ -72,12 +72,14 @@ impl Cst {
     // Function to move back up
     pub fn move_up(&mut self) {
         // Get the current parent
-        let cur_parent = self.parents.get(&self.current.unwrap()).unwrap();
-        // Set the current node to be the old current's parent
-        if cur_parent.is_none() {
-            self.current = None;
-        } else {
-            self.current = Some(cur_parent.unwrap());
+        if self.current.is_some() {
+            let cur_parent: &Option<usize> = self.parents.get(&self.current.unwrap()).unwrap();
+            // Set the current node to be the old current's parent
+            if cur_parent.is_none() {
+                self.current = None;
+            } else {
+                self.current = Some(cur_parent.unwrap());
+            }
         }
     }
 
