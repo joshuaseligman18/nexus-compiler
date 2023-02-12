@@ -5,6 +5,8 @@ use petgraph::{graph::{NodeIndex, Graph}, dot::{Dot, Config}};
 
 use wasm_bindgen::prelude::*;
 
+use crate::nexus::cst_node::{CstNode, NonTerminals, CstNodeTypes};
+
 // Code from https://github.com/rustwasm/wasm-bindgen/blob/main/examples/import_js/crate/src/lib.rs
 // Have to import the treeRenderer js module
 #[wasm_bindgen(module = "/treeRenderer.js")]
@@ -17,7 +19,7 @@ extern "C" {
 #[derive (Debug)]
 pub struct Cst {
     // A graph with a string as the node content and no edge weights
-    pub graph: Graph<String, ()>,
+    pub graph: Graph<CstNode, ()>,
 
     // The root of the tree
     root: Option<usize>,
@@ -27,13 +29,6 @@ pub struct Cst {
 
     // A hashmap to keep track of parents
     parents: HashMap<usize, Option<usize>>
-}
-
-#[derive (Debug, PartialEq)]
-pub enum CstNodeTypes {
-    Root,
-    Branch,
-    Leaf
 }
 
 impl Cst {
@@ -48,7 +43,7 @@ impl Cst {
     }
 
     // Function to add a node to the CST
-    pub fn add_node(&mut self, kind: CstNodeTypes, label: String) {
+    pub fn add_node(&mut self, kind: CstNodeTypes, label: CstNode) {
         // Create the node
         let new_node: NodeIndex = self.graph.add_node(label);
 
@@ -86,7 +81,7 @@ impl Cst {
     // Function that creates 
     pub fn create_image(&self) {
         // Convert the graph into a dot format
-        let graph_dot: Dot<&Graph<String, ()>> = Dot::with_config(&self.graph, &[Config::EdgeNoLabel]);
+        let graph_dot: Dot<&Graph<CstNode, ()>> = Dot::with_config(&self.graph, &[Config::EdgeNoLabel]);
     
         info!("{:?}", graph_dot);
     
