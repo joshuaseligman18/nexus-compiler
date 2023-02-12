@@ -31,7 +31,7 @@ pub fn set_up_buttons(document: &Document) {
         .expect("There should be an element called clear-btn");
 
     // Create a function that will be used as the event listener and add it to the clear logs button
-    let clear_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
+    let clear_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(|| {
         nexus_log::clear_logs();
     }) as Box<dyn FnMut()>);
 
@@ -60,7 +60,7 @@ pub fn set_up_buttons(document: &Document) {
         .expect("There should be an element called codegen-log-mode");
 
     // Universal function for toggling log mode buttons
-    let toggle_log_mode_fn: Closure<dyn FnMut(_)> = Closure::wrap(Box::new(move |e: Event| {
+    let toggle_log_mode_fn: Closure<dyn FnMut(_)> = Closure::wrap(Box::new(|e: Event| {
         // Get the element that was clicked
         let target: HtmlElement = e.target().expect("Should be able to get the target").dyn_into::<HtmlElement>().expect("Should be able to cast to an HtmlElement object");
         
