@@ -500,7 +500,8 @@ impl Parser {
         // Add the IntExpr node
         self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::IntExpr));
 
-        let first_digit_res: Result<(), String> = self.match_token(token_stream, TokenType::Digit(0));
+        // Parse the first digit and return error if needed
+        let first_digit_res: Result<(), String> = self.parse_digit(token_stream);
         if first_digit_res.is_err() {
             return first_digit_res;
         }
@@ -722,6 +723,27 @@ impl Parser {
                 self.cst.move_up();
             }
             return int_res;
+        }
+    }
+
+    fn parse_digit(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
+        // Log what we are doing
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing digit")
+        );
+
+        // Add the node
+        self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::Digit));
+
+        // Match the token with a digit
+        let digit_res: Result<(), String> = self.match_token(token_stream, TokenType::Digit(0));
+        if digit_res.is_err() {
+            return digit_res;
+        } else {
+            self.cst.move_up();
+            return Ok(());
         }
     }
 
