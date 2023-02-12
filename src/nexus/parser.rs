@@ -18,7 +18,6 @@ impl Parser {
             cst: Cst::new(),
         };
     }
-
     // Calls for a program to be parsed
     pub fn parse_program(&mut self, token_stream: &Vec<Token>) {
         // Log that we are parsing the program
@@ -28,8 +27,9 @@ impl Parser {
             String::from("Parsing Program")
         );
 
-        // Reset the index to be 0
+        // Reset the index to be 0 and clear the CST
         self.cur_token_index = 0;
+        self.cst.reset();
 
         let mut success: bool = true;
 

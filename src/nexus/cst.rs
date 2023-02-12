@@ -88,4 +88,12 @@ impl Cst {
         // Call the JS to create the graph on the webpage using d3.js
         create_cst_rendering(format!("{:?}", graph_dot).as_str());
     }
+
+    // Resets the CST and clears everything in it
+    pub fn reset(&mut self) {
+        self.graph.clear();
+        self.parents.clear();
+        self.current = None;
+        self.root = None;
+    }
 }
