@@ -77,6 +77,12 @@ pub fn compile(source_code: &str) {
             continue;
         }
 
-
+        nexus_log::insert_empty_line();
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::Parser,
+            format!("CST for Program {}", program_number)
+        );
+        parser.cst.display();
     }
 }

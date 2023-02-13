@@ -111,19 +111,6 @@ h1 {
     justify-content: space-evenly;
 }
 
-#cst-text {
-    width: 25%;
-    height: 500px;
-    resize: none;
-}
-
-#cst-graph{
-    width: 70%;
-    overflow: auto;
-    height: 500px;
-    border: 1px solid #121212;
-}
-
 #cst-container {
     /* https://stackoverflow.com/questions/8639383/how-do-i-center-an-svg-in-a-div */
     display: block;

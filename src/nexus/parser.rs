@@ -69,11 +69,6 @@ impl Parser {
             // Parse error
             return Err(());
         } else {
-            // Move up (make current None)
-            self.cst.move_up();
-
-            self.cst.display();
-
             nexus_log::log(
                 nexus_log::LogTypes::Info,
                 nexus_log::LogSources::Parser,

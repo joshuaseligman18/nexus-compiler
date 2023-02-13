@@ -6,7 +6,7 @@ use petgraph::{graph::{NodeIndex, Graph, WalkNeighbors}, dot::{Dot, Config}, pre
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{Window, Document, HtmlTextAreaElement};
 
-use crate::nexus::cst_node::{CstNode, NonTerminals, CstNodeTypes};
+use crate::{nexus::cst_node::{CstNode, NonTerminals, CstNodeTypes}, util::nexus_log};
 
 use string_builder::Builder;
 
@@ -83,16 +83,7 @@ impl Cst {
 
     pub fn display(&self) {
         let cst_string: String = self.create_text();
-        let window: Window = web_sys::window().expect("The window object should exist");
-        let document: Document = window.document().expect("The document object should exist");
-
-        let cst_textarea: HtmlTextAreaElement = document
-            .get_element_by_id("cst-text")
-            .expect("Should be able to get an element called cst-text")
-            .dyn_into::<HtmlTextAreaElement>()
-            .expect("The element should be recognized as a textarea");
-
-        cst_textarea.set_value(&cst_string);
+        nexus_log::print_tree(nexus_log::LogSources::Parser, cst_string);
 
         // Draw the image to the webpage
         self.create_image();
