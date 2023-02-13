@@ -320,20 +320,12 @@ impl Lexer {
 
                     if cur_char.eq("\n") {
                         if in_string {
-                            // Get the index of the open quote token by doing a backwards linear search
-                            let mut i: i32 = token_stream.len() as i32 - 1;
-                            while i >= 0 {
-                                match &token_stream[i as usize].token_type {
-                                    // Can break upon finding the token
-                                    TokenType::Symbol(Symbols::Quote) => break,
-                                    _ => i -= 1,
-                                };
-                            }
-                            // The string was not closed, so throw an error
+                            // Get the starting position of the string
+                            let string_start: (usize, usize) = self.get_string_start(&token_stream);
                             nexus_log::log(
                                 nexus_log::LogTypes::Error,
                                 nexus_log::LogSources::Lexer,
-                                format!("Unclosed string starting at {:?}", token_stream[i as usize].position)
+                                format!("Unclosed string starting at {:?}", string_start)
                             );
                             num_errors += 1;
 
@@ -361,6 +353,18 @@ impl Lexer {
                 format!("Unclosed comment starting at {:?}", comment_position)
             );
             num_warnings += 1;
+        }
+
+        // If string is still open at end of program, an error will be thrown for consistency with the other instance
+        if in_string {
+            // Get the starting position of the string
+            let string_start: (usize, usize) = self.get_string_start(&token_stream);
+            nexus_log::log(
+                nexus_log::LogTypes::Error,
+                nexus_log::LogSources::Lexer,
+                format!("Unclosed string starting at {:?}", string_start)
+            );
+            num_errors += 1;
         }
 
         // Check for the $ at the end of the program
@@ -539,6 +543,27 @@ impl Lexer {
             return false;
         } else {
             return true;
+        }
+    }
+
+    // Get the starting position
+    fn get_string_start(&self, token_stream: &Vec<Token>) -> (usize, usize) {
+        // Get the index of the open quote token by doing a backwards linear search
+        let mut i: i32 = token_stream.len() as i32 - 1;
+        while i >= 0 {
+            match &token_stream[i as usize].token_type {
+                // Can break upon finding the token
+                TokenType::Symbol(Symbols::Quote) => break,
+                _ => i -= 1,
+            }
+        }
+
+        if i < 0 {
+            // Return this in case the quote is not found (should never happen)
+            return (0, 0)
+        } else {
+            // Return a copy of the string starting position
+            return token_stream[i as usize].position.clone();
         }
     }
 }

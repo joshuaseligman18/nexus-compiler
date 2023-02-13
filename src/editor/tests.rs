@@ -97,6 +97,11 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Lex,
             test_name: String::from("Multi-line things"),
             test_code: String::from("{\n  /* This is a\n  multi-line comment */\n  string s\n  s = \"hello world\n  this should be throwing an error\"\n}$")
+        },
+        Test {
+            test_type: TestType::Lex,
+            test_name: String::from("Unclosed strings"),
+            test_code: String::from("{\n  /* Unclosed string on the next line */\n  print(\"hi\n}$\n/* Unclosed string here too */ print(\"hi")
         }
     ];
 
