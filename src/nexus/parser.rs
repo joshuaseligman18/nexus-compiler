@@ -191,35 +191,32 @@ impl Parser {
     }
 
     fn parse_statement_list(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
-        // Log that we are parsing a statement list
-        nexus_log::log(
-            nexus_log::LogTypes::Debug,
-            nexus_log::LogSources::Parser,
-            String::from("Parsing StatementList")
-        );
-
-        self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::StatementList));
-
-        // Make sure that the statement list is not empty (for programs that are {}$)
+        // Make sure that the statement list is not empty
         if !self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::RBrace)) {
+            // Log that we are parsing a statement list
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::Parser,
+                String::from("Parsing StatementList")
+            );
+            self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::StatementList));
             // Parse the statement
             let statement_res: Result<(), String> = self.parse_statement(token_stream);
             if statement_res.is_err() {
+                // There was an error so break here
                 return statement_res;
-            } else if !self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::RBrace)) {
+            } else {
                 // StatementList = Statement StatementList, so call parse on the next statement list
                 let statement_list_res: Result<(), String> = self.parse_statement_list(token_stream);
                 if statement_list_res.is_ok() {
+
                     self.cst.move_up();
                 }
                 return statement_list_res;
-            }  else {
-                // There is no more to print, so return
-                self.cst.move_up();
-                return Ok(());
             }
+
         } else {
-            self.cst.move_up();
+            // Do nothing here because we have an epsilon with the statement list
             return Ok(());
         }
     }
@@ -645,38 +642,32 @@ impl Parser {
     }
 
     fn parse_char_list(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
-        // Log that we are parsing a CharList
-        nexus_log::log(
-            nexus_log::LogTypes::Debug,
-            nexus_log::LogSources::Parser,
-            String::from("Parsing CharList")
-        );
-
-        // Add the CharList node
-        self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::CharList));
-
         // Recursion base case
         // We have reached the end of the character list
         if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::Quote)) {
-            self.cst.move_up();
+            // Do nothing here because we have reached the end of the string (epsilon case)
             return Ok(());
         } else {
+            // Log that we are parsing a CharList
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::Parser,
+                String::from("Parsing CharList")
+            );
+    
+            // Add the CharList node
+            self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::CharList));
             let char_res: Result<(), String> = self.parse_char(token_stream);
             if char_res.is_err() {
                 // Break from error
                 return char_res;
             } else {
-                if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::Quote)) {
+                // Otherwise continue for the rest of the string
+                let char_list_res: Result<(), String> = self.parse_char_list(token_stream);
+                if char_list_res.is_ok() {
                     self.cst.move_up();
-                    return Ok(());
-                } else {
-                    // Otherwise continue for the rest of the string
-                    let char_list_res: Result<(), String> = self.parse_char_list(token_stream);
-                    if char_list_res.is_ok() {
-                        self.cst.move_up();
-                    }
-                    return char_list_res;
                 }
+                return char_list_res;
             }
         }
     }
