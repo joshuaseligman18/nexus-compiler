@@ -125,38 +125,38 @@ impl Parser {
                     if cur_token.token_type.ne(&expected_token) {
                         // Return an error message if the expected token does not line up
                         match expected_token {
-                            TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
-                            _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
+                            TokenType::Digit(_) => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [Digit(0-9)]", cur_token.token_type, cur_token.position)),
+                            _ => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [{:?}]", cur_token.token_type, cur_token.position, expected_token))
                         }
                     } else {
                         // Add the node to the CST
-                        self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token));
+                        self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned()));
                     }
                 },
                 TokenType::Identifier(_) => {
                     match expected_token {
                         // Add the node to the cst
-                        TokenType::Identifier(_) => self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token)),
+                        TokenType::Identifier(_) => self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned())),
                         // Otherwise return an error
-                        TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
-                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token)),
+                        TokenType::Digit(_) => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [Digit(0-9)]", cur_token.token_type, cur_token.position)),
+                        _ => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [{:?}]", cur_token.token_type, cur_token.position, expected_token)),
                     }
                 },
                 TokenType::Digit(_) => {
                     match expected_token {
                         // Add the new node to the cst
-                        TokenType::Digit(_) => self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token)),
+                        TokenType::Digit(_) => self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned())),
                         // Otherwise return an error
-                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
+                        _ => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [{:?}]", cur_token.token_type, cur_token.position, expected_token))
                     }
                 },
                 TokenType::Char(_) => {
                     match expected_token {
                         // Add the node to the cst
-                        TokenType::Char(_) => self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token)),
+                        TokenType::Char(_) => self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned())),
                         // Otherwise return an error
-                        TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
-                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
+                        TokenType::Digit(_) => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [Digit(0-9)]", cur_token.token_type, cur_token.position)),
+                        _ => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [{:?}]", cur_token.token_type, cur_token.position, expected_token))
                     }
                 },
                 TokenType::Keyword(keyword_actual) => {
@@ -165,14 +165,14 @@ impl Parser {
                         TokenType::Keyword(keyword_expected) => {
                             // See if there is a discrepancy is the actual keywords
                             if keyword_actual.ne(&keyword_expected) {
-                                return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token));
+                                return Err(format!("Invalid token at {:?}; Found {:?}, but expected [{:?}]", cur_token.position, cur_token.token_type, expected_token));
                             } else {
                                 // Add the node to the cst
-                                self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token));
+                                self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned()));
                             }
                         },
-                        TokenType::Digit(_) => return Err(format!("Invalid token at {:?}; Found {:?}, but expected Digit(0-9)", cur_token.position, cur_token.token_type)),
-                        _ => return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}", cur_token.position, cur_token.token_type, expected_token))
+                        TokenType::Digit(_) => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [Digit(0-9)]", cur_token.token_type, cur_token.position)),
+                        _ => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [{:?}]", cur_token.token_type, cur_token.position, expected_token))
                     }
                 },
                 _ => {
@@ -182,12 +182,35 @@ impl Parser {
             }
         } else {
             // Error if no more tokens and expected something
-            return Err(format!("Missing token {:?} ", expected_token));
+            return Err(format!("Missing token [{:?}] ", expected_token));
         }
 
         // Consume the token if it is ok
         self.cur_token_index += 1;
         return Ok(());
+    }
+
+    fn match_token_collection(&mut self, token_stream: &Vec<Token>, expected_tokens: Vec<TokenType>) -> Result<(), String> {
+        // Get the next token
+        let cur_token_res: Option<Token> = self.peek_next_token(token_stream);
+
+        // Make sure we have a token
+        if cur_token_res.is_some() {
+            let cur_token: Token = cur_token_res.unwrap();
+
+            // Check to see if we are expecting the token
+            if expected_tokens.contains(&cur_token.token_type) {
+                // Consume the token if it is ok
+                self.cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned()));
+                self.cur_token_index += 1;
+                return Ok(());
+            } else {
+                return Err(format!("Invalid token [ {:?} ] at {:?}; Expected {:?}", cur_token.token_type, cur_token.position, expected_tokens));
+            }
+        } else {
+            // Error if no more tokens and expected something
+            return Err(format!("Missing token {:?} ", expected_tokens));
+        }
     }
 
     fn parse_statement_list(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
@@ -259,7 +282,7 @@ impl Parser {
                     TokenType::Symbol(Symbols::LBrace) => self.parse_block(token_stream),
 
                     // Invalid statement starter tokens
-                    _ => Err(format!("Invalid statement token [ {:?} ] at {:?}; Valid statement beginning tokens are {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)))
+                    _ => Err(format!("Invalid statement token [ {:?} ] at {:?}; Valid statement beginning tokens are {:?}", next_token.token_type, next_token.position, vec![TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)]))
                 };
             // We have parsed through the statement and can move up
             if statement_res.is_ok() {
@@ -268,7 +291,7 @@ impl Parser {
             return statement_res;
         } else {
             // Return an error because there is no token for the statement
-            return Err(format!("Missing statement token; Valid statement beginning tokens are {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}", TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)));
+            return Err(format!("Missing statement token; Valid statement beginning tokens are {:?}", vec![TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)]));
         }
     }
 
@@ -472,7 +495,7 @@ impl Parser {
                     // Id
                     TokenType::Identifier(_) => self.parse_identifier(token_stream),
     
-                    _ => Err(format!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z")))),
+                    _ => Err(format!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are [Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}]", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z")))),
                 };
     
             if expression_res.is_ok() {
@@ -481,7 +504,7 @@ impl Parser {
             return expression_res;
         } else {
             // There are no more tokens to parse
-            return Err(format!("Missing expression token; Valid expression beginning tokens are Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}", TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z"))));
+            return Err(format!("Missing expression token; Valid expression beginning tokens are [Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}]", TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z"))));
         }
     }
 
@@ -608,7 +631,7 @@ impl Parser {
                 TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => bool_expr_res = self.parse_bool_val(token_stream),
     
                 // Invalid boolean expression
-                _ => bool_expr_res = Err(format!("Invalid boolean expression token [ {:?} ] at {:?}; Valid boolean expression beginning tokens are {:?}, {:?}, {:?}", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)))
+                _ => bool_expr_res = Err(format!("Invalid boolean expression token [ {:?} ] at {:?}; Valid boolean expression beginning tokens are {:?}", next_token.token_type, next_token.position, vec![TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)]))
             }
     
             if bool_expr_res.is_ok() {
@@ -617,7 +640,7 @@ impl Parser {
             return bool_expr_res;
         } else {
             // There are no more tokens to parse
-            return Err(format!("Missing boolean expression token; Valid boolean expression beginning tokens are {:?}, {:?}, {:?}", TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)));
+            return Err(format!("Missing boolean expression token; Valid boolean expression beginning tokens are {:?}", vec![TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)]));
         }
     }
 
@@ -683,39 +706,13 @@ impl Parser {
         self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::Type));
 
         // Try to consume the int token
-        let int_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::Int));
-
-        // If int was bad, then try again with string
-        if int_res.is_err() && int_res.as_ref().unwrap_err().starts_with("Invalid") {
-            let string_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::String));
- 
-            // If string was bad, then try again with boolean
-            if string_res.is_err() && string_res.as_ref().unwrap_err().starts_with("Invalid") {
-                let bool_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::Boolean));
-
-                if bool_res.is_err() && bool_res.as_ref().unwrap_err().starts_with("Invalid") {
-                    // Return a better error if a bool val was not found
-                    let cur_token: &Token = &token_stream[self.cur_token_index];
-                    return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?}, {:?}, or {:?}", cur_token.position, cur_token.token_type, TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean)));
-                } else {
-                    if bool_res.is_ok() {
-                        self.cst.move_up();
-                    }
-                    return bool_res;
-                }
-            } else {
-                // Otherwise we can just return the result
-                if string_res.is_ok() {
-                    self.cst.move_up();
-                }
-                return string_res;
-            }
-        } else {
-            if int_res.is_ok() {
-                self.cst.move_up();
-            }
-            return int_res;
+        let type_res = self.match_token_collection(token_stream, vec![TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean)]);
+        
+        if type_res.is_ok() {
+            self.cst.move_up();
         }
+
+        return type_res;
     }
 
     fn parse_digit(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
@@ -787,31 +784,14 @@ impl Parser {
 
         self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::BoolOp));
 
-        // Try to consume the == token
-        let eq_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::EqOp));
+        // Try to consume the token
+        let bool_op_res: Result<(), String> = self.match_token_collection(token_stream, vec![TokenType::Symbol(Symbols::EqOp), TokenType::Symbol(Symbols::NeqOp)]);
 
-        // If == was bad, then try again with !=
-        if eq_res.is_err() && eq_res.as_ref().unwrap_err().starts_with("Invalid") {
-            let neq_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::NeqOp));
- 
-            // Check to see if the error was an invalid error
-            if neq_res.is_err() && neq_res.as_ref().unwrap_err().starts_with("Invalid") {
-                // Return a better error if a bool val was not found
-                let cur_token: &Token = &token_stream[self.cur_token_index];
-                return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?} or {:?}", cur_token.position, cur_token.token_type, TokenType::Symbol(Symbols::EqOp), TokenType::Symbol(Symbols::NeqOp)));
-            } else {
-                // Otherwise we can just return the result
-                if neq_res.is_ok() {
-                    self.cst.move_up();
-                }
-                return neq_res;
-            }
-        } else {
-            if eq_res.is_ok() {
-                self.cst.move_up();
-            }
-            return eq_res;
+        if bool_op_res.is_ok() {
+            self.cst.move_up();
         }
+        
+        return bool_op_res;
     }
 
     fn parse_bool_val(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
@@ -825,31 +805,15 @@ impl Parser {
         // Add the boolval node
         self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::BoolVal));
 
-        // Try to consume the false token
-        let false_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::False));
+        // Attempt to consume the token
+        let bool_val_res: Result<(), String> = self.match_token_collection(token_stream, vec![TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)]);
 
-        // If false was bad, then try again with true
-        if false_res.is_err() && false_res.as_ref().unwrap_err().starts_with("Invalid") {
-            let true_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::True));
-
-            // Check to see if the error was an invalid error
-            if true_res.is_err() && true_res.as_ref().unwrap_err().starts_with("Invalid") {
-                // Return a better error if a bool val was not found
-                let cur_token: &Token = &token_stream[self.cur_token_index];
-                return Err(format!("Invalid token at {:?}; Found {:?}, but expected {:?} or {:?}", cur_token.position, cur_token, TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)));
-            } else {
-                if true_res.is_ok() {
-                    self.cst.move_up();
-                }
-                // Otherwise we can just return the result
-                return true_res;
-            }
-        } else {
-            if false_res.is_ok() {
-                self.cst.move_up();
-            }
-            return false_res;
+        if bool_val_res.is_ok() {
+            // Move up if appropriate to do so
+            self.cst.move_up();
         }
+
+        return bool_val_res;
     }
 
     fn parse_int_op(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
