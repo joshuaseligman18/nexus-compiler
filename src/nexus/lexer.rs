@@ -4,10 +4,10 @@ use regex::{Regex, RegexSet, SetMatches};
 
 // Struct to maintain the state of the line numbers when compiling multiple programs
 pub struct Lexer {
-    pub source_code: String, // The source code
-    pub line_number: usize, // The line number we are on
-    pub col_number: usize, // The current column number
-    pub current_position: usize, // The current position in the string
+    source_code: String, // The source code
+    line_number: usize, // The line number we are on
+    col_number: usize, // The current column number
+    current_position: usize, // The current position in the string
     keywords: RegexSet, // The regex set for keywords
     characters: Regex, // The regex for characters
     symbols: RegexSet, // The regex set for symbols

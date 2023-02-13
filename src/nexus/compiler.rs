@@ -43,12 +43,19 @@ pub fn compile(source_code: &str) {
 
         // Lex the program
         let lex_res: Result<Vec<Token>, ()> = lexer.lex_program();
+
+        nexus_log::insert_empty_line();
+
         if lex_res.is_err() {
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Parser,
+                String::from("Parsing skipped due to lex failure")
+            );
+
             // No need to move on if lex failed, so can go to next program
             continue;
         }
-
-        nexus_log::insert_empty_line();
 
         // Log the program we are lexing
         nexus_log::log(
@@ -58,6 +65,18 @@ pub fn compile(source_code: &str) {
         );
 
         let token_stream: Vec<Token> = lex_res.unwrap();
-        parser.parse_program(&token_stream);
+        let parse_res: Result<(), ()> = parser.parse_program(&token_stream);
+
+        if parse_res.is_err() {
+            // Do not show CST unless parse is successful
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("CST display skipped due to parse failure")
+            );
+            continue;
+        }
+
+
     }
 }

@@ -7,7 +7,7 @@ use crate::nexus::cst_node::{CstNode, NonTerminals, CstNodeTypes};
 
 pub struct Parser {
     cur_token_index: usize,
-    cst: Cst
+    pub cst: Cst
 }
 
 impl Parser {
@@ -19,7 +19,7 @@ impl Parser {
         };
     }
     // Calls for a program to be parsed
-    pub fn parse_program(&mut self, token_stream: &Vec<Token>) {
+    pub fn parse_program(&mut self, token_stream: &Vec<Token>) -> Result<(), ()> {
         // Log that we are parsing the program
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -66,11 +66,22 @@ impl Parser {
                 nexus_log::LogSources::Parser,
                 String::from("Parser failed")
             );
+            // Parse error
+            return Err(());
         } else {
             // Move up (make current None)
             self.cst.move_up();
-            debug!("{:?}", self.cst.graph);
-            self.cst.create_image();
+
+            self.cst.display();
+
+            nexus_log::log(
+                nexus_log::LogTypes::Info,
+                nexus_log::LogSources::Parser,
+                String::from("Parser completed successfully")
+            );
+
+            // Parsing was successful
+            return Ok(());
         }
     }
 
