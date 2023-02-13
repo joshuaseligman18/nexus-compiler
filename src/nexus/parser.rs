@@ -507,12 +507,13 @@ impl Parser {
         }
 
         // Check the integer operator
-        let int_op_res: Result<(), String> = self.parse_int_op(token_stream);
+        if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::AdditionOp)) {     
+            let int_op_res: Result<(), String> = self.parse_int_op(token_stream);
+    
+            if int_op_res.is_err() {
+                return int_op_res;
+            }
 
-        // Only continue if it is ok
-        // We do not need to throw an error here as we are assuming that the next token was not related
-        // The token that was checked was not consumed so the next match_token call will check that token
-        if int_op_res.is_ok() {
             // Get the second half of the expression if there is an integer operator and return the error if needed
             // Type check does not matter, so can parse 3 + "hello" for now and semantic analysis will catch it
             let second_half_res: Result<(), String> = self.parse_expression(token_stream);
@@ -861,20 +862,14 @@ impl Parser {
     }
 
     fn parse_int_op(&mut self, token_stream: &Vec<Token>) -> Result<(), String> {
-        let has_int_op_next: bool = self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::AdditionOp));
+        // Log that we are parsing an integer operator
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::Parser,
+            String::from("Parsing intop")
+        );
 
-        // Only print if the token was consumed because it is being checked
-        // more as a peek rather than an actual expectation
-        if has_int_op_next {
-            // Log that we are parsing an integer operator
-            nexus_log::log(
-                nexus_log::LogTypes::Debug,
-                nexus_log::LogSources::Parser,
-                String::from("Parsing intop")
-            );
-
-            self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::IntOp));
-        }
+        self.cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::IntOp));
 
         // Match the token or get the error
         let res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::AdditionOp));
