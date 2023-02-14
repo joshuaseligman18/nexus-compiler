@@ -83,6 +83,6 @@ pub fn compile(source_code: &str) {
             nexus_log::LogSources::Parser,
             format!("CST for Program {}", program_number)
         );
-        parser.cst.display();
+        parser.cst.display(&program_number);
     }
 }

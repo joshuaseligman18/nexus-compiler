@@ -4,7 +4,7 @@ use log::{info, debug};
 use petgraph::{graph::{NodeIndex, Graph, WalkNeighbors}, dot::{Dot, Config}, prelude::EdgeIndex};
 
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{Window, Document, HtmlTextAreaElement};
+use web_sys::{Window, Document, HtmlTextAreaElement, HtmlLiElement, Element, DomTokenList};
 
 use crate::{nexus::cst_node::{CstNode, NonTerminals, CstNodeTypes}, util::nexus_log};
 
@@ -37,6 +37,7 @@ pub struct Cst {
 impl Cst {
     // Constructor for a cst
     pub fn new() -> Self {
+        Cst::clear_display();
         return Cst {
             graph: Graph::new(),
             root: None,
@@ -81,12 +82,15 @@ impl Cst {
         }
     }
 
-    pub fn display(&self) {
+    pub fn display(&self, program_number: &u32) {
         let cst_string: String = self.create_text();
         nexus_log::print_tree(nexus_log::LogSources::Parser, cst_string);
 
+
+        self.create_display_area(program_number);
+
         // Draw the image to the webpage
-        self.create_image();
+        // self.create_image();
     }
 
     fn create_text(&self) -> String {
@@ -127,11 +131,92 @@ impl Cst {
         create_cst_rendering(format!("{:?}", graph_dot).as_str());
     }
 
+    fn create_display_area(&self, program_number: &u32) -> String {
+        // Get the preliminary objects
+        let window: Window = web_sys::window().expect("Should be able to get the window");
+        let document: Document = window.document().expect("Should be able to get the document");
+
+        // The ul of the tabs
+        let tabs_area: Element = document.get_element_by_id("cst-tabs").expect("Should be able to find the element");
+    
+        // Create the new tab in the list
+        let new_li: Element = document.create_element("li").expect("Should be able to create the li element");
+
+        // Add the appropriate classes
+        let li_classes: DomTokenList = new_li.class_list();
+        li_classes.add_1("nav_item").expect("Should be able to add the class");
+        new_li.set_attribute("role", "presentation").expect("Should be able to add the attribute");
+
+        // <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home-tab-pane" type="button" role="tab" aria-controls="home-tab-pane" aria-selected="true">Home</button>
+
+        // Create the button
+        let new_button: Element = document.create_element("button").expect("Should be able to create the button");
+        let btn_classes: DomTokenList = new_button.class_list();
+        btn_classes.add_1("nav-link").expect("Should be able to add the class");
+
+        // Only make the first one active
+        if tabs_area.child_element_count() == 0 {
+            btn_classes.add_1("active").expect("Should be able to add the class");
+            new_button.set_attribute("aria-selected", "true").expect("Should be able to add the attribute");
+        } else {
+            new_button.set_attribute("aria-selected", "false").expect("Should be able to add the attribute");
+        }
+
+        new_button.set_id(format!("program{}-cst-btn", *program_number).as_str());
+
+        new_button.set_attribute("data-bs-toggle", "tab").expect("Should be able to add the attribute");
+        new_button.set_attribute("type", "button").expect("Should be able to add the attribute");
+        new_button.set_attribute("role", "tab").expect("Should be able to add the attribute");
+        new_button.set_attribute("data-bs-target", format!("#program{}-cst-pane", *program_number).as_str()).expect("Should be able to add the attribute");
+        new_button.set_attribute("aria-controls", format!("program{}-cst-pane", *program_number).as_str()).expect("Should be able to add the attribute");
+
+        new_button.set_inner_html(format!("Program {}", *program_number).as_str());
+
+        new_li.append_child(&new_button).expect("Should be able to add the child node");
+        tabs_area.append_child(&new_li).expect("Should be able to add the child node");
+
+        // Get the content area
+        let content_area: Element = document.get_element_by_id("cst-tab-content").expect("Should be able to find the element");
+
+        // Create the individual pane div
+        let display_area_div: Element = document.create_element("div").expect("Should be able to create the element");
+
+        let display_area_class_list: DomTokenList = display_area_div.class_list();
+        display_area_class_list.add_2("tab-pane", "fade").expect("Should be able to add the classes");
+        if content_area.child_element_count() == 0 {
+            display_area_class_list.add_2("show", "active").expect("Should be able to add the classes");
+        }
+
+        display_area_div.set_attribute("role", "tabpanel").expect("Should be able to add the attribute");
+        display_area_div.set_attribute("tabindex", "0").expect("Should be able to add the attribute");
+        display_area_div.set_attribute("aria-labeledby", format!("program{}-cst-btn", *program_number).as_str()).expect("Should be able to add the attribute");
+
+        display_area_div.set_id(format!("program{}-cst-pane", *program_number).as_str());
+
+        display_area_div.set_inner_html(format!("Program {}", *program_number).as_str());
+
+        content_area.append_child(&display_area_div).expect("Should be able to add the child node");
+
+        return "".to_string();
+    }
+
     // Resets the CST and clears everything in it
     pub fn reset(&mut self) {
         self.graph.clear();
         self.parents.clear();
         self.current = None;
         self.root = None;
+    }
+
+    fn clear_display() {
+        // Get the preliminary objects
+        let window: Window = web_sys::window().expect("Should be able to get the window");
+        let document: Document = window.document().expect("Should be able to get the document");
+
+        // Clear the entire area
+        let tabs_area: Element = document.get_element_by_id("cst-tabs").expect("Should be able to find the element");
+        tabs_area.set_inner_html("");
+        let content_area: Element = document.get_element_by_id("cst-tab-content").expect("Should be able to find the element");
+        content_area.set_inner_html("");
     }
 }
