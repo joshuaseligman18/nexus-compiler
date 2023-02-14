@@ -46,8 +46,11 @@ button:hover, select:hover {
     text-align: center;
 }
 
-#ta-code-input, #nexus-log-area {
+textarea {
     resize: none;
+}
+
+#ta-code-input, #nexus-log-area {
     width: 48%;
     height: 350px;
     font-size: 12px;
@@ -105,6 +108,23 @@ h1 {
 #cst-area {
     width: 95%;
     margin: 2.5%;
+}
+
+#cst-tab-content {
+    margin-top: 1.5%;
+}
+
+.cst-pane * {
+    height: 450px;
+}
+
+/* .cst-text {
+    width: 25%;
+    margin-right: 2.5%;
+}
+*/
+.cst-svg {
+    overflow: auto;
 }
 
 /* #cst-area {

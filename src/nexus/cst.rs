@@ -4,7 +4,7 @@ use log::{info, debug};
 use petgraph::{graph::{NodeIndex, Graph, WalkNeighbors}, dot::{Dot, Config}, prelude::EdgeIndex};
 
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{Window, Document, HtmlTextAreaElement, HtmlLiElement, Element, DomTokenList};
+use web_sys::{Window, Document, HtmlTextAreaElement, Element, DomTokenList};
 
 use crate::{nexus::cst_node::{CstNode, NonTerminals, CstNodeTypes}, util::nexus_log};
 
@@ -16,7 +16,7 @@ use string_builder::Builder;
 extern "C" {
     // Import the createCst function from js so we can call it from the Rust code
     #[wasm_bindgen(js_name = "createCst")]
-    fn create_cst_rendering(dotSrc: &str);
+    fn create_cst_rendering(dotSrc: &str, svgId: &str);
 }
 
 #[derive (Debug)]
@@ -83,14 +83,23 @@ impl Cst {
     }
 
     pub fn display(&self, program_number: &u32) {
+        let svg_id: String = self.create_display_area(program_number);
+
         let cst_string: String = self.create_text();
-        nexus_log::print_tree(nexus_log::LogSources::Parser, cst_string);
+        // Get the preliminary objects
+        let window: Window = web_sys::window().expect("Should be able to get the window");
+        let document: Document = window.document().expect("Should be able to get the document");
+        let text_area_cst: HtmlTextAreaElement = document.get_element_by_id(format!("program{}-cst-text", *program_number).as_str())
+                                                    .expect("Should be able to get the textarea")
+                                                    .dyn_into::<HtmlTextAreaElement>()
+                                                    .expect("Should be able to convert to textarea");
+
+        text_area_cst.set_value(&cst_string);
 
 
-        self.create_display_area(program_number);
 
         // Draw the image to the webpage
-        // self.create_image();
+        self.create_image(svg_id);
     }
 
     fn create_text(&self) -> String {
@@ -123,12 +132,12 @@ impl Cst {
     }
 
     // Function that creates 
-    fn create_image(&self) {
+    fn create_image(&self, svg_id: String) {
         // Convert the graph into a dot format
         let graph_dot: Dot<&Graph<CstNode, ()>> = Dot::with_config(&self.graph, &[Config::EdgeNoLabel]);
         
         // Call the JS to create the graph on the webpage using d3.js
-        create_cst_rendering(format!("{:?}", graph_dot).as_str());
+        create_cst_rendering(format!("{:?}", graph_dot).as_str(), &svg_id);
     }
 
     fn create_display_area(&self, program_number: &u32) -> String {
@@ -182,7 +191,7 @@ impl Cst {
         let display_area_div: Element = document.create_element("div").expect("Should be able to create the element");
 
         let display_area_class_list: DomTokenList = display_area_div.class_list();
-        display_area_class_list.add_2("tab-pane", "fade").expect("Should be able to add the classes");
+        display_area_class_list.add_1("tab-pane").expect("Should be able to add the class");
         if content_area.child_element_count() == 0 {
             display_area_class_list.add_2("show", "active").expect("Should be able to add the classes");
         }
@@ -193,11 +202,33 @@ impl Cst {
 
         display_area_div.set_id(format!("program{}-cst-pane", *program_number).as_str());
 
-        display_area_div.set_inner_html(format!("Program {}", *program_number).as_str());
+        display_area_class_list.add_2("container", "cst-pane").expect("Should be able to add the classes");
+
+        let row_div: Element = document.create_element("div").expect("Should be able to create the div");
+        row_div.set_class_name("row");
+        
+        let cst_text_area: HtmlTextAreaElement = document.create_element("textarea")
+                                                    .expect("Should be able to create the textarea")
+                                                    .dyn_into::<HtmlTextAreaElement>()
+                                                    .expect("Should be able to convert to textarea");
+
+        let cst_text_classes: DomTokenList = cst_text_area.class_list();
+        cst_text_classes.add_2("col-4", "cst-text").expect("Should be able to add the classes");
+        cst_text_area.set_read_only(true);
+        cst_text_area.set_id(format!("program{}-cst-text", *program_number).as_str());
+        row_div.append_child(&cst_text_area).expect("Should be able to add child node");
+
+        let svg_elem: Element = document.create_element("svg").expect("Should be able to create the element");
+        let svg_classes: DomTokenList = svg_elem.class_list();
+        svg_classes.add_2("col-8", "cst-svg").expect("Should be able to add the classes");
+        svg_elem.set_id(format!("program{}-cst-svg", *program_number).as_str());
+        row_div.append_child(&svg_elem).expect("Should be able to add child node");
+
+        display_area_div.append_child(&row_div).expect("Should be able to append child");
 
         content_area.append_child(&display_area_div).expect("Should be able to add the child node");
 
-        return "".to_string();
+        return svg_elem.id();
     }
 
     // Resets the CST and clears everything in it
