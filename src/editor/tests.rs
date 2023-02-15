@@ -76,12 +76,12 @@ fn get_tests() -> Vec<Test> {
         Test {
             test_type: TestType::Lex,
             test_name: String::from("Everything"),
-            test_code: String::from("{\n  /* This is a COMMENT 007 */\n  string s\n  s = \"hello world\"\n  int a\n  a = 0\n  while (a != 5) {\n    a = a + 1\n  }\n  if (a == 5) {\n    print(\"success\")\n  }\n  boolean b\n  b = true\n  if (b != false) {\n    print(s)\n  }\n}$")
+            test_code: String::from("{\n  /* This is a COMMENT 007 */\n  string s\n  s = \"hello world\"\n  int a\n  a = 0\n  while (a != 5) {\n    a = 1 + a\n  }\n  if (a == 5) {\n    print(\"success\")\n  }\n  boolean b\n  b = true\n  if (b != false) {\n    print(s)\n  }\n}$")
         },
         Test {
             test_type: TestType::Lex,
             test_name: String::from("Everything but spaces"),
-            test_code: String::from("{/* This is a COMMENT 007 */stringss=\"hello world\"intaa=0while(a!=5){a=a+1}if(a==5){print(\"success\")}booleanbb=trueif(b!=false){print(s)}}$")
+            test_code: String::from("{/* This is a COMMENT 007 */stringss=\"hello world\"intaa=0while(a!=5){a=1+a}if(a==5){print(\"success\")}booleanbb=trueif(b!=false){print(s)}}$")
         },
         Test {
             test_type: TestType::Lex,
@@ -102,6 +102,36 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Lex,
             test_name: String::from("Unclosed strings"),
             test_code: String::from("{\n  /* Unclosed string on the next line */\n  print(\"hi\n}$\n/* Unclosed string here too */ print(\"hi")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Alan's tests"),
+            test_code: String::from("{}$\n{{{{{{}}}}}}$\n{{{{{{}}} /* comments are ignored */ }}}}$\n{ /* comments are still ignored */ int @}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Everything"),
+            test_code: String::from("{\n  /* This is a COMMENT 007 */\n  string s\n  s = \"hello world\"\n  int a\n  a = 0\n  while (a != 5) {\n    a = 1 + a\n  }\n  if (a == 5) {\n    print(\"success\")\n  }\n  boolean b\n  b = true\n  if (b != false) {\n    print(s)\n  }\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Mismatched operation"),
+            test_code: String::from("{\n  /* IntExpr = digit intop Expr, NOT Expr intop digit */\n  x = x + 3\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Mismatched types are ok"),
+            test_code: String::from("{\n  /* Parse does not do type checking */\n  int x\n  x = 3 + \"james bond\"\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Missing $"),
+            test_code: String::from("{/* This should throw an error */}")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Invalid program structure"),
+            test_code: String::from("/* Missing the block for the program */\nint a = 3")
         }
     ];
 

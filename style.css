@@ -118,11 +118,6 @@ h1 {
     height: 450px;
 }
 
-/* .cst-text {
-    width: 25%;
-    margin-right: 2.5%;
-}
-*/
 .cst-svg-div svg {
     border: 1px solid #121212;
 }
@@ -133,20 +128,6 @@ h1 {
 
 .cst-svg-div svg:active {
     cursor: grabbing;
-}
-
-/* #cst-area {
-    width: 95%;
-    margin: 2.5%;
-    display: flex;
-    align-items: center;
-    justify-content: space-evenly;
-} */
-
-.cst-container {
-    /* https://stackoverflow.com/questions/8639383/how-do-i-center-an-svg-in-a-div */
-    /* display: block;
-    margin: auto; */
 }
 
 /* Graph styles from https://codepen.io/Jarold/pen/PzbYPb */

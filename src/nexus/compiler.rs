@@ -74,6 +74,8 @@ pub fn compile(source_code: &str) {
         let parse_res: Result<(), ()> = parser.parse_program(&token_stream);
 
         if parse_res.is_err() {
+            nexus_log::insert_empty_line();
+
             // Do not show CST unless parse is successful
             nexus_log::log(
                 nexus_log::LogTypes::Warning,
@@ -89,5 +91,7 @@ pub fn compile(source_code: &str) {
             format!("CST display for Program {} is below", program_number)
         );
         parser.cst.display(&program_number);
+
+        // nexus_log::insert_empty_line();
     }
 }

@@ -81,10 +81,8 @@ impl Lexer {
 
             // Create the output string and log it
             let mut out_string: String = format!("Lexer completed with 0 errors and {} warning", num_warnings);
-            if num_warnings == 1 {
-                out_string.push_str(".");    
-            } else {
-                out_string.push_str("s.");
+            if num_warnings != 1 {
+                out_string.push_str("s");
             }
             nexus_log::log(
                 nexus_log::LogTypes::Info,
