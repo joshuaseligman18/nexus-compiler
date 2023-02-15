@@ -53,6 +53,12 @@ pub fn compile(source_code: &str) {
                 String::from("Parsing skipped due to lex failure")
             );
 
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("CST display skipped due to lex failure")
+            );
+
             // No need to move on if lex failed, so can go to next program
             continue;
         }
@@ -77,11 +83,10 @@ pub fn compile(source_code: &str) {
             continue;
         }
 
-        nexus_log::insert_empty_line();
         nexus_log::log(
             nexus_log::LogTypes::Info,
             nexus_log::LogSources::Parser,
-            format!("CST for Program {}", program_number)
+            format!("CST display for Program {} is below", program_number)
         );
         parser.cst.display(&program_number);
     }

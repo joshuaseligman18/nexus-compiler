@@ -120,19 +120,3 @@ fn is_verbose_mode(src: &LogSources) -> bool {
     }
     return out;
 }
-
-pub fn print_tree(src: LogSources, tree_string: String) {
-    if is_verbose_mode(&src) {
-        // Get the log area
-        let log_area: HtmlTextAreaElement = get_log_area();
-
-        // Get the original value
-        let mut log_value: String = log_area.value();
-
-        // Add the new message to the logs
-        log_value.push_str(&tree_string);
-
-        // Set the new value
-        log_area.set_value(&log_value);
-    }
-}

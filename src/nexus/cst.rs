@@ -218,17 +218,17 @@ impl Cst {
         cst_text_area.set_id(format!("program{}-cst-text", *program_number).as_str());
         row_div.append_child(&cst_text_area).expect("Should be able to add child node");
 
-        let svg_elem: Element = document.create_element("svg").expect("Should be able to create the element");
-        let svg_classes: DomTokenList = svg_elem.class_list();
-        svg_classes.add_2("col-8", "cst-svg").expect("Should be able to add the classes");
-        svg_elem.set_id(format!("program{}-cst-svg", *program_number).as_str());
-        row_div.append_child(&svg_elem).expect("Should be able to add child node");
+        let svg_div_elem: Element = document.create_element("div").expect("Should be able to create the element");
+        let svg_classes: DomTokenList = svg_div_elem.class_list();
+        svg_classes.add_2("col-8", "cst-svg-div").expect("Should be able to add the classes");
+        svg_div_elem.set_id(format!("program{}-cst-svg-div", *program_number).as_str());
+        row_div.append_child(&svg_div_elem).expect("Should be able to add child node");
 
         display_area_div.append_child(&row_div).expect("Should be able to append child");
 
         content_area.append_child(&display_area_div).expect("Should be able to add the child node");
 
-        return svg_elem.id();
+        return svg_div_elem.id();
     }
 
     // Resets the CST and clears everything in it
