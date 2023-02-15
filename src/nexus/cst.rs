@@ -239,7 +239,7 @@ impl Cst {
         self.root = None;
     }
 
-    fn clear_display() {
+    pub fn clear_display() {
         // Get the preliminary objects
         let window: Window = web_sys::window().expect("Should be able to get the window");
         let document: Document = window.document().expect("Should be able to get the document");

@@ -1,7 +1,7 @@
 use wasm_bindgen::{prelude::Closure, JsCast};
 use web_sys::{Document, HtmlTextAreaElement, HtmlElement, Event, Element};
 
-use crate::{nexus::compiler, util::nexus_log};
+use crate::{nexus::{compiler, cst::Cst}, util::nexus_log};
 
 // Function used to set up all interactive elements in the webpage
 pub fn set_up_buttons(document: &Document) {
@@ -33,6 +33,7 @@ pub fn set_up_buttons(document: &Document) {
     // Create a function that will be used as the event listener and add it to the clear logs button
     let clear_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(|| {
         nexus_log::clear_logs();
+        Cst::clear_display();
     }) as Box<dyn FnMut()>);
 
     clear_btn.add_event_listener_with_callback("click", clear_btn_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
