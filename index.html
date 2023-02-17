@@ -19,44 +19,53 @@
         <h3>Josh Seligman</h3>
     </div>
 
-    <div id="top-area">
-        <div id="top-bar">
-            <div id="test-area">
-                <select id="tests"></select>
-                <button id="load-test-btn">Load Test</button>
+    <div id="top-area" class="container">
+        <div id="top-bar" class="row align-items-center gx-5">
+            <div id="test-area" class="col">
+                <div class="row justify-content-evenly">
+                    <select id="tests" class="col-6"></select>
+                    <button id="load-test-btn" class="col-3">Load Test</button>
+                </div>
             </div>
-            <div id="basic-btns">
-                <button id="compile-btn">Compile</button>
-                <button id="clear-btn">Clear Output</button>
+            <div id="basic-btns" class="col">
+                <div class="row justify-content-evenly">
+                    <button id="compile-btn" class="col-4">Compile</button>
+                    <button id="clear-btn" class="col-4">Clear Output</button>
+                </div>
             </div>
         </div>
-        <div id="bottom-bar">
-            <div id="bottom-bar-left"></div>
-            <div id="log-mode-area">
-                <table id="verbose-mode-table">
-                    <tr>
-                        <td>Nexus</td>
-                        <td>Lexer</td>
-                        <td>Parser</td>
-                        <td>Semantic Analyzer</td>
-                        <td>Code Generator</td>
-                    </tr>
-                    <tr>
-                        <td class="verbose" id="nexus-log-mode">Verbose</td>
-                        <td class="verbose" id="lexer-log-mode">Verbose</td>
-                        <td class="verbose" id="parser-log-mode">Verbose</td>
-                        <td class="verbose" id="semantic-log-mode">Verbose</td>
-                        <td class="verbose" id="codegen-log-mode">Verbose</td>
-                    </tr>
-                </table>
+        <div id="bottom-bar" class="row align-items-center gx-5">
+            <div id="bottom-bar-left" class="col"></div>
+            <div id="log-mode-area" class="col container">
+                <div class="row align-items-center text-center">
+                    <p class="col">Nexus</p>
+                    <p class="col">Lexer</p>
+                    <p class="col">Parser</p>
+                    <p class="col">Semantic Analyzer</p>
+                    <p class="col">Code Generator</p>
+                </div>
+                <div class="row align-items-center text-center">
+                    <p class="verbose col" id="nexus-log-mode">Verbose</p>
+                    <p class="verbose col" id="lexer-log-mode">Verbose</p>
+                    <p class="verbose col" id="parser-log-mode">Verbose</p>
+                    <p class="verbose col" id="semantic-log-mode">Verbose</p>
+                    <p class="verbose col" id="codegen-log-mode">Verbose</p>
+                </div>
             </div>
         </div>
     </div>
-    <div id="main-area">
-        <div id="code-input"></div>
-        <textarea id="nexus-log-area" readonly></textarea>
+    <div id="main-area" class="container">
+        <div class="row gx-5">
+            <div class="col-6">
+                <div id="code-input"></div>
+            </div>
+            <div class="col-6">
+                <textarea id="nexus-log-area" readonly></textarea>
+            </div>
+        </div>
     </div>
-    <h2 style="text-align: center">Concrete Syntax Tree</h2>
+    <hr />
+    <h2 style="text-align: center;">Concrete Syntax Tree</h2>
     <div id="cst-area">
         <ul class="nav nav-tabs" id="cst-tabs" role="tablist">
         </ul>

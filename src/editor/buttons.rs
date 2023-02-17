@@ -69,18 +69,18 @@ pub fn set_up_buttons(document: &Document) {
         let target: HtmlElement = e.target().expect("Should be able to get the target").dyn_into::<HtmlElement>().expect("Should be able to cast to an HtmlElement object");
         
         // Swap verbose and simple modes
-        match target.class_name().as_str() {
-            "verbose" => {
-                target.set_class_name("simple");
-                target.set_inner_text("Simple");
-            },
-            "simple" => {
-                target.set_class_name("verbose");
-                target.set_inner_text("Verbose");
-            },
-            // Should not be reached
-            _ => panic!("Invalid class name")
-        }
+        // match target.class_name().as_str() {
+        //     "verbose" => {
+        //         target.set_class_name("simple");
+        //         target.set_inner_text("Simple");
+        //     },
+        //     "simple" => {
+        //         target.set_class_name("verbose");
+        //         target.set_inner_text("Verbose");
+        //     },
+        //     // Should not be reached
+        //     _ => panic!("Invalid class name")
+        // }
     }) as Box<dyn FnMut(_)>);
 
     // Add the event listener

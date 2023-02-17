@@ -19,7 +19,7 @@ button, select {
     border: 0px;
     color: #F5F5F5;
     font-size: 14px;
-    padding: 5px;
+    padding: 2px;
     font-family: 'Courier New', Courier, monospace;
 }
 
@@ -35,13 +35,6 @@ button:hover, select:hover {
     background-color: #F05454;
 }
 
-#main-area {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-evenly;
-}
-
 #title-area {
     text-align: center;
 }
@@ -51,46 +44,19 @@ textarea {
 }
 
 #code-input, #nexus-log-area {
-    width: 48%;
-    height: 350px;
     font-size: 12px;
+    height: 350px;
+    width: 100%;
 }
 
 #top-bar, #bottom-bar {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-evenly;
     margin-bottom: 10px;
-}
-
-#test-area, #basic-btns, #bottom-bar-left {
-    width: 50%;
-
-    /* https://stackoverflow.com/questions/38394818/central-align-of-elements-css-without-flexbox */
-    display: table;
-    text-align: center;
-}
-
-#log-mode-area {
-    width: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: space-evenly;
-}
-
-#verbose-mode-table {
-    width: 90%;
-}
-
-#verbose-mode-table td {
-    text-align: center;
-    width: 20%;
 }
 
 .verbose, .simple {
     cursor: pointer;
     color: #F5F5F5;
+    outline: 1px solid #121212;
 }
 
 .verbose {
@@ -99,10 +65,6 @@ textarea {
 
 .simple {
     background-color: #F05454;
-}
-
-h1 {
-    margin-bottom: 0;
 }
 
 #cst-area {
@@ -128,20 +90,4 @@ h1 {
 
 .cst-svg-div svg:active {
     cursor: grabbing;
-}
-
-/* Graph styles from https://codepen.io/Jarold/pen/PzbYPb */
-.node rect {
-    stroke: #121212;
-    stroke-width: 2.5px;
-    fill: #F5F5F5;
-}
-
-.edgeLabel rect {
-    fill: #F5F5F5;
-}
-.edgePath {
-    stroke: #121212;
-    stroke-width: 1.5px;
-    fill: none;
 }
