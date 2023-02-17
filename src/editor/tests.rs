@@ -137,6 +137,11 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Parse,
             test_name: String::from("Empty things"),
             test_code: String::from("{/* Statement list is empty */}$\n{\n  /* Empty string should also compile */\n  string s\n  s = \"\"\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Multi-digit numbers"),
+            test_code: String::from("{\n  /* This should fail because assignments can only be 1 digit or an int operation */\n  int x\n  x = 42\n}$")
         }
     ];
 
