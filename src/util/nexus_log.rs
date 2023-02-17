@@ -1,5 +1,5 @@
 use wasm_bindgen::JsCast;
-use web_sys::{HtmlTextAreaElement, Document, Window};
+use web_sys::{HtmlTextAreaElement, Document, Window, Element, DomTokenList};
 
 // Defines the type of logs
 // https://stackoverflow.com/questions/69015213/how-can-i-display-an-enum-in-lowercase
@@ -104,18 +104,19 @@ fn is_verbose_mode(src: &LogSources) -> bool {
 
     // Assume we are in verbose mode
     let mut out: bool = true;
-    let mut class_name: String;
 
-    // Get the current class name ba
-    match src {
-        LogSources::Nexus => class_name = document.get_element_by_id("nexus-log-mode").expect("Should be able to find the nexus-log-mode element").class_name(),
-        LogSources::Lexer => class_name = document.get_element_by_id("lexer-log-mode").expect("Should be able to find the lexer-log-mode element").class_name(),
-        LogSources::Parser => class_name = document.get_element_by_id("parser-log-mode").expect("Should be able to find the parser-log-mode element").class_name(),
-        LogSources::SemanticAnalyzer => class_name = document.get_element_by_id("semantic-log-mode").expect("Should be able to find the semantic-log-mode element").class_name(),
-        LogSources::CodeGenerator => class_name = document.get_element_by_id("codegen-log-mode").expect("Should be able to find the codegen-log-mode element").class_name(),
+    // Get the target button element
+    let target: Element = match src {
+        LogSources::Nexus => document.get_element_by_id("nexus-log-mode").expect("Should be able to find the nexus-log-mode element"),
+        LogSources::Lexer => document.get_element_by_id("lexer-log-mode").expect("Should be able to find the lexer-log-mode element"),
+        LogSources::Parser => document.get_element_by_id("parser-log-mode").expect("Should be able to find the parser-log-mode element"),
+        LogSources::SemanticAnalyzer => document.get_element_by_id("semantic-log-mode").expect("Should be able to find the semantic-log-mode element"),
+        LogSources::CodeGenerator => document.get_element_by_id("codegen-log-mode").expect("Should be able to find the codegen-log-mode element"),
     };
 
-    if class_name.eq("simple") {
+    // Check to see if it is in simple mode
+    let class_list: DomTokenList = target.class_list();
+    if class_list.contains("simple") {
         out = false;
     }
     return out;
