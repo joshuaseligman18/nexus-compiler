@@ -1,17 +1,20 @@
 use wasm_bindgen::{prelude::Closure, JsCast};
-use web_sys::{Document, HtmlTextAreaElement, HtmlElement, Event, Element};
+use web_sys::{Document, HtmlElement, Event, Element};
 
 use crate::{nexus::{compiler, cst::Cst}, util::nexus_log};
 
+use wasm_bindgen::prelude::*;
+
+// Have to import the editor js module
+#[wasm_bindgen(module = "/editor.js")]
+extern "C" {
+    // Import the getCodeInput function from js so we can call it from the Rust code
+    #[wasm_bindgen(js_name = "getCodeInput")]
+    fn get_code_input() -> String;
+}
+
 // Function used to set up all interactive elements in the webpage
-pub fn set_up_buttons(document: &Document) {
-    // Grab the code input text area
-    let code_input: HtmlTextAreaElement = document
-        .get_element_by_id("ta-code-input")
-        .expect("There should be a ta-code-input element")
-        .dyn_into::<HtmlTextAreaElement>()
-        .expect("The element should be recognized as a textarea");
-    
+pub fn set_up_buttons(document: &Document) {    
     // Grab the compile button
     let compile_btn: Element = document
         .get_element_by_id("compile-btn")
@@ -19,7 +22,7 @@ pub fn set_up_buttons(document: &Document) {
 
     // Create a function that will be used as the event listener and add it to the compile button
     let compile_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
-        compiler::compile(code_input.value().as_str());
+        compiler::compile(&get_code_input());
     }) as Box<dyn FnMut()>);
 
     compile_btn.add_event_listener_with_callback("click", compile_btn_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");

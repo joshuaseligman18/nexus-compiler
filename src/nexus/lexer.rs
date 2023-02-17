@@ -108,7 +108,7 @@ impl Lexer {
             if num_warnings == 1 {
                 out_string.push_str("");    
             } else {
-                out_string.push_str("s.");
+                out_string.push_str("s");
             }
 
             // Log the output string

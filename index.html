@@ -53,7 +53,7 @@
         </div>
     </div>
     <div id="main-area">
-        <textarea id="ta-code-input"></textarea>
+        <div id="code-input"></div>
         <textarea id="nexus-log-area" readonly></textarea>
     </div>
     <h2 style="text-align: center">Concrete Syntax Tree</h2>
@@ -63,6 +63,11 @@
         <div class="tab-content" id="cst-tab-content">
         </div>
     </div>
+    <script src="/lib/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script>
+        // Quickly set up the text editor
+        let editor = ace.edit("code-input");
+    </script>
     <script src="/lib/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -50,7 +50,7 @@ textarea {
     resize: none;
 }
 
-#ta-code-input, #nexus-log-area {
+#code-input, #nexus-log-area {
     width: 48%;
     height: 350px;
     font-size: 12px;

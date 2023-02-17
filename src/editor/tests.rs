@@ -1,8 +1,19 @@
 use log::debug;
 use wasm_bindgen::{JsCast, prelude::Closure};
-use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, HtmlElement, HtmlTextAreaElement, Window, Element};
+use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, Window, Element};
 
 use crate::util::test::*;
+
+use wasm_bindgen::prelude::*;
+
+// Have to import the editor js module
+#[wasm_bindgen(module = "/editor.js")]
+extern "C" {
+    // Import the loadProgram function from js so we can call it from the Rust code
+    #[wasm_bindgen(js_name = "loadProgram")]
+    fn load_program(newCode: &str);
+}
+
 
 // Function to set up the test suite
 pub fn create_test_environment(document: &Document) {
@@ -18,7 +29,7 @@ pub fn create_test_environment(document: &Document) {
         .expect("There should be an element called load-test-btn");
 
     load_tests(document, &test_options);
-    add_test_button_fn(document, &load_test_btn)
+    add_test_button_fn(&load_test_btn)
 }
 
 // Function to load the tests into the select element
@@ -43,22 +54,13 @@ fn load_tests(document: &Document, test_selection: &HtmlSelectElement) {
 }
 
 // Function to set up the tests
-fn add_test_button_fn(document: &Document, load_test_btn: &Element) {
-    // Get the text area to paste the code into
-    let code_input: HtmlTextAreaElement = document
-        .get_element_by_id("ta-code-input")
-        .expect("There should be a ta-code-input element")
-        .dyn_into::<HtmlTextAreaElement>()
-        .expect("The element should be recognized as a textarea");
-
-
-        
+fn add_test_button_fn(load_test_btn: &Element) {
     // Create a function that will be used as the event listener and add it to the load test button
     let load_test_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
         // Get the value to paste
         let test_value: String = get_current_test_value();
         // Paste the value
-        code_input.set_value(&test_value);
+        load_program(&test_value);
     }) as Box<dyn FnMut()>);
 
     load_test_btn.add_event_listener_with_callback("click", load_test_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
