@@ -111,17 +111,17 @@ fn get_tests() -> Vec<Test> {
         Test {
             test_type: TestType::Parse,
             test_name: String::from("Everything"),
-            test_code: String::from("{\n  /* This is a COMMENT 007 */\n  string s\n  s = \"hello world\"\n  int a\n  a = 0\n  while (a != 5) {\n    a = 1 + a\n  }\n  if (a == 5) {\n    print(\"success\")\n  }\n  boolean b\n  b = true\n  if (b != false) {\n    print(s)\n  }\n}$")
+            test_code: String::from("{\n  /* This is a COMMENT 007 */\n  string s\n  s = \"hello world\"\n  int a\n  a = 0\n  while (a != 5) {\n    a = 1 + a\n  }\n  if (a == 5) {\n    print(\"success\")\n  }\n  if true {\n    print(s)\n  }\n}$")
         },
         Test {
             test_type: TestType::Parse,
             test_name: String::from("Mismatched operation"),
-            test_code: String::from("{\n  /* IntExpr = digit intop Expr, NOT Expr intop digit */\n  x = x + 3\n}$")
+            test_code: String::from("{\n  /* IntExpr = digit intop Expr, NOT Expr intop digit */\n  x = x + 3\n}$\n{\n  /* BoolExpr needs == or !=, not + */\n  while (true + false) {\n    print(\"no good\")\n  }\n}$\n{\n  /* Parentheses with a BoolExpr means comparison, not a single value */\n  while (true) {}\n}$")
         },
         Test {
             test_type: TestType::Parse,
             test_name: String::from("Mismatched types are ok"),
-            test_code: String::from("{\n  /* Parse does not do type checking */\n  int x\n  x = 3 + \"james bond\"\n}$")
+            test_code: String::from("{\n  /* Parse does not do type checking */\n  int x\n  x = 7 + \"james bond\"\n}$\n{\n  if (\"josh\" == 3) {\n    print(\"yay\")\n  }\n}$")
         },
         Test {
             test_type: TestType::Parse,
@@ -130,8 +130,13 @@ fn get_tests() -> Vec<Test> {
         },
         Test {
             test_type: TestType::Parse,
-            test_name: String::from("Invalid program structure"),
-            test_code: String::from("/* Missing the block for the program */\nint a = 3")
+            test_name: String::from("Missing blocks"),
+            test_code: String::from("{\n  if true print(\"hello\")\n}$\n{\n  int x\n  x = 2\n  while (x != 5) x = 1 + x\n}$\n/* Missing the block for the program */\nint a = 3")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Empty things"),
+            test_code: String::from("{/* Statement list is empty */}$\n{\n  /* Empty string should also compile */\n  string s\n  s = \"\"\n}$")
         }
     ];
 
