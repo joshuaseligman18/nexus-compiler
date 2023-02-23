@@ -37,7 +37,6 @@ pub struct Cst {
 impl Cst {
     // Constructor for a cst
     pub fn new() -> Self {
-        Cst::clear_display();
         return Cst {
             graph: Graph::new(),
             root: None,
@@ -245,14 +244,6 @@ impl Cst {
 
         // Return the id of the svg div for use by d3
         return svg_div_elem.id();
-    }
-
-    // Resets the CST and clears everything in it
-    pub fn reset(&mut self) {
-        self.graph.clear();
-        self.parents.clear();
-        self.current = None;
-        self.root = None;
     }
 
     pub fn clear_display() {

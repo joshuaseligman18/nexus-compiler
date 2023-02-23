@@ -2,7 +2,7 @@ use log::{info, debug};
 use regex::{Regex, Match};
 
 use crate::util::nexus_log;
-use crate::nexus::{lexer::Lexer, token::Token, parser::Parser};
+use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, cst::Cst};
 
 // Function to compile multiple programs
 pub fn compile(source_code: &str) {
@@ -10,6 +10,7 @@ pub fn compile(source_code: &str) {
     let mut parser: Parser = Parser::new();
 
     // Clean up the output area
+    Cst::clear_display();
     nexus_log::clear_logs();
     nexus_log::log(
         nexus_log::LogTypes::Info,
@@ -71,7 +72,7 @@ pub fn compile(source_code: &str) {
         );
 
         let token_stream: Vec<Token> = lex_res.unwrap();
-        let parse_res: Result<(), ()> = parser.parse_program(&token_stream);
+        let parse_res: Result<Cst, ()> = parser.parse_program(&token_stream);
 
         if parse_res.is_err() {
             nexus_log::insert_empty_line();
@@ -90,7 +91,8 @@ pub fn compile(source_code: &str) {
             nexus_log::LogSources::Nexus,
             format!("CST display for Program {} is below", program_number)
         );
-        parser.cst.display(&program_number);
+        let cst: Cst = parse_res.unwrap();
+        cst.display(&program_number);
 
         // nexus_log::insert_empty_line();
     }
