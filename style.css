@@ -7,6 +7,7 @@ Black: #121212
 
 // Generated from coolors.co based on other colors in the palette
 Green: #70AE6E
+Yellow: #D19C1D
 */
 
 body, textarea {
@@ -46,7 +47,23 @@ textarea {
 #code-input, #nexus-log-area {
     font-size: 12px;
     height: 350px;
-    width: 100%;
+    /* width: 100%; */
+}
+
+#nexus-log-area {
+    border: 1px solid #121212;
+}
+
+#nexus-log-area p {
+    margin: 0;
+}
+
+.error {
+    color: #F05454;
+}
+
+.warning {
+    color: #D19C1D;
 }
 
 #top-bar, #bottom-bar {
