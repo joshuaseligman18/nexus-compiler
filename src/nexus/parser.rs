@@ -245,6 +245,11 @@ impl Parser {
             }
 
         } else {
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::Parser,
+                String::from("Parsing StatementList (epsilon base case)")
+            );
             // Do nothing here because we have an epsilon with the statement list
             return Ok(());
         }
@@ -674,6 +679,12 @@ impl Parser {
         // Recursion base case
         // We have reached the end of the character list
         if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::Quote)) {
+            // Log that we are parsing a CharList
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::Parser,
+                String::from("Parsing CharList (epsilon base case)")
+            );
             // Do nothing here because we have reached the end of the string (epsilon case)
             return Ok(());
         } else {
