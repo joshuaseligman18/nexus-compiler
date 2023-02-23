@@ -153,9 +153,10 @@ impl Cst {
 
         // Add the appropriate classes
         let li_classes: DomTokenList = new_li.class_list();
-        li_classes.add_1("nav_item").expect("Should be able to add the class");
+        li_classes.add_1("nav-item").expect("Should be able to add the class");
         new_li.set_attribute("role", "presentation").expect("Should be able to add the attribute");
 
+        // From https://getbootstrap.com/docs/4.3/components/navs/
         // <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home-tab-pane" type="button" role="tab" aria-controls="home-tab-pane" aria-selected="true">Home</button>
 
         // Create the button
@@ -171,16 +172,20 @@ impl Cst {
             new_button.set_attribute("aria-selected", "false").expect("Should be able to add the attribute");
         }
 
+        // Set the id of the button
         new_button.set_id(format!("program{}-cst-btn", *program_number).as_str());
 
+        // All of the toggle elements from the example above
         new_button.set_attribute("data-bs-toggle", "tab").expect("Should be able to add the attribute");
         new_button.set_attribute("type", "button").expect("Should be able to add the attribute");
         new_button.set_attribute("role", "tab").expect("Should be able to add the attribute");
         new_button.set_attribute("data-bs-target", format!("#program{}-cst-pane", *program_number).as_str()).expect("Should be able to add the attribute");
         new_button.set_attribute("aria-controls", format!("program{}-cst-pane", *program_number).as_str()).expect("Should be able to add the attribute");
 
+        // Set the inner text
         new_button.set_inner_html(format!("Program {}", *program_number).as_str());
 
+        // Append the button and the list element to the area
         new_li.append_child(&new_button).expect("Should be able to add the child node");
         tabs_area.append_child(&new_li).expect("Should be able to add the child node");
 
@@ -190,44 +195,55 @@ impl Cst {
         // Create the individual pane div
         let display_area_div: Element = document.create_element("div").expect("Should be able to create the element");
 
+        // Also from the example link above to only let the first pane initially show and be active
         let display_area_class_list: DomTokenList = display_area_div.class_list();
         display_area_class_list.add_1("tab-pane").expect("Should be able to add the class");
         if content_area.child_element_count() == 0 {
             display_area_class_list.add_2("show", "active").expect("Should be able to add the classes");
         }
 
+        // Add the appropriate attributes
         display_area_div.set_attribute("role", "tabpanel").expect("Should be able to add the attribute");
         display_area_div.set_attribute("tabindex", "0").expect("Should be able to add the attribute");
         display_area_div.set_attribute("aria-labeledby", format!("program{}-cst-btn", *program_number).as_str()).expect("Should be able to add the attribute");
 
+        // Set the id of the pane
         display_area_div.set_id(format!("program{}-cst-pane", *program_number).as_str());
 
+        // The div is a container for the content of the cst info
         display_area_class_list.add_2("container", "cst-pane").expect("Should be able to add the classes");
 
+        // Single row container
         let row_div: Element = document.create_element("div").expect("Should be able to create the div");
         row_div.set_class_name("row");
         
+        // The text area is needed for the text representation
         let cst_text_area: HtmlTextAreaElement = document.create_element("textarea")
                                                     .expect("Should be able to create the textarea")
                                                     .dyn_into::<HtmlTextAreaElement>()
                                                     .expect("Should be able to convert to textarea");
 
+        // Set the appropriate styles and general information
         let cst_text_classes: DomTokenList = cst_text_area.class_list();
         cst_text_classes.add_2("col-4", "cst-text").expect("Should be able to add the classes");
         cst_text_area.set_read_only(true);
         cst_text_area.set_id(format!("program{}-cst-text", *program_number).as_str());
         row_div.append_child(&cst_text_area).expect("Should be able to add child node");
 
+        // The div for the svg where d3 will render the graph
         let svg_div_elem: Element = document.create_element("div").expect("Should be able to create the element");
         let svg_classes: DomTokenList = svg_div_elem.class_list();
         svg_classes.add_2("col-8", "cst-svg-div").expect("Should be able to add the classes");
         svg_div_elem.set_id(format!("program{}-cst-svg-div", *program_number).as_str());
         row_div.append_child(&svg_div_elem).expect("Should be able to add child node");
 
+        // Add the row to the container
         display_area_div.append_child(&row_div).expect("Should be able to append child");
 
+        // Add the div to the pane
         content_area.append_child(&display_area_div).expect("Should be able to add the child node");
 
+        // Return the id of the svg div for use by d3
         return svg_div_elem.id();
     }
 
