@@ -7,6 +7,7 @@ use crate::nexus::cst_node::{CstNode, NonTerminals, CstNodeTypes};
 
 pub struct Parser {
     cur_token_index: usize,
+    num_warnings: i32
 }
 
 impl Parser {
@@ -14,6 +15,7 @@ impl Parser {
     pub fn new() -> Self {
         return Parser {
             cur_token_index: 0,
+            num_warnings: 0
         };
     }
     // Calls for a program to be parsed
@@ -30,6 +32,7 @@ impl Parser {
         let mut cst: Cst = Cst::new();
 
         let mut success: bool = true;
+        self.num_warnings = 0;
 
         // Add the program node
         cst.add_node(CstNodeTypes::Root, CstNode::NonTerminal(NonTerminals::Program));
@@ -56,6 +59,7 @@ impl Parser {
             );
         }
 
+        debug!("Warnings: {}", self.num_warnings);
 
         if !success {
             // Log that we are parsing the program
@@ -72,7 +76,6 @@ impl Parser {
                 nexus_log::LogSources::Parser,
                 String::from("Parser completed successfully")
             );
-
             // Parsing was successful
             return Ok(cst);
         }
@@ -105,6 +108,20 @@ impl Parser {
         if rbrace_err.is_err() {
             // Return the error message if the right brace does not exist
             return rbrace_err;
+        } else {
+            // Check 2 tokens prior, which should be a left brace if empty block
+            // No need to check for going out of bounds because both left and right brace will already have been consumed
+            match &token_stream[self.cur_token_index - 2].token_type {
+                TokenType::Symbol(Symbols::LBrace) => {
+                    nexus_log::log(
+                        nexus_log::LogTypes::Warning,
+                        nexus_log::LogSources::Parser,
+                        format!("Empty block found starting at {:?}", token_stream[self.cur_token_index - 2].position)
+                    );
+                    self.num_warnings += 1;
+                },
+                _ => { /* Do nothing because there is not an empty block */ }
+            }
         }
 
         // Move up to the previous level
@@ -579,6 +596,20 @@ impl Parser {
         let close_quote_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::Quote), cst);
         if close_quote_res.is_err() {
             return close_quote_res;
+        } else {
+            // Check 2 tokens prior, which should be a quote if empty string
+            // No need to check for going out of bounds because both quotes will already have been consumed
+            match &token_stream[self.cur_token_index - 2].token_type {
+                TokenType::Symbol(Symbols::Quote) => {
+                    nexus_log::log(
+                        nexus_log::LogTypes::Warning,
+                        nexus_log::LogSources::Parser,
+                        format!("Empty string found starting at {:?}", token_stream[self.cur_token_index - 2].position)
+                    );
+                    self.num_warnings += 1;
+                },
+                _ => { /* Do nothing because there is not an empty string */ }
+            }
         }
 
         cst.move_up();
