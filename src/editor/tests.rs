@@ -144,6 +144,11 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Parse,
             test_name: String::from("Multi-digit numbers"),
             test_code: String::from("{\n  /* This should fail because assignments can only be 1 digit or an int operation */\n  int x\n  x = 42\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Parser warnings"),
+            test_code: String::from("{\n  /* Should have warnings for empty string and block */\n  s = \"\"\n  {}\n}$")
         }
     ];
 

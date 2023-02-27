@@ -59,14 +59,17 @@ impl Parser {
             );
         }
 
-        debug!("Warnings: {}", self.num_warnings);
+        let mut warnings_str: String = format!("{} warning", self.num_warnings);
+        if self.num_warnings != 1 {
+            warnings_str.push_str("s");
+        }
 
         if !success {
             // Log that we are parsing the program
             nexus_log::log(
                 nexus_log::LogTypes::Error,
                 nexus_log::LogSources::Parser,
-                String::from("Parser failed")
+                format!("Parser failed and had {}", warnings_str)
             );
             // Parse error
             return Err(());
@@ -74,7 +77,7 @@ impl Parser {
             nexus_log::log(
                 nexus_log::LogTypes::Info,
                 nexus_log::LogSources::Parser,
-                String::from("Parser completed successfully")
+                format!("Parser completed successfully with {}", warnings_str)
             );
             // Parsing was successful
             return Ok(cst);
