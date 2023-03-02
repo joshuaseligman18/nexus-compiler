@@ -149,6 +149,21 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Parse,
             test_name: String::from("Parser warnings"),
             test_code: String::from("{\n  /* Should have warnings for empty string and block */\n  s = \"\"\n  {}\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("End of file before end of program 1"),
+            test_code: String::from("{  print(\"hello\"")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("End of file before end of program 2"),
+            test_code: String::from("{  int a")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("End of file before end of program 3"),
+            test_code: String::from("{ while")
         }
     ];
 

@@ -206,7 +206,7 @@ impl Parser {
             }
         } else {
             // Error if no more tokens and expected something
-            return Err(format!("Missing token [{:?}] ", expected_token));
+            return Err(format!("Missing token [{:?}] at end of program", expected_token));
         }
 
         // Consume the token if it is ok
@@ -233,7 +233,7 @@ impl Parser {
             }
         } else {
             // Error if no more tokens and expected something
-            return Err(format!("Missing token {:?} ", expected_tokens));
+            return Err(format!("Missing token {:?} at end of program", expected_tokens));
         }
     }
 
@@ -318,7 +318,7 @@ impl Parser {
             return statement_res;
         } else {
             // Return an error because there is no token for the statement
-            return Err(format!("Missing statement token; Valid statement beginning tokens are {:?}", vec![TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)]));
+            return Err(format!("Missing statement token at end of program; Valid statement beginning tokens are {:?}", vec![TokenType::Keyword(Keywords::Print), TokenType::Identifier(String::from("a-z")), TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean), TokenType::Keyword(Keywords::While), TokenType::Keyword(Keywords::If), TokenType::Symbol(Symbols::LBrace)]));
         }
     }
 
@@ -530,7 +530,7 @@ impl Parser {
             return expression_res;
         } else {
             // There are no more tokens to parse
-            return Err(format!("Missing expression token; Valid expression beginning tokens are [Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}]", TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z"))));
+            return Err(format!("Missing expression token at end of program; Valid expression beginning tokens are [Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}]", TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z"))));
         }
     }
 
@@ -651,7 +651,7 @@ impl Parser {
             return bool_expr_res;
         } else {
             // There are no more tokens to parse
-            return Err(format!("Missing boolean expression token; Valid boolean expression beginning tokens are {:?}", vec![TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)]));
+            return Err(format!("Missing boolean expression token at end of program; Valid boolean expression beginning tokens are {:?}", vec![TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)]));
         }
     }
 
