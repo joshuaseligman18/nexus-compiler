@@ -1,5 +1,5 @@
 use wasm_bindgen::{prelude::Closure, JsCast};
-use web_sys::{Document, HtmlElement, Event, Element, DomTokenList};
+use web_sys::{Document, HtmlElement, Event, Element, DomTokenList, Location, window};
 
 use crate::{nexus::{compiler, cst::Cst}, util::nexus_log};
 
@@ -41,6 +41,21 @@ pub fn set_up_buttons(document: &Document) {
 
     clear_btn.add_event_listener_with_callback("click", clear_btn_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
     clear_btn_fn.forget();
+
+    // Get the reset button
+    let reset_btn: Element = document
+        .get_element_by_id("reset-btn")
+        .expect("There should be an element called reset-btn");
+
+    // Create the event listener for the reset button
+    let reset_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(|| {
+        // Get the window and reload the page
+        web_sys::window().expect("Should be able to get the window").location().reload().expect("Should be able to reload the page");
+    }) as Box<dyn FnMut()>);
+
+    // Add the event listener to the button
+    reset_btn.add_event_listener_with_callback("click", reset_btn_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
+    reset_btn_fn.forget();
 
     // Get each of the log mode buttons
     let nexus_log_mode: Element = document

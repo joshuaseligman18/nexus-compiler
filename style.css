@@ -28,7 +28,7 @@ button:hover, select:hover {
     cursor: pointer;
 }
 
-#compile-btn, #tests {
+#compile-btn, #tests, #reset-btn {
     background-color: #30475E;
 }
 
