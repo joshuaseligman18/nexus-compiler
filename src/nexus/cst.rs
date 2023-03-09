@@ -1,12 +1,12 @@
 use std::{collections::HashMap};
 
-use log::{info, debug};
-use petgraph::{graph::{NodeIndex, Graph, WalkNeighbors}, dot::{Dot, Config}, prelude::EdgeIndex};
+use log::*;
+use petgraph::{graph::{NodeIndex, Graph}, dot::{Dot, Config}};
 
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{Window, Document, HtmlTextAreaElement, Element, DomTokenList};
 
-use crate::{nexus::cst_node::{CstNode, NonTerminals, CstNodeTypes}, util::nexus_log};
+use crate::nexus::cst_node::{CstNode, CstNodeTypes};
 
 use string_builder::Builder;
 
@@ -111,7 +111,7 @@ impl Cst {
 
     fn create_text_dfs(&self, builder: &mut Builder, cur_id: usize, level: usize) {
         // Set the level
-        for i in 0..level {
+        for _i in 0..level {
             builder.append("-");
         }
         

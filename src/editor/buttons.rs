@@ -1,5 +1,5 @@
 use wasm_bindgen::{prelude::Closure, JsCast};
-use web_sys::{Document, HtmlElement, Event, Element, DomTokenList, Location, window};
+use web_sys::{Document, HtmlElement, Event, Element, DomTokenList};
 
 use crate::{nexus::{compiler, cst::Cst}, util::nexus_log};
 

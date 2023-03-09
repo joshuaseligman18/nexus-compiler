@@ -1,5 +1,4 @@
-use log::debug;
-
+use log::*;
 use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log};
 
 use crate::nexus::cst::{Cst};

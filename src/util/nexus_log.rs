@@ -1,5 +1,4 @@
-use wasm_bindgen::JsCast;
-use web_sys::{HtmlTextAreaElement, Document, Window, Element, DomTokenList};
+use web_sys::{Document, Window, Element, DomTokenList};
 
 // Defines the type of logs
 // https://stackoverflow.com/questions/69015213/how-can-i-display-an-enum-in-lowercase

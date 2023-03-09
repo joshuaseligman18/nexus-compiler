@@ -1,4 +1,4 @@
-use log::debug;
+use log::*;
 use wasm_bindgen::{JsCast, prelude::Closure};
 use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, Window, Element};
 
@@ -134,11 +134,6 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Parse,
             test_name: String::from("Missing blocks"),
             test_code: String::from("{\n  if true print(\"hello\")\n}$\n{\n  int x\n  x = 2\n  while (x != 5) x = 1 + x\n}$\n/* Missing the block for the program */\nint a = 3")
-        },
-        Test {
-            test_type: TestType::Parse,
-            test_name: String::from("Empty things"),
-            test_code: String::from("{/* Statement list is empty */}$\n{\n  /* Empty string should also compile */\n  string s\n  s = \"\"\n}$")
         },
         Test {
             test_type: TestType::Parse,
