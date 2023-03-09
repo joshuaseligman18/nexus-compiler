@@ -10,5 +10,8 @@ pub struct Test {
 #[derive (Debug, strum::Display)]
 #[strum (serialize_all = "UPPERCASE")]
 pub enum TestType {
-    Lex
+    Lex,
+    Parse,
+    SemanticAnalysis,
+    CodeGen
 }

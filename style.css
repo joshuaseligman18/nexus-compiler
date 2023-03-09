@@ -7,6 +7,7 @@ Black: #121212
 
 // Generated from coolors.co based on other colors in the palette
 Green: #70AE6E
+Yellow: #D19C1D
 */
 
 body, textarea {
@@ -19,7 +20,7 @@ button, select {
     border: 0px;
     color: #F5F5F5;
     font-size: 14px;
-    padding: 5px;
+    padding: 2px;
     font-family: 'Courier New', Courier, monospace;
 }
 
@@ -27,7 +28,7 @@ button:hover, select:hover {
     cursor: pointer;
 }
 
-#compile-btn, #tests {
+#compile-btn, #tests, #reset-btn {
     background-color: #30475E;
 }
 
@@ -35,59 +36,44 @@ button:hover, select:hover {
     background-color: #F05454;
 }
 
-#main-area {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-evenly;
-}
-
 #title-area {
     text-align: center;
 }
 
-#ta-code-input, #nexus-log-area {
+textarea {
     resize: none;
-    width: 48%;
-    height: 350px;
+}
+
+#code-input, #nexus-log-area {
     font-size: 12px;
+    height: 350px;
+    /* width: 100%; */
+}
+
+#nexus-log-area {
+    border: 1px solid #121212;
+}
+
+#nexus-log-area p {
+    margin: 0;
+}
+
+.error {
+    color: #F05454;
+}
+
+.warning {
+    color: #D19C1D;
 }
 
 #top-bar, #bottom-bar {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-evenly;
     margin-bottom: 10px;
-}
-
-#test-area, #basic-btns, #bottom-bar-left {
-    width: 50%;
-
-    /* https://stackoverflow.com/questions/38394818/central-align-of-elements-css-without-flexbox */
-    display: table;
-    text-align: center;
-}
-
-#log-mode-area {
-    width: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: space-evenly;
-}
-
-#verbose-mode-table {
-    width: 90%;
-}
-
-#verbose-mode-table td {
-    text-align: center;
-    width: 20%;
 }
 
 .verbose, .simple {
     cursor: pointer;
     color: #F5F5F5;
+    outline: 1px solid #121212;
 }
 
 .verbose {
@@ -98,6 +84,27 @@ button:hover, select:hover {
     background-color: #F05454;
 }
 
-h1 {
-    margin-bottom: 0;
+#cst-area {
+    width: 95%;
+    margin: 2.5%;
+}
+
+#cst-tab-content {
+    margin-top: 1.5%;
+}
+
+.cst-pane * {
+    height: 450px;
+}
+
+.cst-svg-div svg {
+    border: 1px solid #121212;
+}
+
+.cst-svg-div svg:hover {
+    cursor: grab;
+}
+
+.cst-svg-div svg:active {
+    cursor: grabbing;
 }

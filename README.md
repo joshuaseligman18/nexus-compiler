@@ -1,7 +1,8 @@
 # nexus-compiler
 
 ## Project Locations
-* Project 1 (Lexer) - main and project1 branches
+* Project 1 (Lexer) - project1 branch
+* Project 2 (Parser) - main and project2 branches
 
 ## Setup Instructions
 1. Install Rust, which can be found [here](https://www.rust-lang.org/tools/install).

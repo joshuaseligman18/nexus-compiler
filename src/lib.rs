@@ -1,5 +1,5 @@
 use wasm_bindgen::prelude::*;
-use log::{Level, info, debug};
+use log::*;
 use web_sys::{Window, Document};
 
 mod nexus;

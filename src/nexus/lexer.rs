@@ -1,13 +1,13 @@
 use crate::{nexus::token::{Token, TokenType, Keywords, Symbols}, util::nexus_log};
-use log::{debug, info, error};
+use log::*;
 use regex::{Regex, RegexSet, SetMatches};
 
 // Struct to maintain the state of the line numbers when compiling multiple programs
 pub struct Lexer {
-    pub source_code: String, // The source code
-    pub line_number: usize, // The line number we are on
-    pub col_number: usize, // The current column number
-    pub current_position: usize, // The current position in the string
+    source_code: String, // The source code
+    line_number: usize, // The line number we are on
+    col_number: usize, // The current column number
+    current_position: usize, // The current position in the string
     keywords: RegexSet, // The regex set for keywords
     characters: Regex, // The regex for characters
     symbols: RegexSet, // The regex set for symbols
@@ -81,10 +81,8 @@ impl Lexer {
 
             // Create the output string and log it
             let mut out_string: String = format!("Lexer completed with 0 errors and {} warning", num_warnings);
-            if num_warnings == 1 {
-                out_string.push_str(".");    
-            } else {
-                out_string.push_str("s.");
+            if num_warnings != 1 {
+                out_string.push_str("s");
             }
             nexus_log::log(
                 nexus_log::LogTypes::Info,
@@ -110,7 +108,7 @@ impl Lexer {
             if num_warnings == 1 {
                 out_string.push_str("");    
             } else {
-                out_string.push_str("s.");
+                out_string.push_str("s");
             }
 
             // Log the output string

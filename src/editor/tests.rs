@@ -1,8 +1,19 @@
-use log::debug;
+use log::*;
 use wasm_bindgen::{JsCast, prelude::Closure};
-use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, HtmlElement, HtmlTextAreaElement, Window, Element};
+use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, Window, Element};
 
 use crate::util::test::*;
+
+use wasm_bindgen::prelude::*;
+
+// Have to import the editor js module
+#[wasm_bindgen(module = "/editor.js")]
+extern "C" {
+    // Import the loadProgram function from js so we can call it from the Rust code
+    #[wasm_bindgen(js_name = "loadProgram")]
+    fn load_program(newCode: &str);
+}
+
 
 // Function to set up the test suite
 pub fn create_test_environment(document: &Document) {
@@ -18,7 +29,7 @@ pub fn create_test_environment(document: &Document) {
         .expect("There should be an element called load-test-btn");
 
     load_tests(document, &test_options);
-    add_test_button_fn(document, &load_test_btn)
+    add_test_button_fn(&load_test_btn)
 }
 
 // Function to load the tests into the select element
@@ -43,22 +54,13 @@ fn load_tests(document: &Document, test_selection: &HtmlSelectElement) {
 }
 
 // Function to set up the tests
-fn add_test_button_fn(document: &Document, load_test_btn: &Element) {
-    // Get the text area to paste the code into
-    let code_input: HtmlTextAreaElement = document
-        .get_element_by_id("ta-code-input")
-        .expect("There should be a ta-code-input element")
-        .dyn_into::<HtmlTextAreaElement>()
-        .expect("The element should be recognized as a textarea");
-
-
-        
+fn add_test_button_fn(load_test_btn: &Element) {
     // Create a function that will be used as the event listener and add it to the load test button
     let load_test_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
         // Get the value to paste
         let test_value: String = get_current_test_value();
         // Paste the value
-        code_input.set_value(&test_value);
+        load_program(&test_value);
     }) as Box<dyn FnMut()>);
 
     load_test_btn.add_event_listener_with_callback("click", load_test_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
@@ -76,12 +78,12 @@ fn get_tests() -> Vec<Test> {
         Test {
             test_type: TestType::Lex,
             test_name: String::from("Everything"),
-            test_code: String::from("{\n  /* This is a COMMENT 007 */\n  string s\n  s = \"hello world\"\n  int a\n  a = 0\n  while (a != 5) {\n    a = a + 1\n  }\n  if (a == 5) {\n    print(\"success\")\n  }\n  boolean b\n  b = true\n  if (b != false) {\n    print(s)\n  }\n}$")
+            test_code: String::from("{\n  /* This is a COMMENT 007 */\n  string s\n  s = \"hello world\"\n  int a\n  a = 0\n  while (a != 5) {\n    a = 1 + a\n  }\n  if (a == 5) {\n    print(\"success\")\n  }\n  boolean b\n  b = true\n  if (b != false) {\n    print(s)\n  }\n}$")
         },
         Test {
             test_type: TestType::Lex,
             test_name: String::from("Everything but spaces"),
-            test_code: String::from("{/* This is a COMMENT 007 */stringss=\"hello world\"intaa=0while(a!=5){a=a+1}if(a==5){print(\"success\")}booleanbb=trueif(b!=false){print(s)}}$")
+            test_code: String::from("{/* This is a COMMENT 007 */stringss=\"hello world\"intaa=0while(a!=5){a=1+a}if(a==5){print(\"success\")}booleanbb=trueif(b!=false){print(s)}}$")
         },
         Test {
             test_type: TestType::Lex,
@@ -102,6 +104,61 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Lex,
             test_name: String::from("Unclosed strings"),
             test_code: String::from("{\n  /* Unclosed string on the next line */\n  print(\"hi\n}$\n/* Unclosed string here too */ print(\"hi")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Alan's tests"),
+            test_code: String::from("{}$\n{{{{{{}}}}}}$\n{{{{{{}}} /* comments are ignored */ }}}}$\n{ /* comments are still ignored */ int @}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Everything"),
+            test_code: String::from("{\n  /* This is a COMMENT 007 */\n  string s\n  s = \"hello world\"\n  int a\n  a = 0\n  while (a != 5) {\n    a = 1 + a\n  }\n  if (a == 5) {\n    print(\"success\")\n  }\n  if true {\n    print(s)\n  }\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Mismatched operation"),
+            test_code: String::from("{\n  /* IntExpr = digit intop Expr, NOT Expr intop digit */\n  x = x + 3\n}$\n{\n  /* BoolExpr needs == or !=, not + */\n  while (true + false) {\n    print(\"no good\")\n  }\n}$\n{\n  /* Parentheses with a BoolExpr means comparison, not a single value */\n  while (true) {}\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Mismatched types are ok"),
+            test_code: String::from("{\n  /* Parse does not do type checking */\n  int x\n  x = 7 + \"james bond\"\n}$\n{\n  if (\"josh\" == 3) {\n    print(\"yay\")\n  }\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Missing $"),
+            test_code: String::from("{/* This should throw an error */}")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Missing blocks"),
+            test_code: String::from("{\n  if true print(\"hello\")\n}$\n{\n  int x\n  x = 2\n  while (x != 5) x = 1 + x\n}$\n/* Missing the block for the program */\nint a = 3")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Multi-digit numbers"),
+            test_code: String::from("{\n  /* This should fail because assignments can only be 1 digit or an int operation */\n  int x\n  x = 42\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("Parser warnings"),
+            test_code: String::from("{\n  /* Should have warnings for empty string and block */\n  s = \"\"\n  {}\n}$")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("End of file before end of program 1"),
+            test_code: String::from("{  print(\"hello\"")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("End of file before end of program 2"),
+            test_code: String::from("{  int a")
+        },
+        Test {
+            test_type: TestType::Parse,
+            test_name: String::from("End of file before end of program 3"),
+            test_code: String::from("{ while")
         }
     ];
 
