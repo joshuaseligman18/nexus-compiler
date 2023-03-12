@@ -38,7 +38,6 @@ pub enum NonTerminals {
 // The type of a node relative to the tree
 #[derive (Debug, PartialEq)]
 pub enum AstNodeTypes {
-    Root,
     Branch,
     Leaf
 }
