@@ -92,7 +92,7 @@ impl SemanticAnalyzer {
             // Parse the next section in the stream based on the next token 
             match next_token.token_type {
                 // Print statements
-                //TokenType::Keyword(Keywords::Print) => self.parse_print_statement(token_stream, ast),
+                TokenType::Keyword(Keywords::Print) => self.parse_print_statement(token_stream, ast),
 
                 // Assignment statements
                 //TokenType::Identifier(_) => self.parse_assignment_statement(token_stream, ast),
@@ -116,33 +116,33 @@ impl SemanticAnalyzer {
         }
     }
 
-//    fn parse_print_statement(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
-//        // Log that we are parsing a print statement
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::SemanticAnalyzer,
-//            String::from("Parsing PrintStatement")
-//        );
-//
-//        // Add the PrintStatement node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::Print));
-//
-//        // Increment the token index by 1 for the print keyword
-//        self.cur_token_index += 1;
-//
-//        // Increment the token index by 1 for the left paren
-//        self.cur_token_index += 1;
-//
-//        // Parse the expression inside the print statement
-//        self.parse_expression(token_stream, ast);
-//        
-//        // Increment the token index by 1 for the right paren
-//        self.cur_token_index += 1;
-//
-//        // All good so we move up
-//        ast.move_up();
-//    }
-//
+    fn parse_print_statement(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Log that we are parsing a print statement
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::SemanticAnalyzer,
+            String::from("Parsing PrintStatement")
+        );
+
+        // Add the PrintStatement node
+        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::Print));
+
+        // Increment the token index by 1 for the print keyword
+        self.cur_token_index += 1;
+
+        // Increment the token index by 1 for the left paren
+        self.cur_token_index += 1;
+
+        // Parse the expression inside the print statement
+        self.parse_expression(token_stream, ast);
+        
+        // Increment the token index by 1 for the right paren
+        self.cur_token_index += 1;
+
+        // All good so we move up
+        ast.move_up();
+    }
+
 //    fn parse_assignment_statement(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
 //        // Log that we are parsing a print statement
 //        nexus_log::log(
@@ -269,50 +269,38 @@ impl SemanticAnalyzer {
 //        return Ok(());
 //    }
 //
-//    fn parse_expression(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
-//        // Log that we are parsing an expression
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::SemanticAnalyzer,
-//            String::from("Parsing Expr")
-//        );
-//
-//        // Add the Expr node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::Expr));
-//
-//        // Look ahead to the next token
-//        let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
-//        if next_token_peek.is_some() {
-//            let next_token: Token = next_token_peek.unwrap();
-//
-//            // Assign a result object to expression_res based on the next token in the stream
-//            let expression_res: Result<(), String> = match next_token.token_type {
-//                // IntExpr
-//                TokenType::Digit(_) => self.parse_int_expression(token_stream, ast),
-//
-//                // StringExpr
-//                TokenType::Symbol(Symbols::Quote) => self.parse_string_expression(token_stream, ast),
-//
-//                // BooleanExpr
-//                TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => self.parse_bool_expression(token_stream, ast),
-//
-//                // Id
-//                TokenType::Identifier(_) => self.parse_identifier(token_stream, ast),
-//
-//                _ => Err(format!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are [Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}]", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z")))),
-//            };
-//    
-//            if expression_res.is_ok() {
-//                ast.move_up();
-//            }
-//            return expression_res;
-//        } else {
-//            // There are no more tokens to parse
-//            return Err(format!("Missing expression token at end of program; Valid expression beginning tokens are [Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}]", TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z"))));
-//        }
-//    }
-//
-//
+    fn parse_expression(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Log that we are parsing an expression
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::SemanticAnalyzer,
+            String::from("Parsing Expr")
+        );
+
+        // Look ahead to the next token
+        let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
+        if next_token_peek.is_some() {
+            let next_token: Token = next_token_peek.unwrap();
+
+            // Assign a result object to expression_res based on the next token in the stream
+            match next_token.token_type {
+                // IntExpr
+                //TokenType::Digit(_) => self.parse_int_expression(token_stream, ast),
+
+                // StringExpr
+                //TokenType::Symbol(Symbols::Quote) => self.parse_string_expression(token_stream, ast),
+
+                // BooleanExpr
+                //TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => self.parse_bool_expression(token_stream, ast),
+
+                // Id
+                TokenType::Identifier(_) => self.parse_identifier(token_stream, ast),
+
+                _ => error!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are [Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}]", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z"))),
+            };
+        }
+    }
+
 //    fn parse_int_expression(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
 //        // Log that we are parsing an integer expression
 //        nexus_log::log(
@@ -463,26 +451,21 @@ impl SemanticAnalyzer {
 //        return rparen_res;
 //    }
 //
-//    fn parse_identifier(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing an identifier
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing Id")
-//        );
-//
-//        // Add the Id node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::Id));
-//
-//        // Match the id
-//        let id_res: Result<(), String> = self.match_token(token_stream, TokenType::Identifier(String::from("a-z")), ast);
-//
-//        if id_res.is_ok() {
-//            ast.move_up();
-//        }
-//        return id_res;
-//    }
-//
+    fn parse_identifier(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Log that we are parsing an identifier
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::SemanticAnalyzer,
+            String::from("Parsing Id")
+        );
+
+        // Add the Id node
+        ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(token_stream[self.cur_token_index].to_owned()));
+        
+        // Increment the position because we consumed another token
+        self.cur_token_index += 1;
+    }
+
 //    fn parse_char_list(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
 //        // Recursion base case
 //        // We have reached the end of the character list
