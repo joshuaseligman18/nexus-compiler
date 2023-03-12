@@ -84,27 +84,27 @@ textarea {
     background-color: #F05454;
 }
 
-#cst-area {
+#cst-area, #ast-area {
     width: 95%;
     margin: 2.5%;
 }
 
-#cst-tab-content {
+#cst-tab-content, #ast-tab-content {
     margin-top: 1.5%;
 }
 
-.cst-pane * {
+.cst-pane *, .ast-pane * {
     height: 450px;
 }
 
-.cst-svg-div svg {
+.cst-svg-div svg, .ast-svg-div svg {
     border: 1px solid #121212;
 }
 
-.cst-svg-div svg:hover {
+.cst-svg-div svg:hover, .ast-svg-div svg:hover {
     cursor: grab;
 }
 
-.cst-svg-div svg:active {
+.cst-svg-div svg:active, .ast-svg-div svg:active{
     cursor: grabbing;
 }

@@ -4,3 +4,6 @@ pub mod token;
 pub mod parser;
 pub mod cst;
 pub mod cst_node;
+pub mod ast;
+pub mod ast_node;
+pub mod semantic_analyzer;
