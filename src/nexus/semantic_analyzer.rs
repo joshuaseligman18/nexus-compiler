@@ -106,7 +106,7 @@ impl SemanticAnalyzer {
                 TokenType::Keyword(Keywords::While) => self.parse_while_statement(token_stream, ast), 
 
                 // If statements
-                //TokenType::Keyword(Keywords::If) => self.parse_if_statement(token_stream, ast),
+                TokenType::Keyword(Keywords::If) => self.parse_if_statement(token_stream, ast),
 
                 // Block statements
                 TokenType::Symbol(Symbols::LBrace) => self.parse_block(token_stream, ast),
@@ -212,39 +212,27 @@ impl SemanticAnalyzer {
         ast.move_up();
     }
 
-//    fn parse_if_statement(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing an if statement
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing IfStatement")
-//        );
-//
-//        // Add the IfStatement node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::IfStatement));
-//
-//        // Make sure we have the if token
-//        let if_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::If), ast);
-//        if if_res.is_err() {
-//            return if_res;
-//        }
-//
-//        // If has a boolean expression
-//        let bool_expr_res: Result<(), String> = self.parse_bool_expression(token_stream, ast);
-//        if bool_expr_res.is_err() {
-//            return bool_expr_res;
-//        }
-//
-//        // The body of the if-statement is a block
-//        let block_res: Result<(), String> = self.parse_block(token_stream, ast);
-//        if block_res.is_err() {
-//            return block_res;
-//        }
-//
-//        ast.move_up();
-//        return Ok(());
-//    }
-//
+    fn parse_if_statement(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Log that we are parsing an if statement
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::SemanticAnalyzer,
+            String::from("Parsing IfStatement")
+        );
+
+        // Add the IfStatement node
+        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::If));
+        self.cur_token_index += 1;
+
+        // If has a boolean expression
+        self.parse_bool_expression(token_stream, ast);
+        
+        // The body of the if-statement is a block
+        self.parse_block(token_stream, ast);
+
+        ast.move_up();
+    }
+
     fn parse_expression(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
         // Log that we are parsing an expression
         nexus_log::log(
@@ -295,6 +283,7 @@ impl SemanticAnalyzer {
                 self.cur_token_index += 2;
                 
                 self.parse_expression(token_stream, ast);
+                ast.move_up();
             },
             _ => {
                 // It is just the digit, so we can just add the digit (current token) to the ast
