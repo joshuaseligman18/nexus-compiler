@@ -14,8 +14,8 @@ use string_builder::Builder;
 // Have to import the treeRenderer js module
 #[wasm_bindgen(module = "/treeRenderer.js")]
 extern "C" {
-    // Import the createSyntaxTree function from js so we can call it from the Rust code
-    #[wasm_bindgen(js_name = "createSyntaxTree")]
+    // Import the createCst function from js so we can call it from the Rust code
+    #[wasm_bindgen(js_name = "createCst")]
     fn create_cst_rendering(dotSrc: &str, svgId: &str);
 }
 

@@ -1,7 +1,7 @@
 // Keeps track of the best dimensions so all images can be rendered
 let realDim = [0, 0];
 
-export function createSyntaxTree(dotSrc, svgId) {
+export function createCst(dotSrc, svgId) {
     // Get the width and height of the container
     let width = document.querySelector(`#${svgId}`).offsetWidth;
     let height = document.querySelector(`#${svgId}`).offsetHeight;

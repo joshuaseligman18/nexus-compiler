@@ -1,7 +1,7 @@
 use wasm_bindgen::{prelude::Closure, JsCast};
 use web_sys::{Document, HtmlElement, Event, Element, DomTokenList};
 
-use crate::{nexus::{compiler, cst::Cst, ast::Ast}, util::nexus_log};
+use crate::{nexus::{compiler, cst::Cst}, util::nexus_log};
 
 use wasm_bindgen::prelude::*;
 
@@ -37,7 +37,6 @@ pub fn set_up_buttons(document: &Document) {
     let clear_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(|| {
         nexus_log::clear_logs();
         Cst::clear_display();
-        Ast::clear_display();
     }) as Box<dyn FnMut()>);
 
     clear_btn.add_event_listener_with_callback("click", clear_btn_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
