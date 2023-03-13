@@ -293,7 +293,7 @@ impl SemanticAnalyzer {
                 TokenType::Symbol(Symbols::Quote) => self.parse_string_expression(token_stream, ast),
 
                 // BooleanExpr
-                //TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => self.parse_bool_expression(token_stream, ast),
+                TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => self.parse_bool_expression(token_stream, ast),
 
                 // Id
                 TokenType::Identifier(_) => self.parse_identifier(token_stream, ast),
@@ -363,72 +363,86 @@ impl SemanticAnalyzer {
         ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(new_token));
     }
 
-//    fn parse_bool_expression(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing a boolean expression
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing BooleanExpr")
-//        );
-//
-//        // Add BooleanExpr node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::BooleanExpr));
-//
-//        let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
-//        if next_token_peek.is_some() {
-//            let next_token: Token = next_token_peek.unwrap();
-//
-//            let bool_expr_res: Result<(), String> = match next_token.token_type {
-//                // Long boolean expressions start with LParen
-//                TokenType::Symbol(Symbols::LParen) => self.long_bool_expression_helper(token_stream, ast),
-//    
-//                // The false and true keywords
-//                TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => self.parse_bool_val(token_stream, ast),
-//    
-//                // Invalid boolean expression
-//                _ => Err(format!("Invalid boolean expression token [ {:?} ] at {:?}; Valid boolean expression beginning tokens are {:?}", next_token.token_type, next_token.position, vec![TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)]))
-//            };
-//    
-//            if bool_expr_res.is_ok() {
-//                ast.move_up();
-//            }
-//            return bool_expr_res;
-//        } else {
-//            // There are no more tokens to parse
-//            return Err(format!("Missing boolean expression token at end of program; Valid boolean expression beginning tokens are {:?}", vec![TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)]));
-//        }
-//    }
-//
-//    fn long_bool_expression_helper(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        let lparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::LParen), ast);
-//        if lparen_res.is_err() {
-//            return lparen_res;
-//        }
-//
-//        // Then move on to the left side of the expression
-//        let expr1_res: Result<(), String> = self.parse_expression(token_stream, ast);
-//        if expr1_res.is_err() {
-//            return expr1_res;
-//        }
-//
-//        // Next check for a boolean operator
-//        let bool_op_res: Result<(), String> = self.parse_bool_op(token_stream, ast);
-//        if bool_op_res.is_err() {
-//            return bool_op_res;
-//        }
-//
-//        // Next check for the other side of the expression
-//        let expr2_res: Result<(), String> = self.parse_expression(token_stream, ast);
-//        if expr2_res.is_err() {
-//            return expr2_res;
-//        }
-//
-//        // Lastly close it with a paren
-//        let rparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::RParen), ast);
-//        // Return the result regardless of error or ok
-//        return rparen_res;
-//    }
-//
+    fn parse_bool_expression(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Log that we are parsing a boolean expression
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::SemanticAnalyzer,
+            String::from("Parsing BooleanExpr")
+        );
+
+        match &token_stream[self.cur_token_index].token_type {
+            // Long boolean expressions start with LParen
+            TokenType::Symbol(Symbols::LParen) => self.long_bool_expression_helper(token_stream, ast),
+
+            // The false and true keywords
+            TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => {
+                // Add the node for true and false and consume the token
+                ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(token_stream[self.cur_token_index].to_owned()));
+                self.cur_token_index += 1;
+            },
+
+            // Invalid boolean expression, but parse should have already handled this
+            _ => error!("Invalid boolean expression token [ {:?} ] at {:?}; Valid boolean expression beginning tokens are {:?}", token_stream[self.cur_token_index].token_type, token_stream[self.cur_token_index].position, vec![TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)])
+        }
+    }
+
+    fn long_bool_expression_helper(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Add 1 to the index for the left paren
+        self.cur_token_index += 1;
+
+        // Counter for the open parentheses we are seeing prior to the bool op
+        let mut paren_count: i32 = 0;
+        // Start with the second token because there is at least 1 before the bool op
+        let mut cur_offset: usize = 1;
+        // Flag for breaking out of the loop
+        let mut bool_op_found: bool = false;
+
+
+        while !bool_op_found {
+            match &token_stream[self.cur_token_index + cur_offset].token_type {
+                TokenType::Symbol(Symbols::EqOp) => {
+                    if paren_count == 0 {
+                        // Only add the operator to the ast if all prior parens are closed
+                        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::IsEq));
+                        bool_op_found = true;
+                    }
+                },
+                TokenType::Symbol(Symbols::NeqOp) => {
+                    if paren_count == 0 {
+                        // Only add the operator to the ast if all prior parens are closed
+                        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::NotEq));
+                        bool_op_found = true;
+                    }
+                },
+                TokenType::Symbol(Symbols::LParen) => {
+                    // We found a paren, so have to add it to the count
+                    paren_count += 1;
+                },
+                TokenType::Symbol(Symbols::RParen) => {
+                    // The close paren should reduce the count
+                    paren_count -= 1;
+                },
+                _ => {/* Do nothing if none of these symbols */}
+            }
+            cur_offset += 1;
+        }
+        
+        // Then move on to the left side of the expression
+        self.parse_expression(token_stream, ast);
+
+        // Skip over the boolean operator because already took care of that
+        self.cur_token_index += 1;
+
+        // Next go through the other side of the expression
+        self.parse_expression(token_stream, ast);
+
+        // Increment the index for the close paren
+        self.cur_token_index += 1;
+
+        ast.move_up();
+    }
+
     fn parse_identifier(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
         // Log that we are parsing an identifier
         nexus_log::log(
@@ -484,49 +498,7 @@ impl SemanticAnalyzer {
 //            return Ok(());
 //        }
 //    }
-//
-//    fn parse_bool_op(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing a boolean operator
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing boolop")
-//        );
-//
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::BoolOp));
-//
-//        // Try to consume the token
-//        let bool_op_res: Result<(), String> = self.match_token_collection(token_stream, vec![TokenType::Symbol(Symbols::EqOp), TokenType::Symbol(Symbols::NeqOp)], ast);
-//
-//        if bool_op_res.is_ok() {
-//            ast.move_up();
-//        }
-//        
-//        return bool_op_res;
-//    }
-//
-//    fn parse_bool_val(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing a boolean operator
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing boolval")
-//        );
-//
-//        // Add the boolval node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::BoolVal));
-//
-//        // Attempt to consume the token
-//        let bool_val_res: Result<(), String> = self.match_token_collection(token_stream, vec![TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)], ast);
-//
-//        if bool_val_res.is_ok() {
-//            // Move up if appropriate to do so
-//            ast.move_up();
-//        }
-//
-//        return bool_val_res;
-//    }
-//
+
 //    fn parse_int_op(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
 //        // Log that we are parsing an integer operator
 //        nexus_log::log(
