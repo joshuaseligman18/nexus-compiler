@@ -97,13 +97,13 @@ impl SemanticAnalyzer {
                 TokenType::Keyword(Keywords::Print) => self.parse_print_statement(token_stream, ast),
 
                 // Assignment statements
-                //TokenType::Identifier(_) => self.parse_assignment_statement(token_stream, ast),
+                TokenType::Identifier(_) => self.parse_assignment_statement(token_stream, ast),
 
                 // VarDecl statements
-                //TokenType::Keyword(Keywords::Int) | TokenType::Keyword(Keywords::String) | TokenType::Keyword(Keywords::Boolean) => self.parse_var_declaration(token_stream, ast),
+                TokenType::Keyword(Keywords::Int) | TokenType::Keyword(Keywords::String) | TokenType::Keyword(Keywords::Boolean) => self.parse_var_declaration(token_stream, ast),
 
                 // While statements
-                //TokenType::Keyword(Keywords::While) => self.parse_while_statement(token_stream, ast), 
+                TokenType::Keyword(Keywords::While) => self.parse_while_statement(token_stream, ast), 
 
                 // If statements
                 //TokenType::Keyword(Keywords::If) => self.parse_if_statement(token_stream, ast),
@@ -145,99 +145,73 @@ impl SemanticAnalyzer {
         ast.move_up();
     }
 
-//    fn parse_assignment_statement(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing a print statement
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing AssignmentStatement")
-//        );
-//
-//        // Add the AssignmentStatement node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::AssignmentStatement));
-//
-//        // Assignment statements begin with an identifier
-//        let id_res: Result<(), String> = self.parse_identifier(token_stream, ast);
-//        if id_res.is_err() {
-//            return id_res;
-//        }
-//
-//        // Check for a =
-//        let assignment_op_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::AssignmentOp), ast);
-//        if assignment_op_res.is_err() {
-//            return assignment_op_res;
-//        }
-//
-//        // The right hand side of the statement is an expression
-//        let expr_res: Result<(), String> = self.parse_expression(token_stream, ast);
-//        if expr_res.is_err() {
-//            return expr_res;
-//        }
-//
-//        ast.move_up();
-//        return Ok(());
-//    }
-//
-//    fn parse_var_declaration(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String>{
-//        // Log that we are parsing a variable declaration
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing VarDecl")
-//        );
-//
-//        // Add the VarDecl node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::VarDecl));
-//
-//        // Make sure we have a valid type
-//        let type_res: Result<(), String> = self.parse_type(token_stream, ast);
-//        if type_res.is_err() {
-//            return type_res;
-//        }
-//
-//        // Then make sure there is a valid identifier
-//        let id_res: Result<(), String> = self.parse_identifier(token_stream, ast);
-//        if id_res.is_err() {
-//            return id_res;
-//        }
-//
-//        ast.move_up();
-//        return Ok(());
-//    }
-//
-//    fn parse_while_statement(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing a while statement
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing WhileStatement")
-//        );
-//
-//        // Add the WhileStatementNode
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::WhileStatement));
-//
-//        // Make sure we have the while token
-//        let while_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::While), ast);
-//        if while_res.is_err() {
-//            return while_res;
-//        }
-//
-//        // While has a boolean expression
-//        let bool_expr_res: Result<(), String> = self.parse_bool_expression(token_stream, ast);
-//        if bool_expr_res.is_err() {
-//            return bool_expr_res;
-//        }
-//
-//        // The body of the loop is defined by a block
-//        let block_res: Result<(), String> = self.parse_block(token_stream, ast);
-//        if block_res.is_err() {
-//            return block_res;
-//        }
-//
-//        ast.move_up();
-//        return Ok(());
-//    }
-//
+    fn parse_assignment_statement(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Log that we are parsing an assignment statement
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::SemanticAnalyzer,
+            String::from("Parsing AssignmentStatement")
+        );
+
+        // Add the AssignmentStatement node
+        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::Assign));
+
+        // Assignment statements begin with an identifier
+        self.parse_identifier(token_stream, ast);
+        
+        // Increment the index for the = sign that parse checked
+        self.cur_token_index += 1;
+
+        // The right hand side of the statement is an expression
+        self.parse_expression(token_stream, ast);
+       
+        // Move back up to the level of the statements
+        ast.move_up();
+    }
+
+    fn parse_var_declaration(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Log that we are parsing a variable declaration
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::SemanticAnalyzer,
+            String::from("Parsing VarDecl")
+        );
+
+        // Add the VarDecl node
+        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::VarDecl));
+
+        // Add the type to the AST
+        ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(token_stream[self.cur_token_index].to_owned()));
+        self.cur_token_index += 1;
+
+        // Then make sure there is a valid identifier
+        self.parse_identifier(token_stream, ast);
+
+        ast.move_up();
+    }
+
+    fn parse_while_statement(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Log that we are parsing a while statement
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::SemanticAnalyzer,
+            String::from("Parsing WhileStatement")
+        );
+
+        // Add the node for a while statement
+        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::While));
+        self.cur_token_index += 1;
+        
+        // While has a boolean expression
+        self.parse_bool_expression(token_stream, ast);
+        
+        // The body of the loop is defined by a block
+        self.parse_block(token_stream, ast);
+       
+        // Move up out of the while
+        ast.move_up();
+    }
+
 //    fn parse_if_statement(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
 //        // Log that we are parsing an if statement
 //        nexus_log::log(
