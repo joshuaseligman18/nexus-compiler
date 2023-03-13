@@ -32,7 +32,8 @@ pub enum NonTerminals {
     Assign,
     Print,
     While,
-    If
+    If,
+    Add
 }
 
 // The type of a node relative to the tree

@@ -4,6 +4,8 @@ use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log
 use crate::nexus::ast::{Ast};
 use crate::nexus::ast_node::{AstNode, NonTerminals, AstNodeTypes};
 
+use string_builder::Builder;
+
 pub struct SemanticAnalyzer {
     cur_token_index: usize,
     num_warnings: i32
@@ -285,10 +287,10 @@ impl SemanticAnalyzer {
             // Assign a result object to expression_res based on the next token in the stream
             match next_token.token_type {
                 // IntExpr
-                //TokenType::Digit(_) => self.parse_int_expression(token_stream, ast),
+                TokenType::Digit(_) => self.parse_int_expression(token_stream, ast),
 
                 // StringExpr
-                //TokenType::Symbol(Symbols::Quote) => self.parse_string_expression(token_stream, ast),
+                TokenType::Symbol(Symbols::Quote) => self.parse_string_expression(token_stream, ast),
 
                 // BooleanExpr
                 //TokenType::Symbol(Symbols::LParen) | TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => self.parse_bool_expression(token_stream, ast),
@@ -296,95 +298,71 @@ impl SemanticAnalyzer {
                 // Id
                 TokenType::Identifier(_) => self.parse_identifier(token_stream, ast),
 
+                // Parse already ensured correctness, but have to include this case
                 _ => error!("Invalid expression token [ {:?} ] at {:?}; Valid expression beginning tokens are [Digit(0-9), {:?}, {:?}, {:?}, {:?}, {:?}]", next_token.token_type, next_token.position, TokenType::Symbol(Symbols::Quote), TokenType::Symbol(Symbols::LParen), TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True), TokenType::Identifier(String::from("a-z"))),
             };
         }
     }
 
-//    fn parse_int_expression(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing an integer expression
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing IntExpr")
-//        );
-//
-//        // Add the IntExpr node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::IntExpr));
-//
-//        // Parse the first digit and return error if needed
-//        let first_digit_res: Result<(), String> = self.parse_digit(token_stream, ast);
-//        if first_digit_res.is_err() {
-//            return first_digit_res;
-//        }
-//
-//        // Check the integer operator
-//        if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::AdditionOp)) {     
-//            let int_op_res: Result<(), String> = self.parse_int_op(token_stream, ast);
-//    
-//            if int_op_res.is_err() {
-//                return int_op_res;
-//            }
-//
-//            // Get the second half of the expression if there is an integer operator and return the error if needed
-//            // Type check does not matter, so can parse 3 + "hello" for now and semantic analysis will catch it
-//            let second_half_res: Result<(), String> = self.parse_expression(token_stream, ast);
-//            if second_half_res.is_err() {
-//                return second_half_res;
-//            }
-//        }
-//
-//        ast.move_up();
-//        return Ok(());
-//    }
-//
-//    fn parse_string_expression(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing a string expression
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing StringExpr")
-//        );
-//
-//        // Add the StringExpr node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::StringExpr));
-//
-//        // Check for the open quote
-//        let open_quote_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::Quote), ast);
-//        if open_quote_res.is_err() {
-//            return open_quote_res;
-//        }
-//
-//        // Parse the string contents
-//        let char_list_res: Result<(), String> = self.parse_char_list(token_stream, ast);
-//        if char_list_res.is_err() {
-//            return char_list_res;
-//        }
-//
-//        // Check for the close quote
-//        let close_quote_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::Quote), ast);
-//        if close_quote_res.is_err() {
-//            return close_quote_res;
-//        } else {
-//            // Check 2 tokens prior, which should be a quote if empty string
-//            // No need to check for going out of bounds because both quotes will already have been consumed
-//            match &token_stream[self.cur_token_index - 2].token_type {
-//                TokenType::Symbol(Symbols::Quote) => {
-//                    nexus_log::log(
-//                        nexus_log::LogTypes::Warning,
-//                        nexus_log::LogSources::Parser,
-//                        format!("Empty string found starting at {:?}", token_stream[self.cur_token_index - 2].position)
-//                    );
-//                    self.num_warnings += 1;
-//                },
-//                _ => { /* Do nothing because there is not an empty string */ }
-//            }
-//        }
-//
-//        ast.move_up();
-//        return Ok(());
-//    }
-//
+    fn parse_int_expression(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Log that we are parsing an integer expression
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::SemanticAnalyzer,
+            String::from("Parsing IntExpr")
+        );
+
+        match &token_stream[self.cur_token_index + 1].token_type {
+            TokenType::Symbol(Symbols::AdditionOp) => {
+                // Add the addition nonterminal
+                ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::Add));
+                // Add the first digit
+                ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(token_stream[self.cur_token_index].to_owned()));
+                self.cur_token_index += 2;
+                
+                self.parse_expression(token_stream, ast);
+            },
+            _ => {
+                // It is just the digit, so we can just add the digit (current token) to the ast
+                ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(token_stream[self.cur_token_index].to_owned()));
+                self.cur_token_index += 1;
+            }
+        }
+      }
+
+    fn parse_string_expression(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+        // Log that we are parsing a string expression
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::SemanticAnalyzer,
+            String::from("Parsing StringExpr")
+        );
+
+        // Get the posititon of the string because we will make a new token for the whole thing
+        let string_pos: (usize, usize) = token_stream[self.cur_token_index].position.to_owned();
+
+        // Increment the index for the first quote
+        self.cur_token_index += 1;
+
+        // We will build the final string
+        let mut str_builder: Builder = Builder::default();
+
+        // Continue until we reach the close quote
+        while token_stream[self.cur_token_index].token_type.ne(&TokenType::Symbol(Symbols::Quote)) {
+            // Add the character text and go to the next token
+            str_builder.append(token_stream[self.cur_token_index].text.to_owned());
+            self.cur_token_index += 1;
+        }
+        
+        // Increment the index for the close quote
+        self.cur_token_index += 1;
+
+        // Crate a new token and add it to the AST
+        let new_string: String = str_builder.string().unwrap();
+        let new_token: Token = Token::new(TokenType::Char(new_string.to_owned()), new_string.to_owned(), string_pos.0, string_pos.1);  
+        ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(new_token));
+    }
+
 //    fn parse_bool_expression(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
 //        // Log that we are parsing a boolean expression
 //        nexus_log::log(
@@ -466,43 +444,6 @@ impl SemanticAnalyzer {
         self.cur_token_index += 1;
     }
 
-//    fn parse_char_list(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Recursion base case
-//        // We have reached the end of the character list
-//        if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::Quote)) {
-//            // Log that we are parsing a CharList
-//            nexus_log::log(
-//                nexus_log::LogTypes::Debug,
-//                nexus_log::LogSources::Parser,
-//                String::from("Parsing CharList (epsilon base case)")
-//            );
-//            // Do nothing here because we have reached the end of the string (epsilon case)
-//            return Ok(());
-//        } else {
-//            // Log that we are parsing a CharList
-//            nexus_log::log(
-//                nexus_log::LogTypes::Debug,
-//                nexus_log::LogSources::Parser,
-//                String::from("Parsing CharList")
-//            );
-//    
-//            // Add the CharList node
-//            ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::CharList));
-//            let char_res: Result<(), String> = self.parse_char(token_stream, ast);
-//            if char_res.is_err() {
-//                // Break from error
-//                return char_res;
-//            } else {
-//                // Otherwise continue for the rest of the string
-//                let char_list_res: Result<(), String> = self.parse_char_list(token_stream, ast);
-//                if char_list_res.is_ok() {
-//                    ast.move_up();
-//                }
-//                return char_list_res;
-//            }
-//        }
-//    }
-//
 //    fn parse_type(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
 //        // Log that we are parsing a type
 //        nexus_log::log(
@@ -542,43 +483,6 @@ impl SemanticAnalyzer {
 //            ast.move_up();
 //            return Ok(());
 //        }
-//    }
-//
-//    fn parse_char(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Check for the next character's content to have the correct output (space vs char)
-//        let cur_token: Option<Token> = self.peek_next_token(token_stream);
-//        if cur_token.is_some() {
-//            match cur_token.unwrap().text.as_str() {
-//                " " => {
-//                    nexus_log::log(
-//                        nexus_log::LogTypes::Debug,
-//                        nexus_log::LogSources::Parser,
-//                        String::from("Parsing space")
-//                    );
-//
-//                    // Add the node
-//                    ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::Space));
-//                },
-//                _ => {
-//                    // Log that we are parsing a Char
-//                    nexus_log::log(
-//                        nexus_log::LogTypes::Debug,
-//                        nexus_log::LogSources::Parser,
-//                        String::from("Parsing char")
-//                    );
-//                    ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::Char));
-//                }
-//            }
-//        }
-//
-//        // Make sure we have a character token here
-//        let char_res: Result<(), String> = self.match_token(token_stream, TokenType::Char(String::from("a-z or space")), ast);
-//
-//        if char_res.is_ok() {
-//            ast.move_up();
-//        }
-//
-//        return char_res;
 //    }
 //
 //    fn parse_bool_op(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
