@@ -3,12 +3,14 @@ use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log
 
 use crate::nexus::ast::{Ast};
 use crate::nexus::ast_node::{AstNode, NonTerminals, AstNodeTypes};
+use crate::nexus::symbol_table::{SymbolTable, Type};
 
 use string_builder::Builder;
 
 pub struct SemanticAnalyzer {
     cur_token_index: usize,
-    num_warnings: i32
+    num_warnings: i32,
+    symbol_table: SymbolTable
 }
 
 impl SemanticAnalyzer {
@@ -16,7 +18,8 @@ impl SemanticAnalyzer {
     pub fn new() -> Self {
         return SemanticAnalyzer {
             cur_token_index: 0,
-            num_warnings: 0
+            num_warnings: 0,
+            symbol_table: SymbolTable::new()
         };
     }
 
@@ -420,68 +423,6 @@ impl SemanticAnalyzer {
         // Increment the position because we consumed another token
         self.cur_token_index += 1;
     }
-
-//    fn parse_type(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing a type
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing type")
-//        );
-//
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::Type));
-//
-//        // Try to consume the int token
-//        let type_res: Result<(), String> = self.match_token_collection(token_stream, vec![TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean)], ast);
-//        
-//        if type_res.is_ok() {
-//            ast.move_up();
-//        }
-//
-//        return type_res;
-//    }
-//
-//    fn parse_digit(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log what we are doing
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing digit")
-//        );
-//
-//        // Add the node
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::Digit));
-//
-//        // Match the token with a digit
-//        let digit_res: Result<(), String> = self.match_token(token_stream, TokenType::Digit(0), ast);
-//        if digit_res.is_err() {
-//            return digit_res;
-//        } else {
-//            ast.move_up();
-//            return Ok(());
-//        }
-//    }
-
-//    fn parse_int_op(&mut self, token_stream: &Vec<Token>, ast: &mut ast) -> Result<(), String> {
-//        // Log that we are parsing an integer operator
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::Parser,
-//            String::from("Parsing intop")
-//        );
-//
-//        ast.add_node(astNodeTypes::Branch, astNode::NonTerminal(NonTerminals::IntOp));
-//
-//        // Match the token or get the error
-//        let res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::AdditionOp), ast);
-//
-//        // Move up
-//        if res.is_ok() {
-//            ast.move_up();
-//        }
-//
-//        return res;
-//    }
 
     fn peek_next_token(&mut self, token_stream: &Vec<Token>) -> Option<Token> {
         // Make sure we are in-bounds

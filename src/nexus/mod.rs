@@ -7,3 +7,4 @@ pub mod cst_node;
 pub mod ast;
 pub mod ast_node;
 pub mod semantic_analyzer;
+pub mod symbol_table;
