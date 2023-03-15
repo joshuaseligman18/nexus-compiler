@@ -32,6 +32,7 @@ impl SymbolTable {
 
     // Function to create a new scope and set it as the current scope
     pub fn new_scope(&mut self) {
+        debug!("Creating new scope");
         // Add a new node to the graph with the new hashmap
         let new_node: NodeIndex = self.graph.add_node(HashMap::new());
        
@@ -48,6 +49,7 @@ impl SymbolTable {
     // Called to end the current  
     pub fn end_cur_scope(&mut self) {
         if self.cur_scope.is_some() {
+            debug!("Exiting current scope");
             // Get a vector of neighbors
             let neighbors: Vec<NodeIndex> = self.graph.neighbors(NodeIndex::new(self.cur_scope.unwrap())).collect();
 

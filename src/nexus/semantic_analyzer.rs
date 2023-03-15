@@ -5,6 +5,8 @@ use crate::nexus::ast::{Ast};
 use crate::nexus::ast_node::{AstNode, NonTerminals, AstNodeTypes};
 use crate::nexus::symbol_table::{SymbolTable, Type};
 
+use petgraph::graph::NodeIndex;
+
 use string_builder::Builder;
 
 pub struct SemanticAnalyzer {
@@ -491,6 +493,42 @@ impl SemanticAnalyzer {
             }
         } else {
             return false;
+        }
+    }
+
+    pub fn analyze_program(&mut self, ast: &Ast) {
+        if (*ast).root.is_some() {
+            self.analyze_dfs(ast, (*ast).root.unwrap());
+            debug!("Symbol table: {:?}", self.symbol_table);
+        }
+    }
+
+    fn analyze_dfs(&mut self, ast: &Ast, cur_index: usize) {
+        match (*ast).graph.node_weight(NodeIndex::new(cur_index)).unwrap() {
+            AstNode::NonTerminal(non_terminal) => {
+                match non_terminal {
+                    NonTerminals::Block => self.symbol_table.new_scope(),
+                    _ => { debug!("Nonterminal: {}", non_terminal); }
+                }
+            },
+            AstNode::Terminal(token) => {
+                debug!("Terminal: {:?}", token);
+            }
+        }
+
+        let neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(NodeIndex::new(cur_index)).collect();
+        for neighbor_index in neighbors.into_iter().rev() {
+            self.analyze_dfs(ast, neighbor_index.index());
+        }
+
+        match (*ast).graph.node_weight(NodeIndex::new(cur_index)).unwrap() {
+            AstNode::NonTerminal(non_terminal) => {
+                match non_terminal {
+                    NonTerminals::Block => self.symbol_table.end_cur_scope(),
+                    _ => {}
+                }
+            },
+            AstNode::Terminal(token) => {}
         }
     }
 }

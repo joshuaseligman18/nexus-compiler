@@ -25,7 +25,7 @@ pub struct Ast {
     pub graph: Graph<AstNode, ()>,
 
     // The root of the tree
-    root: Option<usize>,
+    pub root: Option<usize>,
 
     // The current node we are at
     current: Option<usize>,
