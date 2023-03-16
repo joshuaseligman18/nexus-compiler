@@ -11,6 +11,7 @@ use string_builder::Builder;
 
 pub struct SemanticAnalyzer {
     cur_token_index: usize,
+    num_errors: i32,
     num_warnings: i32,
     symbol_table: SymbolTable
 }
@@ -20,6 +21,7 @@ impl SemanticAnalyzer {
     pub fn new() -> Self {
         return SemanticAnalyzer {
             cur_token_index: 0,
+            num_errors: 0,
             num_warnings: 0,
             symbol_table: SymbolTable::new()
         };
@@ -497,6 +499,8 @@ impl SemanticAnalyzer {
     }
 
     pub fn analyze_program(&mut self, ast: &Ast) {
+        self.num_errors = 0;
+        self.num_warnings = 0;
         if (*ast).root.is_some() {
             self.analyze_dfs(ast, (*ast).root.unwrap());
             debug!("Symbol table: {:?}", self.symbol_table);
@@ -504,31 +508,90 @@ impl SemanticAnalyzer {
     }
 
     fn analyze_dfs(&mut self, ast: &Ast, cur_index: usize) {
+        // Start off by getting the children of the current node
+        let neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(NodeIndex::new(cur_index)).collect();
+
         match (*ast).graph.node_weight(NodeIndex::new(cur_index)).unwrap() {
             AstNode::NonTerminal(non_terminal) => {
                 match non_terminal {
-                    NonTerminals::Block => self.symbol_table.new_scope(),
+                    NonTerminals::Block => {
+                        // Create a new scope for the block
+                        self.symbol_table.new_scope();
+                        
+                        // Everything inside is a statement, so analyze each node
+                        for neighbor_index in neighbors.into_iter().rev() {
+                            self.analyze_dfs(ast, neighbor_index.index());
+                        }
+
+                        // This is the end of the current scope
+                        self.symbol_table.end_cur_scope();
+                    },
+                    NonTerminals::VarDecl => {
+                        // Index 0 should be the id token
+                        let id_node: &AstNode = (*ast).graph.node_weight(neighbors[0]).unwrap();
+                        let mut new_id: Option<String> = None;
+                        let mut new_id_pos: (usize, usize) = (0, 0);
+
+                        match id_node {
+                            AstNode::Terminal(id_token) => {
+                                match &id_token.token_type {
+                                    TokenType::Identifier(id_name) => {
+                                        new_id = Some(id_name.to_owned());
+                                        new_id_pos = id_token.position.to_owned();
+                                    },
+                                    // Should also never be reached, this is an internal error
+                                    _ => error!("Received {:?} at {:?}; Expected an identifier", id_token.token_type, id_token.position)
+                                }
+                            },
+                            // Nonterminal should never be reached
+                            AstNode::NonTerminal(_) => error!("Received a nonterminal as child to VarDecl")
+                        }
+
+                        // Index 1 should be the type token
+                        let type_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
+                        // Assume the type node does not exist
+                        let mut new_type: Option<Type> = None;
+
+                        match type_node {
+                            AstNode::Terminal(id_token) => {
+                                match &id_token.token_type {
+                                    TokenType::Keyword(keyword) => {
+                                        match &keyword {
+                                            // Set the appropriate type
+                                            Keywords::String => new_type = Some(Type::String),
+                                            Keywords::Int => new_type = Some(Type::Int),
+                                            Keywords::Boolean => new_type = Some(Type::Boolean),
+
+                                            // Should never be reached once again, but have to add
+                                            _ => error!("Received {:?} at {:?}; Expected String, Int, or Boolean", id_token.token_type, id_token.position)
+                                        }
+                                    },
+                                    // Should also never be reached, this is an internal error
+                                    _ => error!("Received {:?} at {:?}; Expected a keyword", id_token.token_type, id_token.position)
+                                }
+                            },
+                            // Nonterminal should never be reached
+                            AstNode::NonTerminal(_) => error!("Received a nonterminal as child to VarDecl")
+                        }
+
+                        if new_id.is_some() && new_type.is_some() {
+                            let new_id_res: bool = self.symbol_table.new_identifier(new_id.as_ref().unwrap().to_owned(), new_type.as_ref().unwrap().to_owned());
+                            if new_id_res == false {
+                                nexus_log::log(
+                                    nexus_log::LogTypes::Error,
+                                    nexus_log::LogSources::SemanticAnalyzer,
+                                    format!("Error at {:?}, Id [ {} ] has already been declared within the current scope", new_id_pos, new_id.unwrap())
+                                );
+                                self.num_errors += 1;
+                            }
+                        }
+                    },
                     _ => { debug!("Nonterminal: {}", non_terminal); }
                 }
             },
             AstNode::Terminal(token) => {
                 debug!("Terminal: {:?}", token);
             }
-        }
-
-        let neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(NodeIndex::new(cur_index)).collect();
-        for neighbor_index in neighbors.into_iter().rev() {
-            self.analyze_dfs(ast, neighbor_index.index());
-        }
-
-        match (*ast).graph.node_weight(NodeIndex::new(cur_index)).unwrap() {
-            AstNode::NonTerminal(non_terminal) => {
-                match non_terminal {
-                    NonTerminals::Block => self.symbol_table.end_cur_scope(),
-                    _ => {}
-                }
-            },
-            AstNode::Terminal(token) => {}
         }
     }
 }

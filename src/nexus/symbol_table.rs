@@ -5,7 +5,7 @@ use log::*;
 use petgraph::graph::{NodeIndex, Graph};
 
 // Enum for determining the type of a variable in a symbol table
-#[derive (Debug, PartialEq)]
+#[derive (Debug, PartialEq, Clone)]
 pub enum Type {
     Int,
     String,
@@ -60,6 +60,20 @@ impl SymbolTable {
                 // In the root scope and cur will be None now
                 self.cur_scope = None;
             }
+        }
+    }
+
+    // Adds an identifier to the current scope and returns if it was successful
+    pub fn new_identifier(&mut self, id: String, id_type: Type) -> bool {
+        // Get the current scope's hash table
+        let scope_table: &mut HashMap<String, Type> = self.graph.node_weight_mut(NodeIndex::new(self.cur_scope.unwrap())).unwrap();
+        if (*scope_table).contains_key(&id) {
+            // The id already exists so return false
+            return false;
+        } else {
+            // Add the id and its respective type to the hash table
+            (*scope_table).insert(id, id_type);
+            return true;
         }
     }
 }
