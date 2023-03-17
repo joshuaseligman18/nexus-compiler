@@ -83,7 +83,7 @@ impl SymbolTable {
             return false;
         } else {
             // Add the id and its respective information to the hash table
-            let mut new_entry = SymbolTableEntry {
+            let new_entry = SymbolTableEntry {
                 symbol_type: id_type,
                 position: id_position,
                 scope: self.cur_scope.unwrap(),
@@ -92,6 +92,35 @@ impl SymbolTable {
             };
             (*scope_table).insert(id, new_entry);
             return true;
+        }
+    }
+
+    // Returns a reference to the appropriate symbol table entry
+    // based on the current scope
+    pub fn get_symbol(&mut self, id: &str) -> Option<&SymbolTableEntry> {
+        // Start with the current scope
+        let mut cur_scope_check: usize = self.cur_scope.unwrap();
+       
+        // This loop has checks at the end, but work has to be done first
+        loop {
+            // Get the hashmap for the scope
+            let scope_table: &HashMap<String, SymbolTableEntry> = self.graph.node_weight(NodeIndex::new(cur_scope_check)).unwrap();
+            if (*scope_table).contains_key(id) {
+                // If the variable exists, then return the entry
+                return (*scope_table).get(id);
+            } else {
+                // Get a vector of neighbors
+                let neighbors: Vec<NodeIndex> = self.graph.neighbors(NodeIndex::new(self.cur_scope.unwrap())).collect();
+
+                if neighbors.len() == 0 {
+                    // A scope with no neighbors is the master scope, so the variable does
+                    // not exist relative to the current scope
+                    return None;
+                } else {
+                    // Otherwise, move on the the next higher scope
+                    cur_scope_check = neighbors[0].index();
+                }
+            }
         }
     }
 }

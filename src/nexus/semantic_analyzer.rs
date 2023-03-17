@@ -3,7 +3,7 @@ use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log
 
 use crate::nexus::ast::{Ast};
 use crate::nexus::ast_node::{AstNode, NonTerminals, AstNodeTypes};
-use crate::nexus::symbol_table::{SymbolTable, Type};
+use crate::nexus::symbol_table::{SymbolTable, Type, SymbolTableEntry};
 
 use petgraph::graph::NodeIndex;
 
@@ -527,6 +527,7 @@ impl SemanticAnalyzer {
                         self.symbol_table.end_cur_scope();
                     },
                     NonTerminals::VarDecl => self.analyze_var_decl(ast, &neighbors),
+                    NonTerminals::Assign => self.analyze_assignment(ast, &neighbors),
                     _ => { debug!("Nonterminal: {}", non_terminal); }
                 }
             },
@@ -600,5 +601,90 @@ impl SemanticAnalyzer {
                 self.num_errors += 1;
             }
         }
+    }
+
+    fn analyze_assignment(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) {
+        // Index 1 should be the id token
+        let id_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
+        let mut id_entry: Option<&SymbolTableEntry> = None;
+
+        match id_node {
+            // We assume this is an identifier because of the grammar and the AST
+            // should be correct
+            AstNode::Terminal(id_token) => {
+                id_entry = self.get_identifier(&id_token);
+            },
+            // Nonterminal should never be reached
+            AstNode::NonTerminal(_) => error!("Received a nonterminal when expecting a terminal to Assign")
+        }
+
+        // Index 0 is the value being assigned
+        let right_node: &AstNode = (*ast).graph.node_weight(neighbors[0]).unwrap();
+        let right_type: Option<Type> = match right_node {
+            AstNode::Terminal(right_token) => {
+                match &right_token.token_type {
+                    TokenType::Identifier(_) => {
+                        // Get the identifier
+                        let right_id: Option<&SymbolTableEntry> = self.get_identifier(&right_token);
+                        if right_id.is_some() {
+                            // Return its type if the identifier exists
+                            Some(right_id.unwrap().symbol_type.to_owned())
+                        } else {
+                            // Otherwise return none
+                            None
+                        }
+                    },
+                    TokenType::Digit(_) => Some(Type::Int),
+                    TokenType::Char(_) => Some(Type::String),
+                    TokenType::Keyword(keyword) => {
+                        match &keyword {
+                            Keywords::True | Keywords::False => Some(Type::Boolean),
+                            _ => {
+                                error!("Received [ {:?} ] as a keyword value for assignment; Expected true or false", keyword);
+                                None
+                            }
+                        }
+                    },
+                    // This should never be reached
+                    _ => {
+                        error!("Received [ {:?} ] as a value for assignment; Expected Identifier, Digit, Char, or Keyword", right_token.token_type);
+                        None
+                    }
+                }
+            },
+            AstNode::NonTerminal(non_terminal) => {
+                match &non_terminal {
+                    _ => None
+                }
+            }
+        };
+
+        if id_entry.is_some() && right_type.is_some() {
+            let id_entry_real: &SymbolTableEntry = id_entry.unwrap();
+            let right_type_real: Type = right_type.unwrap();
+            if id_entry_real.symbol_type.ne(&right_type_real) {
+                nexus_log::log(
+                    nexus_log::LogTypes::Error,
+                    nexus_log::LogSources::SemanticAnalyzer,
+                    format!("Mismatched types at {:?}; Expected {:?}, but received {:?}", id_entry_real.position, id_entry_real.symbol_type, right_type_real)
+                );
+            }
+        }
+    }
+
+    // Gets a symbol table entry for an identifier, or None if it does not exist
+    fn get_identifier(&mut self, id_token: &Token) -> Option<&SymbolTableEntry> {
+        let symbol_table_entry: Option<&SymbolTableEntry> = self.symbol_table.get_symbol(&id_token.text);
+
+        if symbol_table_entry.is_none() {
+            // Throw an error from the undeclared identifier
+            nexus_log::log(
+                nexus_log::LogTypes::Error,
+                nexus_log::LogSources::SemanticAnalyzer,
+                format!("Error at {:?}; Id [ {} ] has not been declared", id_token.position, id_token.text)
+            );
+            self.num_errors += 1;
+        }
+        return symbol_table_entry;
     }
 }
