@@ -526,71 +526,78 @@ impl SemanticAnalyzer {
                         // This is the end of the current scope
                         self.symbol_table.end_cur_scope();
                     },
-                    NonTerminals::VarDecl => {
-                        // Index 0 should be the id token
-                        let id_node: &AstNode = (*ast).graph.node_weight(neighbors[0]).unwrap();
-                        let mut new_id: Option<String> = None;
-                        let mut new_id_pos: (usize, usize) = (0, 0);
-
-                        match id_node {
-                            AstNode::Terminal(id_token) => {
-                                match &id_token.token_type {
-                                    TokenType::Identifier(id_name) => {
-                                        new_id = Some(id_name.to_owned());
-                                        new_id_pos = id_token.position.to_owned();
-                                    },
-                                    // Should also never be reached, this is an internal error
-                                    _ => error!("Received {:?} at {:?}; Expected an identifier", id_token.token_type, id_token.position)
-                                }
-                            },
-                            // Nonterminal should never be reached
-                            AstNode::NonTerminal(_) => error!("Received a nonterminal as child to VarDecl")
-                        }
-
-                        // Index 1 should be the type token
-                        let type_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
-                        // Assume the type node does not exist
-                        let mut new_type: Option<Type> = None;
-
-                        match type_node {
-                            AstNode::Terminal(id_token) => {
-                                match &id_token.token_type {
-                                    TokenType::Keyword(keyword) => {
-                                        match &keyword {
-                                            // Set the appropriate type
-                                            Keywords::String => new_type = Some(Type::String),
-                                            Keywords::Int => new_type = Some(Type::Int),
-                                            Keywords::Boolean => new_type = Some(Type::Boolean),
-
-                                            // Should never be reached once again, but have to add
-                                            _ => error!("Received {:?} at {:?}; Expected String, Int, or Boolean", id_token.token_type, id_token.position)
-                                        }
-                                    },
-                                    // Should also never be reached, this is an internal error
-                                    _ => error!("Received {:?} at {:?}; Expected a keyword", id_token.token_type, id_token.position)
-                                }
-                            },
-                            // Nonterminal should never be reached
-                            AstNode::NonTerminal(_) => error!("Received a nonterminal as child to VarDecl")
-                        }
-
-                        if new_id.is_some() && new_type.is_some() {
-                            let new_id_res: bool = self.symbol_table.new_identifier(new_id.as_ref().unwrap().to_owned(), new_type.as_ref().unwrap().to_owned());
-                            if new_id_res == false {
-                                nexus_log::log(
-                                    nexus_log::LogTypes::Error,
-                                    nexus_log::LogSources::SemanticAnalyzer,
-                                    format!("Error at {:?}, Id [ {} ] has already been declared within the current scope", new_id_pos, new_id.unwrap())
-                                );
-                                self.num_errors += 1;
-                            }
-                        }
-                    },
+                    NonTerminals::VarDecl => self.analyze_var_decl(ast, &neighbors),
                     _ => { debug!("Nonterminal: {}", non_terminal); }
                 }
             },
             AstNode::Terminal(token) => {
                 debug!("Terminal: {:?}", token);
+            }
+        }
+    }
+
+    fn analyze_var_decl(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) {
+        // Index 0 should be the id token
+        let id_node: &AstNode = (*ast).graph.node_weight(neighbors[0]).unwrap();
+        let mut new_id: Option<String> = None;
+        let mut new_id_pos: (usize, usize) = (0, 0);
+
+        match id_node {
+            AstNode::Terminal(id_token) => {
+                match &id_token.token_type {
+                    TokenType::Identifier(id_name) => {
+                        new_id = Some(id_name.to_owned());
+                        new_id_pos = id_token.position.to_owned();
+                    },
+                    // Should also never be reached, this is an internal error
+                    _ => error!("Received {:?} at {:?}; Expected an identifier", id_token.token_type, id_token.position)
+                }
+            },
+            // Nonterminal should never be reached
+            AstNode::NonTerminal(_) => error!("Received a nonterminal as child to VarDecl")
+        }
+
+        // Index 1 should be the type token
+        let type_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
+        // Assume the type node does not exist
+        let mut new_type: Option<Type> = None;
+
+        match type_node {
+            AstNode::Terminal(id_token) => {
+                match &id_token.token_type {
+                    TokenType::Keyword(keyword) => {
+                        match &keyword {
+                            // Set the appropriate type
+                            Keywords::String => new_type = Some(Type::String),
+                            Keywords::Int => new_type = Some(Type::Int),
+                            Keywords::Boolean => new_type = Some(Type::Boolean),
+
+                            // Should never be reached once again, but have to add
+                            _ => error!("Received {:?} at {:?}; Expected String, Int, or Boolean", id_token.token_type, id_token.position)
+                        }
+                    },
+                    // Should also never be reached, this is an internal error
+                    _ => error!("Received {:?} at {:?}; Expected a keyword", id_token.token_type, id_token.position)
+                }
+            },
+            // Nonterminal should never be reached
+            AstNode::NonTerminal(_) => error!("Received a nonterminal as child to VarDecl")
+        }
+
+        // Check to make sure that there weren't any internal errors (should never happen if AST
+        // was properly generated
+        if new_id.is_some() && new_type.is_some() {
+            // Attempt to add the new id to the symbol table
+            let new_id_res: bool = self.symbol_table.new_identifier(new_id.as_ref().unwrap().to_owned(), new_type.as_ref().unwrap().to_owned(), new_id_pos);
+            
+            // Throw an error if the id wasn't added to the symbol table
+            if new_id_res == false {
+                nexus_log::log(
+                    nexus_log::LogTypes::Error,
+                    nexus_log::LogSources::SemanticAnalyzer,
+                    format!("Error at {:?}; Id [ {} ] has already been declared within the current scope", new_id_pos, new_id.unwrap())
+                );
+                self.num_errors += 1;
             }
         }
     }
