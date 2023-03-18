@@ -639,10 +639,13 @@ impl SemanticAnalyzer {
                             None
                         }
                     },
+                    // A number is an integer type
                     TokenType::Digit(_) => Some(Type::Int),
+                    // The ast combined strings to be a single token with a long string
                     TokenType::Char(_) => Some(Type::String),
                     TokenType::Keyword(keyword) => {
                         match &keyword {
+                            // true and false keywords are booleans
                             Keywords::True | Keywords::False => Some(Type::Boolean),
                             _ => {
                                 error!("Received [ {:?} ] as a keyword value for assignment; Expected true or false", keyword);
@@ -659,6 +662,10 @@ impl SemanticAnalyzer {
             },
             AstNode::NonTerminal(non_terminal) => {
                 match &non_terminal {
+                    NonTerminals::Add => {
+                        let add_neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(neighbors[0]).collect();
+                        self.analyze_add(ast, &add_neighbors)
+                    },
                     _ => None
                 }
             }
@@ -694,5 +701,67 @@ impl SemanticAnalyzer {
             self.num_errors += 1;
         }
         return symbol_table_entry;
+    }
+
+    // Function that analyzes an add statement
+    fn analyze_add(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) -> Option<Type> {
+        // Index 1 will always be a digit, so that is by default an Int
+        // Only have to check index 0 of neighbors, which can be a nonterminal
+    
+        // Get the right side node of the addition
+        let right_node: &AstNode = (*ast).graph.node_weight(neighbors[0]).unwrap();
+        
+        // This will be used for the error reporting and other checks
+        let mut right_res: Option<(Type, (usize, usize))> = None;
+
+        match right_node {
+            AstNode::Terminal(right_token) => {
+                match &right_token.token_type {
+                    // Have to get the id type from the symbol table
+                    TokenType::Identifier(_) => {
+                        // Get the identifier
+                        let right_id: Option<&SymbolTableEntry> = self.get_identifier(&right_token);
+                        if right_id.is_some() {
+                            // Return its type if the identifier exists
+                            right_res = Some((right_id.unwrap().symbol_type.to_owned(), right_token.position.to_owned()))
+                        }
+                    },
+                    // Digits are integers
+                    TokenType::Digit(_) => right_res = Some((Type::Int, right_token.position.to_owned())),
+                    // Chars are strings
+                    TokenType::Char(_) => right_res = Some((Type::String, right_token.position.to_owned())),
+                    TokenType::Keyword(keyword) => {
+                        match &keyword {
+                            // Only true and false keywords should be here
+                            Keywords::True | Keywords::False => right_res = Some((Type::Boolean, right_token.position.to_owned())),
+                            _ => error!("Received [ {:?} ] as a keyword value for addition; Expected true or false", keyword)
+                        }
+                    },
+                    _ => error!("Received [ {:?} ] as a value for addition; Expected Identifier, Digit, Char, or Keyword", right_token.token_type)
+                }
+            },
+            AstNode::NonTerminal(non_terminal) => {
+                match &non_terminal {
+                    _ => {}
+                }
+            }
+        }
+
+        if right_res.is_some() {
+            let right_res_real: (Type, (usize, usize)) = right_res.unwrap();
+            if right_res_real.0.ne(&Type::Int) {
+                nexus_log::log(
+                    nexus_log::LogTypes::Error,
+                    nexus_log::LogSources::SemanticAnalyzer,
+                    format!("Error at {:?}; Expected {:?}, but received {:?}", right_res_real.1, Type::Int, right_res_real.0)
+                );
+                self.num_errors += 1;
+                return None;
+            } else {
+                return Some(Type::Int);
+            }
+        } else {
+            return None;
+        }
     }
 }
