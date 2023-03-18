@@ -606,7 +606,7 @@ impl SemanticAnalyzer {
     fn analyze_assignment(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) {
         // Index 1 should be the id token
         let id_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
-        let mut id_entry: Option<(Type, (usize, usize))> = None;
+        let mut id_type: Option<Type> = None;
 
         match id_node {
             // We assume this is an identifier because of the grammar and the AST
@@ -616,7 +616,7 @@ impl SemanticAnalyzer {
                 let id_res: Option<&SymbolTableEntry> = self.get_identifier(&id_token);
                 if id_res.is_some() {
                     // We need only the type of the variable and the position we are in right now
-                    id_entry = Some((id_res.unwrap().symbol_type.to_owned(), id_token.position.to_owned()));
+                    id_type = Some(id_res.unwrap().symbol_type.to_owned());
                 }
             },
             // Nonterminal should never be reached
@@ -625,7 +625,8 @@ impl SemanticAnalyzer {
 
         // Index 0 is the value being assigned
         let right_node: &AstNode = (*ast).graph.node_weight(neighbors[0]).unwrap();
-        let right_type: Option<Type> = match right_node {
+        let mut right_entry: Option<(Type, (usize, usize))> = None;
+        match right_node {
             AstNode::Terminal(right_token) => {
                 match &right_token.token_type {
                     TokenType::Identifier(_) => {
@@ -633,55 +634,46 @@ impl SemanticAnalyzer {
                         let right_id: Option<&SymbolTableEntry> = self.get_identifier(&right_token);
                         if right_id.is_some() {
                             // Return its type if the identifier exists
-                            Some(right_id.unwrap().symbol_type.to_owned())
-                        } else {
-                            // Otherwise return none
-                            None
+                            right_entry = Some((right_id.unwrap().symbol_type.to_owned(), right_token.position.to_owned()));
                         }
                     },
                     // A number is an integer type
-                    TokenType::Digit(_) => Some(Type::Int),
+                    TokenType::Digit(_) => right_entry = Some((Type::Int, right_token.position.to_owned())),
                     // The ast combined strings to be a single token with a long string
-                    TokenType::Char(_) => Some(Type::String),
+                    TokenType::Char(_) => right_entry = Some((Type::String, right_token.position.to_owned())),
                     TokenType::Keyword(keyword) => {
                         match &keyword {
                             // true and false keywords are booleans
-                            Keywords::True | Keywords::False => Some(Type::Boolean),
-                            _ => {
-                                error!("Received [ {:?} ] as a keyword value for assignment; Expected true or false", keyword);
-                                None
-                            }
+                            Keywords::True | Keywords::False => right_entry = Some((Type::Boolean, right_token.position.to_owned())),
+                            _ => error!("Received [ {:?} ] as a keyword value for assignment; Expected true or false", keyword)
                         }
                     },
                     // This should never be reached
-                    _ => {
-                        error!("Received [ {:?} ] as a value for assignment; Expected Identifier, Digit, Char, or Keyword", right_token.token_type);
-                        None
-                    }
+                    _ => error!("Received [ {:?} ] as a value for assignment; Expected Identifier, Digit, Char, or Keyword", right_token.token_type)
                 }
             },
             AstNode::NonTerminal(non_terminal) => {
                 match &non_terminal {
                     NonTerminals::Add => {
                         let add_neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(neighbors[0]).collect();
-                        self.analyze_add(ast, &add_neighbors)
+                        right_entry = self.analyze_add(ast, &add_neighbors);
                     },
-                    _ => None
+                    _ => {}
                 }
             }
         };
 
         // If both sides check out, then we can compare types
-        if id_entry.is_some() && right_type.is_some() {
-            let id_entry_real: (Type, (usize, usize)) = id_entry.unwrap();
-            let right_type_real: Type = right_type.unwrap();
+        if id_type.is_some() && right_entry.is_some() {
+            let id_type_real: Type = id_type.unwrap();
+            let right_entry_real: (Type, (usize, usize)) = right_entry.unwrap();
             
             // Compare the types and throw and error if they do not line up
-            if id_entry_real.0.ne(&right_type_real) {
+            if id_type_real.ne(&right_entry_real.0) {
                 nexus_log::log(
                     nexus_log::LogTypes::Error,
                     nexus_log::LogSources::SemanticAnalyzer,
-                    format!("Mismatched types at {:?}; Expected {:?}, but received {:?}", id_entry_real.1, id_entry_real.0, right_type_real)
+                    format!("Mismatched types at {:?}; Expected {:?} for the assignment type, but received {:?}", right_entry_real.1, id_type_real, right_entry_real.0)
                 );
             }
         }
@@ -704,7 +696,7 @@ impl SemanticAnalyzer {
     }
 
     // Function that analyzes an add statement
-    fn analyze_add(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) -> Option<Type> {
+    fn analyze_add(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) -> Option<(Type, (usize, usize))> {
         // Index 1 will always be a digit, so that is by default an Int
         // Only have to check index 0 of neighbors, which can be a nonterminal
     
@@ -742,6 +734,11 @@ impl SemanticAnalyzer {
             },
             AstNode::NonTerminal(non_terminal) => {
                 match &non_terminal {
+                    NonTerminals::Add => {
+                        // Get the children of the new add node and analyze them
+                        let add_neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(neighbors[0]).collect();
+                        right_res = self.analyze_add(ast, &add_neighbors);
+                    },
                     _ => {}
                 }
             }
@@ -753,12 +750,26 @@ impl SemanticAnalyzer {
                 nexus_log::log(
                     nexus_log::LogTypes::Error,
                     nexus_log::LogSources::SemanticAnalyzer,
-                    format!("Error at {:?}; Expected {:?}, but received {:?}", right_res_real.1, Type::Int, right_res_real.0)
+                    format!("Error at {:?}; Expected {:?} for the addition expression, but received {:?}", right_res_real.1, Type::Int, right_res_real.0)
                 );
                 self.num_errors += 1;
                 return None;
             } else {
-                return Some(Type::Int);
+                // Get the left side node of the addition for its position
+                let left_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
+                let mut left_position: (usize, usize) = (0, 0);
+
+                match &left_node {
+                    AstNode::Terminal(token) => {
+                        // Grab the position of the token
+                        // Parse already made sure it is a digit
+                        left_position = token.position.to_owned();
+                    },
+                    AstNode::NonTerminal(non_terminal) => error!("Received [ {:?} ] as a value for addition; Expected a terminal", non_terminal)
+                }
+
+
+                return Some((right_res_real.0, left_position));
             }
         } else {
             return None;
