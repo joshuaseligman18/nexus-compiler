@@ -653,11 +653,10 @@ impl SemanticAnalyzer {
                 }
             },
             AstNode::NonTerminal(non_terminal) => {
+                let new_neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(neighbors[0]).collect();
                 match &non_terminal {
-                    NonTerminals::Add => {
-                        let add_neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(neighbors[0]).collect();
-                        right_entry = self.analyze_add(ast, &add_neighbors);
-                    },
+                    NonTerminals::Add => right_entry = self.analyze_add(ast, &new_neighbors),
+                    NonTerminals::IsEq | NonTerminals::NotEq => right_entry = self.analyze_eq_neq(ast, &new_neighbors),
                     _ => {}
                 }
             }
@@ -770,6 +769,108 @@ impl SemanticAnalyzer {
 
 
                 return Some((right_res_real.0, left_position));
+            }
+        } else {
+            return None;
+        }
+    }
+
+    pub fn analyze_eq_neq(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) -> Option<(Type, (usize, usize))>{
+        let left_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap(); 
+
+        let mut left_entry: Option<(Type, (usize, usize))> = None;
+
+        match left_node {
+            AstNode::Terminal(left_token) => {
+                match &left_token.token_type {
+                     // Have to get the id type from the symbol table
+                    TokenType::Identifier(_) => {
+                        // Get the identifier
+                        let left_id: Option<&SymbolTableEntry> = self.get_identifier(&left_token);
+                        if left_id.is_some() {
+                            // Return its type if the identifier exists
+                            left_entry = Some((left_id.unwrap().symbol_type.to_owned(), left_token.position.to_owned()))
+                        }
+                    },
+                    // Digits are integers
+                    TokenType::Digit(_) => left_entry = Some((Type::Int, left_token.position.to_owned())),
+                    // Chars are strings
+                    TokenType::Char(_) => left_entry = Some((Type::String, left_token.position.to_owned())),
+                    TokenType::Keyword(keyword) => {
+                        match &keyword {
+                            // Only true and false keywords should be here
+                            Keywords::True | Keywords::False => left_entry = Some((Type::Boolean, left_token.position.to_owned())),
+                            _ => error!("Received [ {:?} ] as a keyword value for boolean expression; Expected true or false", keyword)
+                        }
+                    },
+                    _ => error!("Received [ {:?} ] as a value for boolean expression; Expected Identifier, Digit, Char, or Keyword", left_token.token_type)
+                }
+            },
+            AstNode::NonTerminal(non_terminal) => {
+                let left_neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(neighbors[1]).collect();
+                match non_terminal {
+                    NonTerminals::Add => left_entry = self.analyze_add(ast, &left_neighbors),
+                    NonTerminals::IsEq | NonTerminals::NotEq => left_entry = self.analyze_eq_neq(ast, &left_neighbors),
+                    _ => {}
+                }
+            }
+        }
+        
+        let right_node: &AstNode = (*ast).graph.node_weight(neighbors[0]).unwrap(); 
+
+        let mut right_entry: Option<(Type, (usize, usize))> = None;
+
+        match right_node {
+            AstNode::Terminal(right_token) => {
+                match &right_token.token_type {
+                     // Have to get the id type from the symbol table
+                    TokenType::Identifier(_) => {
+                        // Get the identifier
+                        let right_id: Option<&SymbolTableEntry> = self.get_identifier(&right_token);
+                        if right_id.is_some() {
+                            // Return its type if the identifier exists
+                            right_entry = Some((right_id.unwrap().symbol_type.to_owned(), right_token.position.to_owned()))
+                        }
+                    },
+                    // Digits are integers
+                    TokenType::Digit(_) => right_entry = Some((Type::Int, right_token.position.to_owned())),
+                    // Chars are strings
+                    TokenType::Char(_) => right_entry = Some((Type::String, right_token.position.to_owned())),
+                    TokenType::Keyword(keyword) => {
+                        match &keyword {
+                            // Only true and false keywords should be here
+                            Keywords::True | Keywords::False => right_entry = Some((Type::Boolean, right_token.position.to_owned())),
+                            _ => error!("Received [ {:?} ] as a keyword value for boolean expression; Expected true or false", keyword)
+                        }
+                    },
+                    _ => error!("Received [ {:?} ] as a value for boolean expression; Expected Identifier, Digit, Char, or Keyword", right_token.token_type)
+                }
+            },
+            AstNode::NonTerminal(non_terminal) => {
+                let right_neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(neighbors[0]).collect();
+                match non_terminal {
+                    NonTerminals::Add => right_entry = self.analyze_add(ast, &right_neighbors),
+                    NonTerminals::IsEq | NonTerminals::NotEq => right_entry = self.analyze_eq_neq(ast, &right_neighbors),
+                    _ => {}
+                }
+            }
+        }
+
+        if left_entry.is_some() && right_entry.is_some() {
+            let left_entry_real: (Type, (usize, usize)) = left_entry.unwrap();
+            let right_entry_real: (Type, (usize, usize)) = right_entry.unwrap();
+
+            if left_entry_real.0.ne(&right_entry_real.0) {
+                nexus_log::log(
+                    nexus_log::LogTypes::Error,
+                    nexus_log::LogSources::SemanticAnalyzer,
+                    format!("Error at {:?}; Mismatched types for boolean expression; Received {:?} on the left side and {:?} on the right side",
+                            left_entry_real.1, left_entry_real.0, right_entry_real.0)
+                );
+                self.num_errors += 1;
+                return None;
+            } else {
+                return Some((Type::Boolean, left_entry_real.1));
             }
         } else {
             return None;
