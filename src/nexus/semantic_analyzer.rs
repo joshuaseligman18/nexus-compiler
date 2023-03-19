@@ -528,12 +528,25 @@ impl SemanticAnalyzer {
                     },
                     NonTerminals::VarDecl => self.analyze_var_decl(ast, &neighbors),
                     NonTerminals::Assign => self.analyze_assignment(ast, &neighbors),
-                    _ => { debug!("Nonterminal: {}", non_terminal); }
+                    NonTerminals::Print => {
+                        // Only have to make sure that the types are ok, but don't
+                        // care what is inside because that was taken care of in parse
+                        self.derive_type(ast, neighbors[0]);
+                    },
+                    NonTerminals::If | NonTerminals::While => {
+                        // A condition_type of None means there was an error in the analysis
+                        // Parse guarantees that it is either true, false, or a boolean
+                        // expression, so do not need to make sure that it is a boolean because
+                        // it always will return as such if no errors
+                        self.derive_type(ast, neighbors[1]);
+
+                        // This is the block, so can perform DFS on it
+                        self.analyze_dfs(ast, neighbors[0].index());
+                    },
+                    _ => error!("Cannot analyze {:?} through DFS", non_terminal)
                 }
             },
-            AstNode::Terminal(token) => {
-                debug!("Terminal: {:?}", token);
-            }
+            AstNode::Terminal(_) => error!("Cannot analyze a terminal as part of the DFS, only nonterminals can be analyzed")
         }
     }
 
