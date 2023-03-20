@@ -214,7 +214,9 @@ impl Ast {
 
         // Single row container
         let row_div: Element = document.create_element("div").expect("Should be able to create the div");
-        row_div.set_class_name("row");
+        let row_classes: DomTokenList = row_div.class_list();
+        row_classes.add_2("row", "justify-content-around").expect("Should be able to add the classes");
+        row_div.set_id(format!("program{}-ast-row", *program_number).as_str());
         
         // The text area is needed for the text representation
         let ast_text_area: HtmlTextAreaElement = document.create_element("textarea")
@@ -224,7 +226,7 @@ impl Ast {
 
         // Set the appropriate styles and general information
         let ast_text_classes: DomTokenList = ast_text_area.class_list();
-        ast_text_classes.add_2("col-4", "ast-text").expect("Should be able to add the classes");
+        ast_text_classes.add_2("col-3", "ast-text").expect("Should be able to add the classes");
         ast_text_area.set_read_only(true);
         ast_text_area.set_id(format!("program{}-ast-text", *program_number).as_str());
         row_div.append_child(&ast_text_area).expect("Should be able to add child node");
@@ -232,9 +234,58 @@ impl Ast {
         // The div for the svg where d3 will render the graph
         let svg_div_elem: Element = document.create_element("div").expect("Should be able to create the element");
         let svg_classes: DomTokenList = svg_div_elem.class_list();
-        svg_classes.add_2("col-8", "ast-svg-div").expect("Should be able to add the classes");
+        svg_classes.add_2("col-5", "ast-svg-div").expect("Should be able to add the classes");
         svg_div_elem.set_id(format!("program{}-ast-svg-div", *program_number).as_str());
         row_div.append_child(&svg_div_elem).expect("Should be able to add child node");
+
+        let symbol_table_area: Element = document.create_element("div").expect("Should be able to create the element");
+        let symbol_table_area_classes: DomTokenList = symbol_table_area.class_list();
+        symbol_table_area_classes.add_2("col-4", "symbol-table-area").expect("Should be able to add the classes");
+        
+        let symbol_table_elem: Element = document.create_element("table").expect("Should be able to create the table");
+        let symbol_table_classes: DomTokenList = symbol_table_elem.class_list();
+        symbol_table_classes.add_2("table", "table-striped").expect("Should be able to add the classes");
+        symbol_table_elem.set_id(format!("program{}-symbol-table", *program_number).as_str());
+
+        let symbol_table_head: Element = document.create_element("thead").expect("Should be able to create the element");
+        let header_row: Element = document.create_element("tr").expect("Should be able to create the element");
+
+        let id_head: Element = document.create_element("th").expect("Should be able to create the element");
+        id_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        id_head.set_inner_html("Id");
+        header_row.append_child(&id_head).expect("Should be able to add the child node");
+
+        let type_head: Element = document.create_element("th").expect("Should be able to create the element");
+        type_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        type_head.set_inner_html("Type");
+        header_row.append_child(&type_head).expect("Should be able to add the child node");
+
+        let scope_head: Element = document.create_element("th").expect("Should be able to create the element");
+        scope_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        scope_head.set_inner_html("Scope");
+        header_row.append_child(&scope_head).expect("Should be able to add the child node");
+
+        let pos_head: Element = document.create_element("th").expect("Should be able to create the element");
+        pos_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        pos_head.set_inner_html("Position");
+        header_row.append_child(&pos_head).expect("Should be able to add the child node");
+
+        let init_head: Element = document.create_element("th").expect("Should be able to create the element");
+        init_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        init_head.set_inner_html("Init?");
+        header_row.append_child(&init_head).expect("Should be able to add the child node");
+
+        let used_head: Element = document.create_element("th").expect("Should be able to create the element");
+        used_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        used_head.set_inner_html("Used?");
+        header_row.append_child(&used_head).expect("Should be able to add the child node");
+
+        symbol_table_head.append_child(&header_row).expect("Should be able to add the child node");
+        symbol_table_elem.append_child(&symbol_table_head).expect("Should be able to add the child node");
+
+        symbol_table_area.append_child(&symbol_table_elem).expect("Should be able to add the child node");
+        row_div.append_child(&symbol_table_area).expect("Should be able to add child node");
+
 
         // Add the row to the container
         display_area_div.append_child(&row_div).expect("Should be able to append child");
