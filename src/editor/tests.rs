@@ -159,6 +159,11 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Parse,
             test_name: String::from("End of file before end of program 3"),
             test_code: String::from("{ while")
+        },
+        Test {
+            test_type: TestType::SemanticAnalysis,
+            test_name: String::from("Alan's tests"),
+            test_code: String::from("{\n\tint a\n\tboolean b\n\t{\n\t\tstring c\n\t\ta = 5\n\t\tb = true /* no comment */\n\t\tc = \"inta\"\n\t\tprint(c)\n\t}\n\tprint(b)\n\tprint(a)\n}$\n\n{\n\tint a\n\t{\n\t\tboolean b\n\t\ta = 1\n\t}\n\tprint(b)\n}$\n\n{\n\tint a\n\t{\n\t\tboolean b\n\t\t{\n\t\t\tstring c\n\t\t\t{\n\t\t\t\ta = 5\n\t\t\t\tb = false\n\t\t\t\tc = \"inta\"\n\t\t\t}\n\t\t\tprint(c)\n\t\t}\n\t\tprint(b)\n\t}\n\tprint(a)\n}$")
         }
     ];
 
