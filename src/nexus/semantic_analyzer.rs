@@ -563,13 +563,35 @@ impl SemanticAnalyzer {
                     TokenType::Digit(_) => output = Some((Type::Int, token.position.to_owned())),
                     // The AST combined CharLists into a single Char token, so this is a string
                     TokenType::Char(_) => output = Some((Type::String, token.position.to_owned())),
-                    TokenType::Identifier(_) => {
+                    TokenType::Identifier(id_name) => {
                         // Get the identifier from the symbol table
                         let symbol_table_entry: Option<&SymbolTableEntry> = self.get_identifier(&token);
                         if symbol_table_entry.is_some() {
-                            // If it exists, return the type
-                            let symbol_table_entry_real: &SymbolTableEntry = symbol_table_entry.unwrap();
-                            output = Some((symbol_table_entry_real.symbol_type.to_owned(), symbol_table_entry_real.position.to_owned()));
+                            // Make clones of a these fields to prevent the rust borrow checker
+                            // from going crazy
+                            let symbol_table_entry_type: Type = symbol_table_entry.unwrap().symbol_type.to_owned();
+                            let symbol_table_entry_position: (usize, usize) = symbol_table_entry.unwrap().position.to_owned();
+                            let symbol_table_entry_is_initialized: bool = symbol_table_entry.unwrap().is_initialized.to_owned();
+                            let symbol_table_entry_is_used: bool = symbol_table_entry.unwrap().is_used.to_owned();
+
+                            if !symbol_table_entry_is_initialized {
+                                // Throw a warning for using an uninitialized variable
+                                nexus_log::log(
+                                    nexus_log::LogTypes::Warning,
+                                    nexus_log::LogSources::SemanticAnalyzer,
+                                    format!("Warning at {:?}; Use of uninitialized variable [ {} ] that was declared at {:?}",
+                                            token.position, id_name, symbol_table_entry_position)
+                                );
+                                self.num_warnings += 1;
+                            }
+
+                            // Make sure the variable is marked as used
+                            if !symbol_table_entry_is_used {
+                                self.symbol_table.set_entry_field(id_name, SymbolTableEntryField::Used);
+                            }
+
+                            // Return the type and position of the identifier being used
+                            output = Some((symbol_table_entry_type, token.position.to_owned()));
                         }
                     },
                     TokenType::Keyword(keyword) => {
@@ -667,7 +689,7 @@ impl SemanticAnalyzer {
     fn analyze_assignment(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) {
         // Index 1 should be the id token
         let id_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
-        let mut id_info: Option<(Type, String, bool)> = None;
+        let mut id_info: Option<(Type, String, bool, bool, (usize, usize), (usize, usize))> = None;
 
         match id_node {
             // We assume this is an identifier because of the grammar and the AST
@@ -676,8 +698,10 @@ impl SemanticAnalyzer {
                 // Get the id result
                 let id_res: Option<&SymbolTableEntry> = self.get_identifier(&id_token);
                 if id_res.is_some() {
-                    // We need only the type of the variable and the name of the variable
-                    id_info = Some((id_res.unwrap().symbol_type.to_owned(), id_token.text.to_owned(), id_res.unwrap().is_initialized.to_owned()));
+                    // Collect copies of a bunch of information to prevent rust borrow errors
+                    id_info = Some((id_res.unwrap().symbol_type.to_owned(), id_token.text.to_owned(),
+                                    id_res.unwrap().is_initialized.to_owned(), id_res.unwrap().is_used.to_owned(),
+                                    id_res.unwrap().position.to_owned(), id_token.position.to_owned()));
                 }
             },
             // Nonterminal should never be reached
@@ -689,7 +713,7 @@ impl SemanticAnalyzer {
 
         // If both sides check out, then we can compare types
         if id_info.is_some() && right_entry.is_some() {
-            let id_info_real: (Type, String, bool) = id_info.unwrap();
+            let id_info_real: (Type, String, bool, bool, (usize, usize), (usize, usize)) = id_info.unwrap();
             let right_entry_real: (Type, (usize, usize)) = right_entry.unwrap();
             
             // Compare the types and throw and error if they do not line up
@@ -704,6 +728,18 @@ impl SemanticAnalyzer {
                 // updated in the symbol table if it has not been done so already
                 if id_info_real.2 == false {
                     self.symbol_table.set_entry_field(&id_info_real.1, SymbolTableEntryField::Initialized);
+                
+                    // Throw a warning for the variable being initialized here because
+                    // it was already used
+                    if id_info_real.3 == true {
+                        nexus_log::log(
+                            nexus_log::LogTypes::Warning,
+                            nexus_log::LogSources::SemanticAnalyzer,
+                            format!("Warning at {:?}; Id [ {} ] declared at {:?} is being initialized after already being used",
+                                    id_info_real.5, id_info_real.1, id_info_real.4)
+                        );
+                        self.num_warnings += 1;
+                    }
                 }
             }
         }
