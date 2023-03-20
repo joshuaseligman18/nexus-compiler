@@ -106,6 +106,6 @@ pub fn compile(source_code: &str) {
         let ast: Ast = semantic_analyzer.generate_ast(&token_stream);
         ast.display(&program_number);
 
-        semantic_analyzer.analyze_program(&ast);
+        semantic_analyzer.analyze_program(&ast, &program_number);
     }
 }

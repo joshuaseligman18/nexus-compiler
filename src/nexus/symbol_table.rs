@@ -6,6 +6,8 @@ use petgraph::graph::{NodeIndex, Graph};
 
 use crate::util::nexus_log;
 
+use web_sys::{Window, Document, Element};
+
 // Enum for determining the type of a variable in a symbol table
 #[derive (Debug, PartialEq, Clone)]
 pub enum Type {
@@ -204,5 +206,56 @@ impl SymbolTable {
             }
         }
         return warning_count;
+    }
+
+    // Function to populate the symbol table on the webpage
+    pub fn populate_symbol_table(&mut self, program_number: &u32) {
+         // Get the preliminary objects
+        let window: Window = web_sys::window().expect("Should be able to get the window");
+        let document: Document = window.document().expect("Should be able to get the document");
+
+        let table_body: Element = document.get_element_by_id(format!("program{}-symbol-table-body", *program_number).as_str())
+                                          .expect("Should be able to find the table body element");
+
+        // Iterate through each scope
+        for scope_table in self.graph.node_weights() {
+            // Iterate through each entry in the scope's symbol table
+            for (id_name, entry) in scope_table.iter() {
+                let row_elem: Element = document.create_element("tr").expect("Should be able to create row element");
+
+                let id_elem: Element = document.create_element("th").expect("Should be able to create id element");
+                id_elem.set_inner_html(&id_name);
+                id_elem.set_attribute("scope", "row").expect("Should be able to set the attribute");
+                row_elem.append_child(&id_elem).expect("Should be able to append child node");
+
+                let type_elem: Element = document.create_element("td").expect("Should be able to create type element");
+                type_elem.set_inner_html(format!("{:?}", entry.symbol_type).as_str());
+                row_elem.append_child(&type_elem).expect("Should be able to append child node");
+
+                let scope_elem: Element = document.create_element("td").expect("Should be able to create scope element");
+                scope_elem.set_inner_html(format!("{}", entry.scope).as_str());
+                row_elem.append_child(&scope_elem).expect("Should be able to append child node");
+
+                let position_elem: Element = document.create_element("td").expect("Should be able to create position element");
+                position_elem.set_inner_html(format!("{:?}", entry.position).as_str());
+                row_elem.append_child(&position_elem).expect("Should be able to append child node");
+
+                let init_elem: Element = document.create_element("td").expect("Should be able to create init element");
+                init_elem.set_inner_html(format!("{}", entry.is_initialized).as_str());
+                row_elem.append_child(&init_elem).expect("Should be able to append child node");
+
+                let used_elem: Element = document.create_element("td").expect("Should be able to create used element");
+                used_elem.set_inner_html(format!("{}", entry.is_used).as_str());
+                row_elem.append_child(&used_elem).expect("Should be able to append child node");
+
+                table_body.append_child(&row_elem).expect("Should be ablo to append child node");
+            }
+        }
+    }
+
+    // Function to reset the symbol table for the new analysis
+    pub fn reset(&mut self) {
+        self.graph.clear();
+        self.cur_scope = None;
     }
 }

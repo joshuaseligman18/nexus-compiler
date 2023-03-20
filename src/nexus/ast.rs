@@ -283,9 +283,12 @@ impl Ast {
         symbol_table_head.append_child(&header_row).expect("Should be able to add the child node");
         symbol_table_elem.append_child(&symbol_table_head).expect("Should be able to add the child node");
 
+        let symbol_body: Element = document.create_element("tbody").expect("Should be able to create the table body");
+        symbol_body.set_id(format!("program{}-symbol-table-body", *program_number).as_str());
+        symbol_table_elem.append_child(&symbol_body).expect("Should be able to add the child node");
+
         symbol_table_area.append_child(&symbol_table_elem).expect("Should be able to add the child node");
         row_div.append_child(&symbol_table_area).expect("Should be able to add child node");
-
 
         // Add the row to the container
         display_area_div.append_child(&row_div).expect("Should be able to append child");

@@ -498,14 +498,19 @@ impl SemanticAnalyzer {
         }
     }
 
-    pub fn analyze_program(&mut self, ast: &Ast) {
+    pub fn analyze_program(&mut self, ast: &Ast, program_number: &u32) {
         self.num_errors = 0;
         self.num_warnings = 0;
+        self.symbol_table.reset();
         if (*ast).root.is_some() {
             self.analyze_dfs(ast, (*ast).root.unwrap());
             debug!("Symbol table: {:?}", self.symbol_table);
 
             self.num_warnings += self.symbol_table.mass_warnings();
+
+            if self.num_errors == 0 {
+                self.symbol_table.populate_symbol_table(program_number);
+            }
         }
     }
 
@@ -725,6 +730,7 @@ impl SemanticAnalyzer {
                     nexus_log::LogSources::SemanticAnalyzer,
                     format!("Mismatched types at {:?}; Expected {:?} for the assignment type, but received {:?}", right_entry_real.1, id_info_real.0, right_entry_real.0)
                 );
+                self.num_errors += 1;
             } else {
                 // The variable has now been assigned a value, so make sure it is
                 // updated in the symbol table if it has not been done so already
