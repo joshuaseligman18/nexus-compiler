@@ -4,6 +4,8 @@ use log::*;
 
 use petgraph::graph::{NodeIndex, Graph};
 
+use crate::util::nexus_log;
+
 // Enum for determining the type of a variable in a symbol table
 #[derive (Debug, PartialEq, Clone)]
 pub enum Type {
@@ -160,5 +162,47 @@ impl SymbolTable {
                 }
             }
         }
+    }
+
+    // Function to find all of the warnings after scope and type checks are completed
+    pub fn mass_warnings(&mut self) -> i32 {
+        let mut warning_count: i32 = 0;
+        
+        // Iterate through each scope
+        for scope_table in self.graph.node_weights() {
+            // Iterate through each entry in the scope's symbol table
+            for (id_name, entry) in scope_table.iter() {
+                if !entry.is_initialized {
+                    if entry.is_used {
+                        // Throw warning for declared and used but not initialized
+                        nexus_log::log(
+                            nexus_log::LogTypes::Warning,
+                            nexus_log::LogSources::SemanticAnalyzer,
+                            format!("Warning at {:?}; Id [ {} ] is declared and used, but never initialized", entry.position, id_name)
+                        );
+                        warning_count += 1;
+                    } else {
+                        // Throw warning for declared but never initialized or used
+                        nexus_log::log(
+                            nexus_log::LogTypes::Warning,
+                            nexus_log::LogSources::SemanticAnalyzer,
+                            format!("Warning at {:?}; Id [ {} ] is declared, but never initialized or used", entry.position, id_name)
+                        );
+                        warning_count += 1;
+                    }
+                } else {
+                    if !entry.is_used {
+                        // Throw warning for declared and initialized but never used
+                        nexus_log::log(
+                            nexus_log::LogTypes::Warning,
+                            nexus_log::LogSources::SemanticAnalyzer,
+                            format!("Warning at {:?}; Id [ {} ] is declared and initialized, but never used", entry.position, id_name)
+                        );
+                        warning_count += 1;
+                    }
+                }
+            }
+        }
+        return warning_count;
     }
 }

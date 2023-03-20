@@ -504,6 +504,8 @@ impl SemanticAnalyzer {
         if (*ast).root.is_some() {
             self.analyze_dfs(ast, (*ast).root.unwrap());
             debug!("Symbol table: {:?}", self.symbol_table);
+
+            self.num_warnings += self.symbol_table.mass_warnings();
         }
     }
 
