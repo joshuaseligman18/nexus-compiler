@@ -3,7 +3,7 @@ use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log
 
 use crate::nexus::ast::{Ast};
 use crate::nexus::ast_node::{AstNode, NonTerminals, AstNodeTypes};
-use crate::nexus::symbol_table::{SymbolTable, Type, SymbolTableEntry};
+use crate::nexus::symbol_table::{SymbolTable, Type, SymbolTableEntry, SymbolTableEntryField};
 
 use petgraph::graph::NodeIndex;
 
@@ -667,7 +667,7 @@ impl SemanticAnalyzer {
     fn analyze_assignment(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) {
         // Index 1 should be the id token
         let id_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
-        let mut id_info: Option<(Type, String)> = None;
+        let mut id_info: Option<(Type, String, bool)> = None;
 
         match id_node {
             // We assume this is an identifier because of the grammar and the AST
@@ -677,7 +677,7 @@ impl SemanticAnalyzer {
                 let id_res: Option<&SymbolTableEntry> = self.get_identifier(&id_token);
                 if id_res.is_some() {
                     // We need only the type of the variable and the name of the variable
-                    id_info = Some((id_res.unwrap().symbol_type.to_owned(), id_token.text.to_owned()));
+                    id_info = Some((id_res.unwrap().symbol_type.to_owned(), id_token.text.to_owned(), id_res.unwrap().is_initialized.to_owned()));
                 }
             },
             // Nonterminal should never be reached
@@ -689,7 +689,7 @@ impl SemanticAnalyzer {
 
         // If both sides check out, then we can compare types
         if id_info.is_some() && right_entry.is_some() {
-            let id_info_real: (Type, String) = id_info.unwrap();
+            let id_info_real: (Type, String, bool) = id_info.unwrap();
             let right_entry_real: (Type, (usize, usize)) = right_entry.unwrap();
             
             // Compare the types and throw and error if they do not line up
@@ -700,9 +700,11 @@ impl SemanticAnalyzer {
                     format!("Mismatched types at {:?}; Expected {:?} for the assignment type, but received {:?}", right_entry_real.1, id_info_real.0, right_entry_real.0)
                 );
             } else {
-                // The variable has been assigned a value so make sure it is initialized in the
-                // symbol table
-                self.symbol_table.set_initialized(&id_info_real.1);
+                // The variable has now been assigned a value, so make sure it is
+                // updated in the symbol table if it has not been done so already
+                if id_info_real.2 == false {
+                    self.symbol_table.set_entry_field(&id_info_real.1, SymbolTableEntryField::Initialized);
+                }
             }
         }
     }

@@ -12,6 +12,13 @@ pub enum Type {
     Boolean
 }
 
+// Enum for the symbol table entry fields to keep track of to prevent code duplication
+#[derive (Debug)]
+pub enum SymbolTableEntryField {
+    Initialized,
+    Used
+}
+
 // Basic struct for what needs to be stored for every symbol table entry
 // id is excluded here because it is the key in the hashmap
 #[derive (Debug)]
@@ -125,7 +132,7 @@ impl SymbolTable {
     }
 
     // Function to set a variable to be initialized
-    pub fn set_initialized(&mut self, id: &str) {
+    pub fn set_entry_field(&mut self, id: &str, field: SymbolTableEntryField) {
         // Start with the current scope
         let mut cur_scope_use: usize = self.cur_scope.unwrap();
 
@@ -133,9 +140,14 @@ impl SymbolTable {
             // Get the hashmap for the current scope being checked
             let scope_table: &mut HashMap<String, SymbolTableEntry> = self.graph.node_weight_mut(NodeIndex::new(cur_scope_use)).unwrap();
             if (*scope_table).contains_key(id) {
-                // Get the entry and update
+                // Get the entry and update the initialized field
                 let id_entry: &mut SymbolTableEntry = (*scope_table).get_mut(id).unwrap();
-                id_entry.is_initialized = true;
+                
+                // Set the apprpriate flag based on the inputted field
+                match field {
+                    SymbolTableEntryField::Initialized => id_entry.is_initialized = true,
+                    SymbolTableEntryField::Used => id_entry.is_used = true
+                }
                 break;
             } else {
                 if cur_scope_use == 0 {
