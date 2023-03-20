@@ -20,7 +20,7 @@ pub struct SymbolTableEntry {
     pub position: (usize, usize),
     pub scope: usize,
     pub is_initialized: bool,
-    pub num_times_used: i32
+    pub is_used: bool
 }
 
 #[derive (Debug)]
@@ -88,7 +88,7 @@ impl SymbolTable {
                 position: id_position,
                 scope: self.cur_scope.unwrap(),
                 is_initialized: false,
-                num_times_used: 0
+                is_used: false
             };
             (*scope_table).insert(id, new_entry);
             return true;
@@ -115,10 +115,36 @@ impl SymbolTable {
                     return None;
                 } else {
                     // Get a vector of neighbors
-                    let neighbors: Vec<NodeIndex> = self.graph.neighbors(NodeIndex::new(self.cur_scope.unwrap())).collect();
+                    let neighbors: Vec<NodeIndex> = self.graph.neighbors(NodeIndex::new(cur_scope_check)).collect();
                     
                     // Move on the the next higher scope
                     cur_scope_check = neighbors[0].index();
+                }
+            }
+        }
+    }
+
+    // Function to set a variable to be initialized
+    pub fn set_initialized(&mut self, id: &str) {
+        // Start with the current scope
+        let mut cur_scope_use: usize = self.cur_scope.unwrap();
+
+        loop {
+            // Get the hashmap for the current scope being checked
+            let scope_table: &mut HashMap<String, SymbolTableEntry> = self.graph.node_weight_mut(NodeIndex::new(cur_scope_use)).unwrap();
+            if (*scope_table).contains_key(id) {
+                // Get the entry and update
+                let id_entry: &mut SymbolTableEntry = (*scope_table).get_mut(id).unwrap();
+                id_entry.is_initialized = true;
+                break;
+            } else {
+                if cur_scope_use == 0 {
+                    // Scope id of 0 means we are in the master scope, so break from the loop
+                    break;
+                } else {
+                    // Move on to the next scope in the tree
+                    let neighbors: Vec<NodeIndex> = self.graph.neighbors(NodeIndex::new(cur_scope_use)).collect();
+                    cur_scope_use = neighbors[0].index();
                 }
             }
         }

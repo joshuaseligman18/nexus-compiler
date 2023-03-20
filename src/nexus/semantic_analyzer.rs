@@ -667,7 +667,7 @@ impl SemanticAnalyzer {
     fn analyze_assignment(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) {
         // Index 1 should be the id token
         let id_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
-        let mut id_type: Option<Type> = None;
+        let mut id_info: Option<(Type, String)> = None;
 
         match id_node {
             // We assume this is an identifier because of the grammar and the AST
@@ -676,8 +676,8 @@ impl SemanticAnalyzer {
                 // Get the id result
                 let id_res: Option<&SymbolTableEntry> = self.get_identifier(&id_token);
                 if id_res.is_some() {
-                    // We need only the type of the variable and the position we are in right now
-                    id_type = Some(id_res.unwrap().symbol_type.to_owned());
+                    // We need only the type of the variable and the name of the variable
+                    id_info = Some((id_res.unwrap().symbol_type.to_owned(), id_token.text.to_owned()));
                 }
             },
             // Nonterminal should never be reached
@@ -688,17 +688,21 @@ impl SemanticAnalyzer {
         let right_entry = self.derive_type(ast, neighbors[0]);
 
         // If both sides check out, then we can compare types
-        if id_type.is_some() && right_entry.is_some() {
-            let id_type_real: Type = id_type.unwrap();
+        if id_info.is_some() && right_entry.is_some() {
+            let id_info_real: (Type, String) = id_info.unwrap();
             let right_entry_real: (Type, (usize, usize)) = right_entry.unwrap();
             
             // Compare the types and throw and error if they do not line up
-            if id_type_real.ne(&right_entry_real.0) {
+            if id_info_real.0.ne(&right_entry_real.0) {
                 nexus_log::log(
                     nexus_log::LogTypes::Error,
                     nexus_log::LogSources::SemanticAnalyzer,
-                    format!("Mismatched types at {:?}; Expected {:?} for the assignment type, but received {:?}", right_entry_real.1, id_type_real, right_entry_real.0)
+                    format!("Mismatched types at {:?}; Expected {:?} for the assignment type, but received {:?}", right_entry_real.1, id_info_real.0, right_entry_real.0)
                 );
+            } else {
+                // The variable has been assigned a value so make sure it is initialized in the
+                // symbol table
+                self.symbol_table.set_initialized(&id_info_real.1);
             }
         }
     }
