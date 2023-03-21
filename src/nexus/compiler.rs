@@ -60,6 +60,24 @@ pub fn compile(source_code: &str) {
                 nexus_log::LogSources::Nexus,
                 String::from("CST display skipped due to lex failure")
             );
+            
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("AST generation and display skipped due to lex failure")
+            );
+
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::SemanticAnalyzer,
+                String::from("Semantic analysis skipped due to lex failure")
+            );
+
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Symbol table display skipped due to lex failure")
+            );
 
             // No need to move on if lex failed, so can go to next program
             continue;
@@ -84,13 +102,32 @@ pub fn compile(source_code: &str) {
                 nexus_log::LogSources::Nexus,
                 String::from("CST display skipped due to parse failure")
             );
+            
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("AST generation and display skipped due to parse failure")
+            );
+
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::SemanticAnalyzer,
+                String::from("Semantic analysis skipped due to parse failure")
+            );
+
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Symbol table display skipped due to parse failure")
+            );
+
             continue;
         }
 
         nexus_log::log(
             nexus_log::LogTypes::Info,
             nexus_log::LogSources::Nexus,
-            format!("CST display for Program {} is below", program_number)
+            format!("CST display for program {} is below", program_number)
         );
         let cst: Cst = parse_res.unwrap();
         cst.display(&program_number);
@@ -99,12 +136,18 @@ pub fn compile(source_code: &str) {
         
         nexus_log::log(
             nexus_log::LogTypes::Info,
-            nexus_log::LogSources::SemanticAnalyzer,
+            nexus_log::LogSources::Nexus,
             format!("Generating AST for program {}", program_number)
         );
 
         let ast: Ast = semantic_analyzer.generate_ast(&token_stream);
         ast.display(&program_number);
+
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::Nexus,
+            format!("AST display for program {} is below", program_number)
+        );
 
         semantic_analyzer.analyze_program(&ast, &program_number);
     }
