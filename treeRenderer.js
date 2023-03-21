@@ -1,5 +1,6 @@
 // Keeps track of the best dimensions so all images can be rendered
-let realDim = [0, 0];
+let realCstDim = [0, 0];
+let realAstDim = [0, 0];
 
 export function createSyntaxTree(dotSrc, svgId) {
     // Get the width and height of the container
@@ -8,13 +9,24 @@ export function createSyntaxTree(dotSrc, svgId) {
 
     // Width and height of 0 means that there was another program that was successful
     if (width === 0 && height === 0) {
-        // Use the same dimensions as that program
-        width = realDim[0];
-        height = realDim[1];
+        if (svgId.includes('cst')) {
+            // Use the cst dimensions
+            width = realCstDim[0];
+            height = realCstDim[1];
+        } else {
+            width = realAstDim[0];
+            height = realAstDim[1];
+        }
     } else {
-        // If there are new dimensions, then we want to save if for future use
-        realDim[0] = width;
-        realDim[1] = height;
+        if (svgId.includes('cst')) {
+            // Store the dimensions for future CSTs
+            realCstDim[0] = width;
+            realCstDim[1] = height;
+        } else {
+            // Store the dimensions for future ASTs
+            realAstDim[0] = width;
+            realAstDim[1] = height;
+        }
     }
     
     // Render the new image within the container
