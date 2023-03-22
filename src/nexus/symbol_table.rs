@@ -6,7 +6,7 @@ use petgraph::graph::{NodeIndex, Graph};
 
 use crate::util::nexus_log;
 
-use web_sys::{Window, Document, Element};
+use web_sys::{Window, Document, Element, DomTokenList};
 
 // Enum for determining the type of a variable in a symbol table
 #[derive (Debug, PartialEq, Clone)]
@@ -208,8 +208,74 @@ impl SymbolTable {
         return warning_count;
     }
 
+    pub fn display_symbol_table(&mut self, program_number: &u32) {
+        self.initialize_symbol_table(program_number);
+        self.populate_symbol_table(program_number);
+    }
+
+    fn initialize_symbol_table(&mut self, program_number: &u32) {
+        // Get the preliminary objects
+        let window: Window = web_sys::window().expect("Should be able to get the window");
+        let document: Document = window.document().expect("Should be able to get the document");
+
+        // Get the row element
+        let row_div: Element = document.get_element_by_id(format!("program{}-ast-row", *program_number).as_str()).expect("Should be able to get the row element");
+
+        let symbol_table_area: Element = document.create_element("div").expect("Should be able to create the element");
+        let symbol_table_area_classes: DomTokenList = symbol_table_area.class_list();
+        symbol_table_area_classes.add_1("symbol-table-area").expect("Should be able to add the classes");
+        
+        let symbol_table_elem: Element = document.create_element("table").expect("Should be able to create the table");
+        let symbol_table_classes: DomTokenList = symbol_table_elem.class_list();
+        symbol_table_classes.add_2("table", "table-striped").expect("Should be able to add the classes");
+        symbol_table_elem.set_id(format!("program{}-symbol-table", *program_number).as_str());
+
+        let symbol_table_head: Element = document.create_element("thead").expect("Should be able to create the element");
+        let header_row: Element = document.create_element("tr").expect("Should be able to create the element");
+
+        let id_head: Element = document.create_element("th").expect("Should be able to create the element");
+        id_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        id_head.set_inner_html("Id");
+        header_row.append_child(&id_head).expect("Should be able to add the child node");
+
+        let type_head: Element = document.create_element("th").expect("Should be able to create the element");
+        type_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        type_head.set_inner_html("Type");
+        header_row.append_child(&type_head).expect("Should be able to add the child node");
+
+        let scope_head: Element = document.create_element("th").expect("Should be able to create the element");
+        scope_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        scope_head.set_inner_html("Scope");
+        header_row.append_child(&scope_head).expect("Should be able to add the child node");
+
+        let pos_head: Element = document.create_element("th").expect("Should be able to create the element");
+        pos_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        pos_head.set_inner_html("Position");
+        header_row.append_child(&pos_head).expect("Should be able to add the child node");
+
+        let init_head: Element = document.create_element("th").expect("Should be able to create the element");
+        init_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        init_head.set_inner_html("Init?");
+        header_row.append_child(&init_head).expect("Should be able to add the child node");
+
+        let used_head: Element = document.create_element("th").expect("Should be able to create the element");
+        used_head.set_attribute("scope", "col").expect("Should be able to set the attribute");
+        used_head.set_inner_html("Used?");
+        header_row.append_child(&used_head).expect("Should be able to add the child node");
+
+        symbol_table_head.append_child(&header_row).expect("Should be able to add the child node");
+        symbol_table_elem.append_child(&symbol_table_head).expect("Should be able to add the child node");
+
+        let symbol_body: Element = document.create_element("tbody").expect("Should be able to create the table body");
+        symbol_body.set_id(format!("program{}-symbol-table-body", *program_number).as_str());
+        symbol_table_elem.append_child(&symbol_body).expect("Should be able to add the child node");
+
+        symbol_table_area.append_child(&symbol_table_elem).expect("Should be able to add the child node");
+        row_div.append_child(&symbol_table_area).expect("Should be able to add child node");
+    }
+
     // Function to populate the symbol table on the webpage
-    pub fn populate_symbol_table(&mut self, program_number: &u32) {
+    fn populate_symbol_table(&mut self, program_number: &u32) {
          // Get the preliminary objects
         let window: Window = web_sys::window().expect("Should be able to get the window");
         let document: Document = window.document().expect("Should be able to get the document");

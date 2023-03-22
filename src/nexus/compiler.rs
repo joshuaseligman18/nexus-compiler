@@ -171,6 +171,6 @@ pub fn compile(source_code: &str) {
             nexus_log::LogSources::Nexus,
             format!("Symbol table for program {} is below", program_number)
         );
-        //semantic_analyzer.symbol_table.populate_symbol_table(&program_number);
+        semantic_analyzer.symbol_table.display_symbol_table(&program_number);
     }
 }
