@@ -8,3 +8,5 @@ pub mod ast;
 pub mod ast_node;
 pub mod semantic_analyzer;
 pub mod symbol_table;
+pub mod syntax_tree;
+pub mod syntax_tree_node;

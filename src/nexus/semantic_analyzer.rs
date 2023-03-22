@@ -1,6 +1,8 @@
 use log::*;
 use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log};
 
+use crate::nexus::syntax_tree::{SyntaxTree, SyntaxTreeTypes};
+use crate::nexus::syntax_tree_node::{SyntaxTreeNode, NonTerminalsAst, SyntaxTreeNodeTypes};
 use crate::nexus::ast::{Ast};
 use crate::nexus::ast_node::{AstNode, NonTerminals, AstNodeTypes};
 use crate::nexus::symbol_table::{SymbolTable, Type, SymbolTableEntry, SymbolTableEntryField};
@@ -28,10 +30,10 @@ impl SemanticAnalyzer {
     }
 
     // Starting function to generate the AST
-    pub fn generate_ast(&mut self, token_stream: &Vec<Token>) -> Ast {
+    pub fn generate_ast(&mut self, token_stream: &Vec<Token>) -> SyntaxTree {
         // Basic initialization
         self.cur_token_index = 0;
-        let mut ast: Ast = Ast::new();
+        let mut ast: SyntaxTree = SyntaxTree::new(SyntaxTreeTypes::Ast);
 
         // We start with parsing the block because that is the first
         // part with actual content
@@ -41,8 +43,8 @@ impl SemanticAnalyzer {
         return ast;
     }
 
-    fn parse_ast_block(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
-        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::Block));
+    fn parse_ast_block(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
+        ast.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalAst(NonTerminalsAst::Block));
 
         // Advance a token for the left brace
         self.cur_token_index += 1;
@@ -57,7 +59,7 @@ impl SemanticAnalyzer {
         ast.move_up();
     }
 
-    fn parse_ast_statement_list(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_statement_list(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         // Make sure that the statement list is not empty
         if token_stream[self.cur_token_index].token_type.ne(&TokenType::Symbol(Symbols::RBrace)) {
             // Parse the statement
@@ -68,7 +70,7 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn parse_ast_statement(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_statement(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         let next_token: &Token = &token_stream[self.cur_token_index];
         // Parse the next section in the stream based on the next token 
         match &next_token.token_type {
@@ -95,9 +97,9 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn parse_ast_print_statement(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_print_statement(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         // Add the PrintStatement node
-        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::Print));
+        ast.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalAst(NonTerminalsAst::Print));
 
         // Increment the token index by 1 for the print keyword
         self.cur_token_index += 1;
@@ -115,9 +117,9 @@ impl SemanticAnalyzer {
         ast.move_up();
     }
 
-    fn parse_ast_assignment_statement(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_assignment_statement(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         // Add the AssignmentStatement node
-        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::Assign));
+        ast.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalAst(NonTerminalsAst::Assign));
 
         // Assignment statements begin with an identifier
         self.parse_ast_identifier(token_stream, ast);
@@ -132,12 +134,12 @@ impl SemanticAnalyzer {
         ast.move_up();
     }
 
-    fn parse_ast_var_declaration(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_var_declaration(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         // Add the VarDecl node
-        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::VarDecl));
+        ast.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalAst(NonTerminalsAst::VarDecl));
 
         // Add the type to the AST
-        ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(token_stream[self.cur_token_index].to_owned()));
+        ast.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(token_stream[self.cur_token_index].to_owned()));
         self.cur_token_index += 1;
 
         // Then make sure there is a valid identifier
@@ -146,9 +148,9 @@ impl SemanticAnalyzer {
         ast.move_up();
     }
 
-    fn parse_ast_while_statement(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_while_statement(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         // Add the node for a while statement
-        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::While));
+        ast.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalAst(NonTerminalsAst::While));
         self.cur_token_index += 1;
         
         // While has a boolean expression
@@ -161,9 +163,9 @@ impl SemanticAnalyzer {
         ast.move_up();
     }
 
-    fn parse_ast_if_statement(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_if_statement(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         // Add the IfStatement node
-        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::If));
+        ast.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalAst(NonTerminalsAst::If));
         self.cur_token_index += 1;
 
         // If has a boolean expression
@@ -175,7 +177,7 @@ impl SemanticAnalyzer {
         ast.move_up();
     }
 
-    fn parse_ast_expression(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_expression(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         // Look ahead to the next token
         let next_token: &Token = &token_stream[self.cur_token_index];
         // Generate AST based on the next token to determine what type of expression to work with
@@ -197,13 +199,13 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn parse_ast_int_expression(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_int_expression(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         match &token_stream[self.cur_token_index + 1].token_type {
             TokenType::Symbol(Symbols::AdditionOp) => {
                 // Add the addition nonterminal
-                ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::Add));
+                ast.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalAst(NonTerminalsAst::Add));
                 // Add the first digit
-                ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(token_stream[self.cur_token_index].to_owned()));
+                ast.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(token_stream[self.cur_token_index].to_owned()));
                 self.cur_token_index += 2;
                 
                 self.parse_ast_expression(token_stream, ast);
@@ -211,13 +213,13 @@ impl SemanticAnalyzer {
             },
             _ => {
                 // It is just the digit, so we can just add the digit (current token) to the ast
-                ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(token_stream[self.cur_token_index].to_owned()));
+                ast.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(token_stream[self.cur_token_index].to_owned()));
                 self.cur_token_index += 1;
             }
         }
       }
 
-    fn parse_ast_string_expression(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_string_expression(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         // Get the posititon of the string because we will make a new token for the whole thing
         let string_pos: (usize, usize) = token_stream[self.cur_token_index].position.to_owned();
 
@@ -240,10 +242,10 @@ impl SemanticAnalyzer {
         // Crate a new token and add it to the AST
         let new_string: String = str_builder.string().unwrap();
         let new_token: Token = Token::new(TokenType::Char(new_string.to_owned()), new_string.to_owned(), string_pos.0, string_pos.1);  
-        ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(new_token));
+        ast.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(new_token));
     }
 
-    fn parse_ast_bool_expression(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_bool_expression(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         match &token_stream[self.cur_token_index].token_type {
             // Long boolean expressions start with LParen
             TokenType::Symbol(Symbols::LParen) => self.long_bool_expression_helper(token_stream, ast),
@@ -251,7 +253,7 @@ impl SemanticAnalyzer {
             // The false and true keywords
             TokenType::Keyword(Keywords::False) | TokenType::Keyword(Keywords::True) => {
                 // Add the node for true and false and consume the token
-                ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(token_stream[self.cur_token_index].to_owned()));
+                ast.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(token_stream[self.cur_token_index].to_owned()));
                 self.cur_token_index += 1;
             },
 
@@ -260,7 +262,7 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn long_bool_expression_helper(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn long_bool_expression_helper(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         // Add 1 to the index for the left paren
         self.cur_token_index += 1;
 
@@ -276,14 +278,14 @@ impl SemanticAnalyzer {
                 TokenType::Symbol(Symbols::EqOp) => {
                     if paren_count == 0 {
                         // Only add the operator to the ast if all prior parens are closed
-                        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::IsEq));
+                        ast.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalAst(NonTerminalsAst::IsEq));
                         bool_op_found = true;
                     }
                 },
                 TokenType::Symbol(Symbols::NeqOp) => {
                     if paren_count == 0 {
                         // Only add the operator to the ast if all prior parens are closed
-                        ast.add_node(AstNodeTypes::Branch, AstNode::NonTerminal(NonTerminals::NotEq));
+                        ast.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalAst(NonTerminalsAst::NotEq));
                         bool_op_found = true;
                     }
                 },
@@ -315,15 +317,15 @@ impl SemanticAnalyzer {
         ast.move_up();
     }
 
-    fn parse_ast_identifier(&mut self, token_stream: &Vec<Token>, ast: &mut Ast) {
+    fn parse_ast_identifier(&mut self, token_stream: &Vec<Token>, ast: &mut SyntaxTree) {
         // Add the Id node
-        ast.add_node(AstNodeTypes::Leaf, AstNode::Terminal(token_stream[self.cur_token_index].to_owned()));
+        ast.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(token_stream[self.cur_token_index].to_owned()));
         
         // Increment the position because we consumed another token
         self.cur_token_index += 1;
     }
 
-    pub fn analyze_program(&mut self, ast: &Ast) -> bool {
+    pub fn analyze_program(&mut self, ast: &SyntaxTree) -> bool {
         self.num_errors = 0;
         self.num_warnings = 0;
         self.symbol_table.reset();
@@ -370,14 +372,14 @@ impl SemanticAnalyzer {
         return false;
     }
 
-    fn analyze_dfs(&mut self, ast: &Ast, cur_index: usize) {
+    fn analyze_dfs(&mut self, ast: &SyntaxTree, cur_index: usize) {
         // Start off by getting the children of the current node
         let neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(NodeIndex::new(cur_index)).collect();
 
         match (*ast).graph.node_weight(NodeIndex::new(cur_index)).unwrap() {
-            AstNode::NonTerminal(non_terminal) => {
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
                 match non_terminal {
-                    NonTerminals::Block => {
+                    NonTerminalsAst::Block => {
                         // Create a new scope for the block
                         self.symbol_table.new_scope();
                         nexus_log::log(
@@ -399,14 +401,14 @@ impl SemanticAnalyzer {
                         // This is the end of the current scope
                         self.symbol_table.end_cur_scope();
                     },
-                    NonTerminals::VarDecl => self.analyze_var_decl(ast, &neighbors),
-                    NonTerminals::Assign => self.analyze_assignment(ast, &neighbors),
-                    NonTerminals::Print => {
+                    NonTerminalsAst::VarDecl => self.analyze_var_decl(ast, &neighbors),
+                    NonTerminalsAst::Assign => self.analyze_assignment(ast, &neighbors),
+                    NonTerminalsAst::Print => {
                         // Only have to make sure that the types are ok, but don't
                         // care what is inside because that was taken care of in parse
                         self.derive_type(ast, neighbors[0]);
                     },
-                    NonTerminals::If | NonTerminals::While => {
+                    NonTerminalsAst::If | NonTerminalsAst::While => {
                         // A condition_type of None means there was an error in the analysis
                         // Parse guarantees that it is either true, false, or a boolean
                         // expression, so do not need to make sure that it is a boolean because
@@ -419,18 +421,19 @@ impl SemanticAnalyzer {
                     _ => error!("Cannot analyze {:?} through DFS", non_terminal)
                 }
             },
-            AstNode::Terminal(_) => error!("Cannot analyze a terminal as part of the DFS, only nonterminals can be analyzed")
+            SyntaxTreeNode::Terminal(_) => error!("Cannot analyze a terminal as part of the DFS, only nonterminals can be analyzed"),
+            SyntaxTreeNode::NonTerminalCst(_) => error!("Found a CST node in the AST")
         }
     }
 
     // Function to derive the type of a node and returns the left-most token position
-    fn derive_type(&mut self, ast: &Ast, node_index: NodeIndex) -> Option<(Type, (usize, usize))> {
-        let ast_node: &AstNode = (*ast).graph.node_weight(node_index).unwrap();
+    fn derive_type(&mut self, ast: &SyntaxTree, node_index: NodeIndex) -> Option<(Type, (usize, usize))> {
+        let ast_node: &SyntaxTreeNode = (*ast).graph.node_weight(node_index).unwrap();
 
         let mut output: Option<(Type, (usize, usize))> = None;
 
         match ast_node {
-            AstNode::Terminal(token) => {
+            SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
                     // Digits are integer types
                     TokenType::Digit(_) => output = Some((Type::Int, token.position.to_owned())),
@@ -485,30 +488,31 @@ impl SemanticAnalyzer {
                     _ => error!("Cannot derive type of terminal {:?}, only Digit, Char, Identifier, and Keyword", token)
                 }
             },
-            AstNode::NonTerminal(non_terminal) => {
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
                 // Get the children nodes for the nonterminal node
                 let non_term_neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(node_index).collect();
                 match &non_terminal {
                     // Analyze the addition statement
-                    NonTerminals::Add => output = self.analyze_add(ast, &non_term_neighbors),
+                    NonTerminalsAst::Add => output = self.analyze_add(ast, &non_term_neighbors),
                     // Analyze the boolean expression
-                    NonTerminals::IsEq | NonTerminals::NotEq => output = self.analyze_eq_neq(ast, &non_term_neighbors),
+                    NonTerminalsAst::IsEq | NonTerminalsAst::NotEq => output = self.analyze_eq_neq(ast, &non_term_neighbors),
                     _ => error!("Cannot derive type of nonterminal {:?}, only Add, IsEq, and NotEq", non_terminal)
                 }
-            }
+            },
+            SyntaxTreeNode::NonTerminalCst(_) => error!("Found a CST node in the AST")
         }
 
         return output;
     }
 
-    fn analyze_var_decl(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) {
+    fn analyze_var_decl(&mut self, ast: &SyntaxTree, neighbors: &Vec<NodeIndex>) {
         // Index 0 should be the id token
-        let id_node: &AstNode = (*ast).graph.node_weight(neighbors[0]).unwrap();
+        let id_node: &SyntaxTreeNode = (*ast).graph.node_weight(neighbors[0]).unwrap();
         let mut new_id: Option<String> = None;
         let mut new_id_pos: (usize, usize) = (0, 0);
 
         match id_node {
-            AstNode::Terminal(id_token) => {
+            SyntaxTreeNode::Terminal(id_token) => {
                 match &id_token.token_type {
                     TokenType::Identifier(id_name) => {
                         new_id = Some(id_name.to_owned());
@@ -519,16 +523,17 @@ impl SemanticAnalyzer {
                 }
             },
             // Nonterminal should never be reached
-            AstNode::NonTerminal(_) => error!("Received a nonterminal as child to VarDecl")
+            SyntaxTreeNode::NonTerminalAst(_) => error!("Received a nonterminal as child to VarDecl"),
+            SyntaxTreeNode::NonTerminalCst(_) => error!("Found a CST node in the AST")
         }
 
         // Index 1 should be the type token
-        let type_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
+        let type_node: &SyntaxTreeNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
         // Assume the type node does not exist
         let mut new_type: Option<Type> = None;
 
         match type_node {
-            AstNode::Terminal(id_token) => {
+            SyntaxTreeNode::Terminal(id_token) => {
                 match &id_token.token_type {
                     TokenType::Keyword(keyword) => {
                         match &keyword {
@@ -546,7 +551,8 @@ impl SemanticAnalyzer {
                 }
             },
             // Nonterminal should never be reached
-            AstNode::NonTerminal(_) => error!("Received a nonterminal as child to VarDecl")
+            SyntaxTreeNode::NonTerminalAst(_) => error!("Received a nonterminal as child to VarDecl"),
+            SyntaxTreeNode::NonTerminalCst(_) => error!("Found a CST node in the AST")
         }
 
         // Check to make sure that there weren't any internal errors (should never happen if AST
@@ -574,15 +580,17 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn analyze_assignment(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) {
+    fn analyze_assignment(&mut self, ast: &SyntaxTree, neighbors: &Vec<NodeIndex>) {
         // Index 1 should be the id token
-        let id_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
+        let id_node: &SyntaxTreeNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
         let mut id_info: Option<(Type, String, bool, bool, (usize, usize), (usize, usize))> = None;
+        let mut id_token_pos: (usize, usize) = (0, 0);
 
         match id_node {
             // We assume this is an identifier because of the grammar and the AST
             // should be correct
-            AstNode::Terminal(id_token) => {
+            SyntaxTreeNode::Terminal(id_token) => {
+                id_token_pos = id_token.position.to_owned();
                 let cur_scope: usize = self.symbol_table.cur_scope.unwrap().to_owned();
                 // Get the id result
                 let id_res: Option<&SymbolTableEntry> = self.get_identifier(&id_token);
@@ -591,6 +599,7 @@ impl SemanticAnalyzer {
                     id_info = Some((id_res.unwrap().symbol_type.to_owned(), id_token.text.to_owned(),
                                     id_res.unwrap().is_initialized.to_owned(), id_res.unwrap().is_used.to_owned(),
                                     id_res.unwrap().position.to_owned(), id_token.position.to_owned()));
+
                     nexus_log::log(
                         nexus_log::LogTypes::Debug,
                         nexus_log::LogSources::SemanticAnalyzer,
@@ -601,7 +610,8 @@ impl SemanticAnalyzer {
                 }
             },
             // Nonterminal should never be reached
-            AstNode::NonTerminal(_) => error!("Received a nonterminal when expecting a terminal to Assign")
+            SyntaxTreeNode::NonTerminalAst(_) => error!("Received a nonterminal when expecting a terminal to Assign"),
+            SyntaxTreeNode::NonTerminalCst(_) => error!("Found a CST node in the AST")
         }
 
         // Index 0 is the value being assigned
@@ -673,7 +683,7 @@ impl SemanticAnalyzer {
     }
 
     // Function that analyzes an add statement
-    fn analyze_add(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) -> Option<(Type, (usize, usize))> {
+    fn analyze_add(&mut self, ast: &SyntaxTree, neighbors: &Vec<NodeIndex>) -> Option<(Type, (usize, usize))> {
         // Index 1 will always be a digit, so that is by default an Int
         // Only have to check index 0 of neighbors, which can be a nonterminal
     
@@ -701,16 +711,17 @@ impl SemanticAnalyzer {
                 );
 
                 // Get the left side node of the addition for its position
-                let left_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
+                let left_node: &SyntaxTreeNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
                 let mut left_position: (usize, usize) = (0, 0);
 
                 match &left_node {
-                    AstNode::Terminal(token) => {
+                    SyntaxTreeNode::Terminal(token) => {
                         // Grab the position of the token
                         // Parse already made sure it is a digit
                         left_position = token.position.to_owned();
                     },
-                    AstNode::NonTerminal(non_terminal) => error!("Received [ {:?} ] as a value for addition; Expected a terminal", non_terminal)
+                    SyntaxTreeNode::NonTerminalAst(non_terminal) => error!("Received [ {:?} ] as a value for addition; Expected a terminal", non_terminal),
+                    SyntaxTreeNode::NonTerminalCst(_) => error!("Found CST node in the AST")
                 }
 
                 return Some((right_res_real.0, left_position));
@@ -720,7 +731,7 @@ impl SemanticAnalyzer {
         }
     }
 
-    pub fn analyze_eq_neq(&mut self, ast: &Ast, neighbors: &Vec<NodeIndex>) -> Option<(Type, (usize, usize))>{
+    pub fn analyze_eq_neq(&mut self, ast: &SyntaxTree, neighbors: &Vec<NodeIndex>) -> Option<(Type, (usize, usize))>{
         // Get the type for the left side of the boolean operator
         let left_entry: Option<(Type, (usize, usize))> = self.derive_type(ast, neighbors[1]);
 

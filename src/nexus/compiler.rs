@@ -1,7 +1,7 @@
 use log::*;
 
 use crate::util::nexus_log;
-use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, cst::Cst, semantic_analyzer::SemanticAnalyzer, ast::Ast};
+use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, cst::Cst, semantic_analyzer::SemanticAnalyzer, ast::Ast, syntax_tree::SyntaxTree};
 
 // Function to compile multiple programs
 pub fn compile(source_code: &str) {
@@ -140,7 +140,7 @@ pub fn compile(source_code: &str) {
             format!("Generating AST for program {}", program_number)
         );
 
-        let ast: Ast = semantic_analyzer.generate_ast(&token_stream);
+        let ast: SyntaxTree = semantic_analyzer.generate_ast(&token_stream);
         ast.display(&program_number);
 
         nexus_log::log(
@@ -171,6 +171,6 @@ pub fn compile(source_code: &str) {
             nexus_log::LogSources::Nexus,
             format!("Symbol table for program {} is below", program_number)
         );
-        semantic_analyzer.symbol_table.populate_symbol_table(&program_number);
+        //semantic_analyzer.symbol_table.populate_symbol_table(&program_number);
     }
 }
