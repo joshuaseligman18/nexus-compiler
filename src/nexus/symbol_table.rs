@@ -219,11 +219,9 @@ impl SymbolTable {
         let document: Document = window.document().expect("Should be able to get the document");
 
         // Get the row element
-        let row_div: Element = document.get_element_by_id(format!("program{}-ast-row", *program_number).as_str()).expect("Should be able to get the row element");
-
         let symbol_table_area: Element = document.create_element("div").expect("Should be able to create the element");
         let symbol_table_area_classes: DomTokenList = symbol_table_area.class_list();
-        symbol_table_area_classes.add_1("symbol-table-area").expect("Should be able to add the classes");
+        symbol_table_area_classes.add_2("row", "symbol-table-area").expect("Should be able to add the classes");
         
         let symbol_table_elem: Element = document.create_element("table").expect("Should be able to create the table");
         let symbol_table_classes: DomTokenList = symbol_table_elem.class_list();
@@ -271,7 +269,9 @@ impl SymbolTable {
         symbol_table_elem.append_child(&symbol_body).expect("Should be able to add the child node");
 
         symbol_table_area.append_child(&symbol_table_elem).expect("Should be able to add the child node");
-        row_div.append_child(&symbol_table_area).expect("Should be able to add child node");
+
+        let display_area: Element = document.get_element_by_id(format!("program{}-ast-pane", *program_number).as_str()).expect("Should be able to get element");
+        display_area.append_child(&symbol_table_area).expect("Should be able to add child node");
     }
 
     // Function to populate the symbol table on the webpage

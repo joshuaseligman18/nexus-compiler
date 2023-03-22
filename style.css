@@ -111,4 +111,5 @@ textarea {
 
 .symbol-table-area {
     text-align: center;
+    height: 0px !important;
 }
