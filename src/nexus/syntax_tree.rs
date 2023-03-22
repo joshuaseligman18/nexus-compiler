@@ -283,10 +283,16 @@ impl SyntaxTree {
         let window: Window = web_sys::window().expect("Should be able to get the window");
         let document: Document = window.document().expect("Should be able to get the document");
 
-        // Clear the entire area
-        let tabs_area: Element = document.get_element_by_id("ast-tabs").expect("Should be able to find the element");
-        tabs_area.set_inner_html("");
-        let content_area: Element = document.get_element_by_id("ast-tab-content").expect("Should be able to find the element");
-        content_area.set_inner_html("");
+        // Clear the entire CST area
+        let cst_tabs_area: Element = document.get_element_by_id("cst-tabs").expect("Should be able to find the element");
+        cst_tabs_area.set_inner_html("");
+        let cst_content_area: Element = document.get_element_by_id("cst-tab-content").expect("Should be able to find the element");
+        cst_content_area.set_inner_html("");
+
+        // Clear the entire AST and symbol table area
+        let ast_tabs_area: Element = document.get_element_by_id("ast-tabs").expect("Should be able to find the element");
+        ast_tabs_area.set_inner_html("");
+        let ast_content_area: Element = document.get_element_by_id("ast-tab-content").expect("Should be able to find the element");
+        ast_content_area.set_inner_html("");
     }
 }

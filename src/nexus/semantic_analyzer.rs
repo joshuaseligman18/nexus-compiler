@@ -3,8 +3,6 @@ use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log
 
 use crate::nexus::syntax_tree::{SyntaxTree, SyntaxTreeTypes};
 use crate::nexus::syntax_tree_node::{SyntaxTreeNode, NonTerminalsAst, SyntaxTreeNodeTypes};
-use crate::nexus::ast::{Ast};
-use crate::nexus::ast_node::{AstNode, NonTerminals, AstNodeTypes};
 use crate::nexus::symbol_table::{SymbolTable, Type, SymbolTableEntry, SymbolTableEntryField};
 
 use petgraph::graph::NodeIndex;

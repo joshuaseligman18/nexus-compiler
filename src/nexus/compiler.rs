@@ -1,7 +1,7 @@
 use log::*;
 
 use crate::util::nexus_log;
-use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, cst::Cst, semantic_analyzer::SemanticAnalyzer, ast::Ast, syntax_tree::SyntaxTree};
+use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, semantic_analyzer::SemanticAnalyzer, syntax_tree::SyntaxTree};
 
 // Function to compile multiple programs
 pub fn compile(source_code: &str) {
@@ -10,8 +10,7 @@ pub fn compile(source_code: &str) {
     let mut semantic_analyzer: SemanticAnalyzer = SemanticAnalyzer::new();
 
     // Clean up the output area
-    Cst::clear_display();
-    Ast::clear_display();
+    SyntaxTree::clear_display();
     nexus_log::clear_logs();
     nexus_log::log(
         nexus_log::LogTypes::Info,

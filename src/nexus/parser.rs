@@ -3,8 +3,6 @@ use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log
 
 use crate::nexus::syntax_tree::{SyntaxTree, SyntaxTreeTypes};
 use crate::nexus::syntax_tree_node::{SyntaxTreeNode, NonTerminalsCst, SyntaxTreeNodeTypes};
-use crate::nexus::cst::{Cst};
-use crate::nexus::cst_node::{CstNode, NonTerminals, CstNodeTypes};
 
 pub struct Parser {
     cur_token_index: usize,
