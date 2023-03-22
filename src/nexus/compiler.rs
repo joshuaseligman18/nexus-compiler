@@ -149,6 +149,11 @@ pub fn compile(source_code: &str) {
             format!("AST display for program {} is below", program_number)
         );
 
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::SemanticAnalyzer,
+            format!("Beginning semantic analysis on program {}", program_number)
+        );
         semantic_analyzer.analyze_program(&ast, &program_number);
     }
 }

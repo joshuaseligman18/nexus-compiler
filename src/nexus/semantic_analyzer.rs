@@ -349,12 +349,22 @@ impl SemanticAnalyzer {
                     NonTerminals::Block => {
                         // Create a new scope for the block
                         self.symbol_table.new_scope();
-                        
+                        nexus_log::log(
+                            nexus_log::LogTypes::Debug,
+                            nexus_log::LogSources::SemanticAnalyzer,
+                            format!("Entering new scope {}", self.symbol_table.cur_scope.unwrap())
+                        );
+
                         // Everything inside is a statement, so analyze each node
                         for neighbor_index in neighbors.into_iter().rev() {
                             self.analyze_dfs(ast, neighbor_index.index());
                         }
 
+                        nexus_log::log(
+                            nexus_log::LogTypes::Debug,
+                            nexus_log::LogSources::SemanticAnalyzer,
+                            format!("Exiting scope {}", self.symbol_table.cur_scope.unwrap())
+                        );
                         // This is the end of the current scope
                         self.symbol_table.end_cur_scope();
                     },
@@ -405,6 +415,14 @@ impl SemanticAnalyzer {
                             let symbol_table_entry_position: (usize, usize) = symbol_table_entry.unwrap().position.to_owned();
                             let symbol_table_entry_is_initialized: bool = symbol_table_entry.unwrap().is_initialized.to_owned();
                             let symbol_table_entry_is_used: bool = symbol_table_entry.unwrap().is_used.to_owned();
+                            let symbol_table_entry_scope: usize = symbol_table_entry.unwrap().scope.to_owned();
+
+                            nexus_log::log(
+                                nexus_log::LogTypes::Debug,
+                                nexus_log::LogSources::SemanticAnalyzer,
+                                format!("Id [ {} ] declared in scope {} at position {:?} is valid and has been used at {:?} in scope {}",
+                                        id_name, symbol_table_entry_scope, symbol_table_entry_position, token.position, self.symbol_table.cur_scope.unwrap())
+                            );
 
                             if !symbol_table_entry_is_initialized {
                                 // Throw a warning for using an uninitialized variable
@@ -477,9 +495,11 @@ impl SemanticAnalyzer {
         let type_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
         // Assume the type node does not exist
         let mut new_type: Option<Type> = None;
+        let mut type_pos: (usize, usize) = (0, 0);
 
         match type_node {
             AstNode::Terminal(id_token) => {
+                type_pos = id_token.position.to_owned();
                 match &id_token.token_type {
                     TokenType::Keyword(keyword) => {
                         match &keyword {
@@ -503,6 +523,7 @@ impl SemanticAnalyzer {
         // Check to make sure that there weren't any internal errors (should never happen if AST
         // was properly generated
         if new_id.is_some() && new_type.is_some() {
+            let cur_scope = self.symbol_table.cur_scope.unwrap().to_owned();
             // Attempt to add the new id to the symbol table
             let new_id_res: bool = self.symbol_table.new_identifier(new_id.as_ref().unwrap().to_owned(), new_type.as_ref().unwrap().to_owned(), new_id_pos);
             
@@ -514,6 +535,12 @@ impl SemanticAnalyzer {
                     format!("Error at {:?}; Id [ {} ] has already been declared within the current scope", new_id_pos, new_id.unwrap())
                 );
                 self.num_errors += 1;
+            } else {
+                nexus_log::log(
+                    nexus_log::LogTypes::Debug,
+                    nexus_log::LogSources::SemanticAnalyzer,
+                    format!("Id [ {} ] of type {:?} has been declared at {:?} in scope {}", new_id.unwrap(), new_type.unwrap(), type_pos, cur_scope)
+                );
             }
         }
     }
@@ -527,6 +554,7 @@ impl SemanticAnalyzer {
             // We assume this is an identifier because of the grammar and the AST
             // should be correct
             AstNode::Terminal(id_token) => {
+                let cur_scope: usize = self.symbol_table.cur_scope.unwrap().to_owned();
                 // Get the id result
                 let id_res: Option<&SymbolTableEntry> = self.get_identifier(&id_token);
                 if id_res.is_some() {
@@ -534,6 +562,13 @@ impl SemanticAnalyzer {
                     id_info = Some((id_res.unwrap().symbol_type.to_owned(), id_token.text.to_owned(),
                                     id_res.unwrap().is_initialized.to_owned(), id_res.unwrap().is_used.to_owned(),
                                     id_res.unwrap().position.to_owned(), id_token.position.to_owned()));
+                    nexus_log::log(
+                        nexus_log::LogTypes::Debug,
+                        nexus_log::LogSources::SemanticAnalyzer,
+                        format!("Id [ {} ] declared in scope {} at position {:?} is valid at {:?} in scope {}",
+                                id_token.text, id_res.unwrap().scope, id_info.as_ref().unwrap().4, id_token.position, cur_scope)
+                    );
+
                 }
             },
             // Nonterminal should never be reached
@@ -561,7 +596,14 @@ impl SemanticAnalyzer {
                 // updated in the symbol table if it has not been done so already
                 if id_info_real.2 == false {
                     self.symbol_table.set_entry_field(&id_info_real.1, SymbolTableEntryField::Initialized);
-                
+               
+                    nexus_log::log(
+                        nexus_log::LogTypes::Debug,
+                        nexus_log::LogSources::SemanticAnalyzer,
+                        format!("Id [ {} ] declared at {:?} of type {:?} has been initialized with a value of type {:?} at position {:?}",
+                                id_info_real.1, id_info_real.4, id_info_real.0, right_entry_real.0, id_info_real.5)
+                    );
+
                     // Throw a warning for the variable being initialized here because
                     // it was already used
                     if id_info_real.3 == true {
@@ -573,6 +615,13 @@ impl SemanticAnalyzer {
                         );
                         self.num_warnings += 1;
                     }
+                } else {
+                    nexus_log::log(
+                        nexus_log::LogTypes::Debug,
+                        nexus_log::LogSources::SemanticAnalyzer,
+                        format!("Id [ {} ] declared at {:?} of type {:?} has been assigned a value of type {:?} at position {:?}",
+                                id_info_real.1, id_info_real.4, id_info_real.0, right_entry_real.0, id_info_real.5)
+                    );
                 }
             }
         }
@@ -615,6 +664,13 @@ impl SemanticAnalyzer {
                 self.num_errors += 1;
                 return None;
             } else {
+                nexus_log::log(
+                    nexus_log::LogTypes::Debug,
+                    nexus_log::LogSources::SemanticAnalyzer,
+                    format!("Correctly received expression of type {:?} for right side of addition operator at position {:?}",
+                            right_res_real.0, right_res_real.1)
+                );
+
                 // Get the left side node of the addition for its position
                 let left_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
                 let mut left_position: (usize, usize) = (0, 0);
@@ -658,6 +714,12 @@ impl SemanticAnalyzer {
                 self.num_errors += 1;
                 return None;
             } else {
+                nexus_log::log(
+                    nexus_log::LogTypes::Debug,
+                    nexus_log::LogSources::SemanticAnalyzer,
+                    format!("Comparing expressions of type {:?} (position {:?}) and type {:?} (position {:?})",
+                            left_entry_real.0, left_entry_real.1, right_entry_real.0, right_entry_real.1)
+                );
                 // Otherwise, we have a boolean result from the expression
                 return Some((Type::Boolean, left_entry_real.1));
             }

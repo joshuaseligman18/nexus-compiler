@@ -40,7 +40,7 @@ pub struct SymbolTable {
     graph: Graph<HashMap<String, SymbolTableEntry>, ()>,
 
     // The index of the node of the current scope
-    cur_scope: Option<usize>
+    pub cur_scope: Option<usize>
 }
 
 impl SymbolTable {
