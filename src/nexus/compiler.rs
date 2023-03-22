@@ -91,7 +91,7 @@ pub fn compile(source_code: &str) {
         );
 
         let token_stream: Vec<Token> = lex_res.unwrap();
-        let parse_res: Result<Cst, ()> = parser.parse_program(&token_stream);
+        let parse_res: Result<SyntaxTree, ()> = parser.parse_program(&token_stream);
 
         if parse_res.is_err() {
             nexus_log::insert_empty_line();
@@ -129,7 +129,7 @@ pub fn compile(source_code: &str) {
             nexus_log::LogSources::Nexus,
             format!("CST display for program {} is below", program_number)
         );
-        let cst: Cst = parse_res.unwrap();
+        let cst: SyntaxTree = parse_res.unwrap();
         cst.display(&program_number);
 
         nexus_log::insert_empty_line();
