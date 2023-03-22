@@ -13,7 +13,7 @@ pub struct SemanticAnalyzer {
     cur_token_index: usize,
     num_errors: i32,
     num_warnings: i32,
-    symbol_table: SymbolTable
+    pub symbol_table: SymbolTable
 }
 
 impl SemanticAnalyzer {
@@ -323,7 +323,7 @@ impl SemanticAnalyzer {
         self.cur_token_index += 1;
     }
 
-    pub fn analyze_program(&mut self, ast: &Ast, program_number: &u32) {
+    pub fn analyze_program(&mut self, ast: &Ast, program_number: &u32) -> bool {
         self.num_errors = 0;
         self.num_warnings = 0;
         self.symbol_table.reset();
@@ -333,10 +333,41 @@ impl SemanticAnalyzer {
 
             self.num_warnings += self.symbol_table.mass_warnings();
 
+            // We need to determine final string that gets printed
+            // and format it nicely based on the number of errors and warnings
+            let mut output_string: String = format!("Semantic analysis for program {} ", *program_number);
             if self.num_errors == 0 {
-                self.symbol_table.populate_symbol_table(program_number);
+                output_string.push_str("completed with 0 errors and ");
+            } else {
+                output_string.push_str(format!("failed with {} error", self.num_errors).as_str());
+                if self.num_errors != 1 {
+                    output_string.push_str("s");
+                }
+                output_string.push_str(" and ");
+            }
+
+            output_string.push_str(format!("{} warning", self.num_warnings).as_str());
+            if self.num_warnings != 1 {
+                output_string.push_str("s");
+            }
+
+            if self.num_errors == 0 {
+                nexus_log::log(
+                    nexus_log::LogTypes::Info,
+                    nexus_log::LogSources::SemanticAnalyzer,
+                    output_string
+                );
+                return true;
+            } else {
+                nexus_log::log(
+                    nexus_log::LogTypes::Error,
+                    nexus_log::LogSources::SemanticAnalyzer,
+                    output_string
+                );
+                return false;
             }
         }
+        return false;
     }
 
     fn analyze_dfs(&mut self, ast: &Ast, cur_index: usize) {

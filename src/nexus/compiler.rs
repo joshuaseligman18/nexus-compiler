@@ -154,6 +154,23 @@ pub fn compile(source_code: &str) {
             nexus_log::LogSources::SemanticAnalyzer,
             format!("Beginning semantic analysis on program {}", program_number)
         );
-        semantic_analyzer.analyze_program(&ast, &program_number);
+        let semantic_analysis_res: bool = semantic_analyzer.analyze_program(&ast, &program_number);
+
+        if !semantic_analysis_res {
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Symbol table display skipped due to semantic analysis failure")
+            );
+
+            continue;
+        }
+
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::Nexus,
+            format!("Symbol table for program {} is below", program_number)
+        );
+        semantic_analyzer.symbol_table.populate_symbol_table(&program_number);
     }
 }
