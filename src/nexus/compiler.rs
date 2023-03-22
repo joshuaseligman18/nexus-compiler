@@ -154,7 +154,7 @@ pub fn compile(source_code: &str) {
             nexus_log::LogSources::SemanticAnalyzer,
             format!("Beginning semantic analysis on program {}", program_number)
         );
-        let semantic_analysis_res: bool = semantic_analyzer.analyze_program(&ast, &program_number);
+        let semantic_analysis_res: bool = semantic_analyzer.analyze_program(&ast);
 
         if !semantic_analysis_res {
             nexus_log::log(

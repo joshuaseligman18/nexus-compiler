@@ -323,7 +323,7 @@ impl SemanticAnalyzer {
         self.cur_token_index += 1;
     }
 
-    pub fn analyze_program(&mut self, ast: &Ast, program_number: &u32) -> bool {
+    pub fn analyze_program(&mut self, ast: &Ast) -> bool {
         self.num_errors = 0;
         self.num_warnings = 0;
         self.symbol_table.reset();
@@ -335,7 +335,7 @@ impl SemanticAnalyzer {
 
             // We need to determine final string that gets printed
             // and format it nicely based on the number of errors and warnings
-            let mut output_string: String = format!("Semantic analysis for program {} ", *program_number);
+            let mut output_string: String = String::from("Semantic analysis ");
             if self.num_errors == 0 {
                 output_string.push_str("completed with 0 errors and ");
             } else {
@@ -526,11 +526,9 @@ impl SemanticAnalyzer {
         let type_node: &AstNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
         // Assume the type node does not exist
         let mut new_type: Option<Type> = None;
-        let mut type_pos: (usize, usize) = (0, 0);
 
         match type_node {
             AstNode::Terminal(id_token) => {
-                type_pos = id_token.position.to_owned();
                 match &id_token.token_type {
                     TokenType::Keyword(keyword) => {
                         match &keyword {
@@ -570,7 +568,7 @@ impl SemanticAnalyzer {
                 nexus_log::log(
                     nexus_log::LogTypes::Debug,
                     nexus_log::LogSources::SemanticAnalyzer,
-                    format!("Id [ {} ] of type {:?} has been declared at {:?} in scope {}", new_id.unwrap(), new_type.unwrap(), type_pos, cur_scope)
+                    format!("Id [ {} ] of type {:?} has been declared at {:?} in scope {}", new_id.unwrap(), new_type.unwrap(), new_id_pos, cur_scope)
                 );
             }
         }
