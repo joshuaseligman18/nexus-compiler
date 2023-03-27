@@ -2,7 +2,8 @@
 
 ## Project Locations
 * Project 1 (Lexer) - project1 branch
-* Project 2 (Parser) - main and project2 branches
+* Project 2 (Parser) - project2 branch
+* Project 3 (Semantic Analyzer) - main and project3 branches
 
 ## Setup Instructions
 1. Install Rust, which can be found [here](https://www.rust-lang.org/tools/install).
