@@ -84,12 +84,12 @@ textarea {
     background-color: #F05454;
 }
 
-#cst-area, #ast-area {
+#cst-area {
     width: 95%;
     margin: 2.5%;
 }
 
-#cst-tab-content, #ast-tab-content {
+#cst-tab-content {
     margin-top: 1.5%;
 }
 
@@ -97,11 +97,11 @@ textarea {
     height: 450px;
 }
 
-.cst-svg-div svg, .ast-svg-div svg {
+.cst-svg-div svg {
     border: 1px solid #121212;
 }
 
-.cst-svg-div svg:hover, .ast-svg-div svg:hover {
+.cst-svg-div svg:hover {
     cursor: grab;
 }
 

@@ -17,3 +17,5 @@
 * `make` / `make build`: Builds Nexus into a WebAssembly module that can be run on the web through JavaScript.
 * `make clean`: Removes the files created when the project is built, including the WebAssembly output.
 * `make run`: Spins up a basic server to host Nexus. This is required as the current state of WebAssembly requires it to be fetched and it cannot be directly imported to the JavaScript.
+
+* Alan: Run in Chrome.

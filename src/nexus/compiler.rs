@@ -7,7 +7,6 @@ use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, semantic_analyzer
 pub fn compile(source_code: &str) {
     let mut lexer: Lexer = Lexer::new(source_code);
     let mut parser: Parser = Parser::new();
-    let mut semantic_analyzer: SemanticAnalyzer = SemanticAnalyzer::new();
 
     // Clean up the output area
     SyntaxTree::clear_display();
