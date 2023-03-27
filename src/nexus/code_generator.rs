@@ -1,11 +1,12 @@
 use log::*;
 
-use crate::nexus::{syntax_tree::SyntaxTree, syntax_tree_node::*, symbol_table::SymbolTable};
+use crate::nexus::{syntax_tree::SyntaxTree, syntax_tree_node::*, symbol_table::*};
+use crate::nexus::token::{TokenType, Keywords};
 use petgraph::graph::{NodeIndex};
 
 use std::collections::HashMap;
+use std::fmt;
 
-#[derive (Debug)]
 enum CodeGenBytes {
     // Representation for final code/data in memory
     Code(u8),
@@ -13,6 +14,17 @@ enum CodeGenBytes {
     Temp(usize),
     // Spot is available for anything to take it
     Empty
+}
+
+// Customize the output when printing the string
+impl fmt::Debug for CodeGenBytes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            CodeGenBytes::Code(code) => write!(f, "{:02X}", code),
+            CodeGenBytes::Temp(temp) => write!(f, "T{}", temp),
+            CodeGenBytes::Empty => write!(f, "00")
+        }
+    }
 }
 
 // The struct for the code generator
@@ -32,7 +44,7 @@ pub struct CodeGenerator {
     // The current location of the heap from the back of the array
     heap_pointer: u8,
 
-    // The static table
+    // The static table hashmap for <(id, scope), offset>
     static_table: HashMap<(String, usize), usize>
 }
 
@@ -78,7 +90,10 @@ impl CodeGenerator {
 
         self.static_table.clear();
 
+        // Generate the code for the program
         self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
+        // All programs end with 0x00, which is HALT
+        self.add_code(0x00);
 
         debug!("{:?}", self.static_table); 
         debug!("{:?}", self.code_arr);
@@ -108,6 +123,7 @@ impl CodeGenerator {
                     match non_terminal {
                         NonTerminalsAst::Block => self.code_gen_block(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::VarDecl => self.code_gen_var_decl(ast, neighbor_index, symbol_table),
+                        NonTerminalsAst::Assign => self.code_gen_assignment(ast, neighbor_index, symbol_table),
                         _ => error!("Received {:?} when expecting an AST nonterminal statement in a block", non_terminal)
                     }
                 }
@@ -134,6 +150,7 @@ impl CodeGenerator {
     }
 
 
+    // Function for creating the code for a variable declaration
     fn code_gen_var_decl(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
         debug!("Code gen var decl");
         
@@ -143,16 +160,83 @@ impl CodeGenerator {
         match id_node {
             SyntaxTreeNode::Terminal(token) => {
                 debug!("{:?}; {:?}", token.text, symbol_table.cur_scope.unwrap());
+                // Get the offset this variable will be on the stack
                 let static_offset: usize = self.static_table.len();
                 self.static_table.insert((token.text.to_owned(), symbol_table.cur_scope.unwrap()), static_offset);
 
+                // Generate the code for the variable declaration
                 self.add_code(0xA9);
                 self.add_code(0x00);
+                self.add_code(0x8D);
                 self.add_temp(static_offset);
                 self.add_code(0x00);
             },
             _ => error!("Received {:?} when expecting terminal for var decl child in code gen", id_node)
         }
+    }
 
+    // Function for creating the code for an assignment
+    fn code_gen_assignment(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
+        debug!("Code gen assignment");
+
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let value_node: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
+        let id_node: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
+
+        match value_node {
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Identifier(id_name) => {
+                        debug!("Assignment id");
+                    },
+                    TokenType::Digit(val) => {
+                        debug!("Assignment digit");
+                        // Digits just load a constant to the accumulator
+                        self.add_code(0xA9);
+                        self.add_code(*val as u8);
+                    },
+                    TokenType::Char(_) => {
+                        debug!("Assignment string");
+                    },
+                    TokenType::Keyword(keyword) => {
+                        match &keyword {
+                            Keywords::True => {
+                                debug!("Assignment true");
+                                // True is 0x01
+                                self.add_code(0xA9);
+                                self.add_code(0x01);
+                            },
+                            Keywords::False => {
+                                debug!("Assignment false");
+                                // False is 0x00
+                                self.add_code(0xA9);
+                                self.add_code(0x00);
+                            },
+                            _ => error!("Received {:?} when expecting true or false for keyword terminals in assignment", keyword)
+                        }
+                    },
+                    _ => error!("Received {:?} for terminal in assignment when expecting id, digit, char, or keyword", token)
+                }
+            },
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+                debug!("Assignment nonterminal");
+            },
+            _ => error!("Received {:?} when expecting terminal or AST nonterminal for assignment in code gen", value_node)
+        }
+
+        match id_node {
+            SyntaxTreeNode::Terminal(token) => {
+                // Get the static offset for the variable being assigned to
+                let id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
+                let static_offset = self.static_table.get(&(token.text.to_owned(), id_entry.scope)).unwrap().to_owned();
+                
+                // The data that we are storing is already in the accumulator
+                // so just run the code to store the data
+                self.add_code(0x8D);
+                self.add_temp(static_offset);
+                self.add_code(0x00);
+            },
+            _ => error!("Received {:?} when expecting terminal for assignmentchild in code gen", id_node)
+        }
     }
 }
