@@ -2,7 +2,7 @@
 let realCstDim = [0, 0];
 let realAstDim = [0, 0];
 
-export function createCst(dotSrc, svgId) {
+export function createSyntaxTree(dotSrc, svgId) {
     // Get the width and height of the container
     let width = document.querySelector(`#${svgId}`).offsetWidth;
     let height = document.querySelector(`#${svgId}`).offsetHeight;

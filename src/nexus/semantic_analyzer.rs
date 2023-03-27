@@ -582,13 +582,11 @@ impl SemanticAnalyzer {
         // Index 1 should be the id token
         let id_node: &SyntaxTreeNode = (*ast).graph.node_weight(neighbors[1]).unwrap();
         let mut id_info: Option<(Type, String, bool, bool, (usize, usize), (usize, usize))> = None;
-        let mut id_token_pos: (usize, usize) = (0, 0);
 
         match id_node {
             // We assume this is an identifier because of the grammar and the AST
             // should be correct
             SyntaxTreeNode::Terminal(id_token) => {
-                id_token_pos = id_token.position.to_owned();
                 let cur_scope: usize = self.symbol_table.cur_scope.unwrap().to_owned();
                 // Get the id result
                 let id_res: Option<&SymbolTableEntry> = self.get_identifier(&id_token);

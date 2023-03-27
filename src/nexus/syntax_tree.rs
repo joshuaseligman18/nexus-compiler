@@ -6,7 +6,7 @@ use petgraph::{graph::{NodeIndex, Graph}, dot::{Dot, Config}};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{Window, Document, HtmlTextAreaElement, Element, DomTokenList};
 
-use crate::nexus::syntax_tree_node::{SyntaxTreeNode, SyntaxTreeNodeTypes, NonTerminalsCst, NonTerminalsAst};
+use crate::nexus::syntax_tree_node::{SyntaxTreeNode, SyntaxTreeNodeTypes};
 
 use string_builder::Builder;
 
