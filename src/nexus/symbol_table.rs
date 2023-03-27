@@ -68,6 +68,12 @@ impl SymbolTable {
         self.cur_scope = Some(new_node.index());
     }
 
+    // Function to manually set the current scope assuming it is in bounds
+    // Used by the code generator
+    pub fn set_cur_scope(&mut self, new_scope: usize) {
+        self.cur_scope = Some(new_scope);
+    }
+
     // Called to end the current  
     pub fn end_cur_scope(&mut self) {
         if self.cur_scope.is_some() {

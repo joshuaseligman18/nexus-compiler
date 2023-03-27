@@ -2,12 +2,14 @@ use log::*;
 
 use crate::util::nexus_log;
 use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, semantic_analyzer::SemanticAnalyzer, syntax_tree::SyntaxTree};
+use crate::nexus::code_generator::CodeGenerator;
 
 // Function to compile multiple programs
 pub fn compile(source_code: &str) {
     let mut lexer: Lexer = Lexer::new(source_code);
     let mut parser: Parser = Parser::new();
     let mut semantic_analyzer = SemanticAnalyzer::new();
+    let mut code_generator = CodeGenerator::new();
 
     // Clean up the output area
     SyntaxTree::clear_display();
@@ -77,6 +79,12 @@ pub fn compile(source_code: &str) {
                 nexus_log::LogSources::Nexus,
                 String::from("Symbol table display skipped due to lex failure")
             );
+            
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Code generation skipped due to lex failure")
+            );
 
             // No need to move on if lex failed, so can go to next program
             continue;
@@ -120,6 +128,12 @@ pub fn compile(source_code: &str) {
                 String::from("Symbol table display skipped due to parse failure")
             );
 
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Code generation skipped due to parse failure")
+            );
+
             continue;
         }
 
@@ -156,10 +170,18 @@ pub fn compile(source_code: &str) {
         let semantic_analysis_res: bool = semantic_analyzer.analyze_program(&ast);
 
         if !semantic_analysis_res {
+            nexus_log::insert_empty_line();
+
             nexus_log::log(
                 nexus_log::LogTypes::Warning,
                 nexus_log::LogSources::Nexus,
                 String::from("Symbol table display skipped due to semantic analysis failure")
+            );
+            
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Code generation skipped due to semantic analysis failure")
             );
 
             continue;
@@ -171,5 +193,15 @@ pub fn compile(source_code: &str) {
             format!("Symbol table for program {} is below", program_number)
         );
         semantic_analyzer.symbol_table.display_symbol_table(&program_number);
+
+        nexus_log::insert_empty_line();
+
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Generating code for program {}", program_number)
+        );
+        
+        code_generator.generate_code(&ast, &mut semantic_analyzer.symbol_table);
     }
 }
