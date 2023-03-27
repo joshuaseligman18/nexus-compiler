@@ -1,8 +1,8 @@
 use log::*;
 use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log};
 
-use crate::nexus::cst::{Cst};
-use crate::nexus::cst_node::{CstNode, NonTerminals, CstNodeTypes};
+use crate::nexus::syntax_tree::{SyntaxTree, SyntaxTreeTypes};
+use crate::nexus::syntax_tree_node::{SyntaxTreeNode, NonTerminalsCst, SyntaxTreeNodeTypes};
 
 pub struct Parser {
     cur_token_index: usize,
@@ -18,7 +18,7 @@ impl Parser {
         };
     }
     // Calls for a program to be parsed
-    pub fn parse_program(&mut self, token_stream: &Vec<Token>) -> Result<Cst, ()> {
+    pub fn parse_program(&mut self, token_stream: &Vec<Token>) -> Result<SyntaxTree, ()> {
         // Log that we are parsing the program
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -28,13 +28,13 @@ impl Parser {
 
         // Reset the index to be 0 and clear the CST
         self.cur_token_index = 0;
-        let mut cst: Cst = Cst::new();
+        let mut cst: SyntaxTree = SyntaxTree::new(SyntaxTreeTypes::Cst);
 
         let mut success: bool = true;
         self.num_warnings = 0;
 
         // Add the program node
-        cst.add_node(CstNodeTypes::Root, CstNode::NonTerminal(NonTerminals::Program));
+        cst.add_node(SyntaxTreeNodeTypes::Root, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::Program));
 
         // A program consists of a block followed by an EOP marker
         // First will check block and then the token
@@ -83,7 +83,7 @@ impl Parser {
         }
     }
 
-    fn parse_block(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_block(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing a block
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -91,7 +91,7 @@ impl Parser {
             String::from("Parsing Block")
         );
 
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::Block));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::Block));
 
         // Check for left brace
         let lbrace_err: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::LBrace), cst);
@@ -134,7 +134,7 @@ impl Parser {
     }
 
     // Function to ensure the token is correct
-    fn match_token(&mut self, token_stream: &Vec<Token>, expected_token: TokenType, cst: &mut Cst) -> Result<(), String> {
+    fn match_token(&mut self, token_stream: &Vec<Token>, expected_token: TokenType, cst: &mut SyntaxTree) -> Result<(), String> {
         // Get the next token
         let cur_token_res: Option<Token> = self.peek_next_token(token_stream);
 
@@ -153,13 +153,13 @@ impl Parser {
                         }
                     } else {
                         // Add the node to the CST
-                        cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned()));
+                        cst.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(cur_token.to_owned()));
                     }
                 },
                 TokenType::Identifier(_) => {
                     match expected_token {
                         // Add the node to the cst
-                        TokenType::Identifier(_) => cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned())),
+                        TokenType::Identifier(_) => cst.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(cur_token.to_owned())),
                         // Otherwise return an error
                         TokenType::Digit(_) => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [Digit(0-9)]", cur_token.token_type, cur_token.position)),
                         _ => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [{:?}]", cur_token.token_type, cur_token.position, expected_token)),
@@ -168,7 +168,7 @@ impl Parser {
                 TokenType::Digit(_) => {
                     match expected_token {
                         // Add the new node to the cst
-                        TokenType::Digit(_) => cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned())),
+                        TokenType::Digit(_) => cst.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(cur_token.to_owned())),
                         // Otherwise return an error
                         _ => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [{:?}]", cur_token.token_type, cur_token.position, expected_token))
                     }
@@ -176,7 +176,7 @@ impl Parser {
                 TokenType::Char(_) => {
                     match expected_token {
                         // Add the node to the cst
-                        TokenType::Char(_) => cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned())),
+                        TokenType::Char(_) => cst.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(cur_token.to_owned())),
                         // Otherwise return an error
                         TokenType::Digit(_) => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [Digit(0-9)]", cur_token.token_type, cur_token.position)),
                         _ => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [{:?}]", cur_token.token_type, cur_token.position, expected_token))
@@ -191,7 +191,7 @@ impl Parser {
                                 return Err(format!("Invalid token at {:?}; Found {:?}, but expected [{:?}]", cur_token.position, cur_token.token_type, expected_token));
                             } else {
                                 // Add the node to the cst
-                                cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned()));
+                                cst.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(cur_token.to_owned()));
                             }
                         },
                         TokenType::Digit(_) => return Err(format!("Invalid token [ {:?} ] at {:?}; Expected [Digit(0-9)]", cur_token.token_type, cur_token.position)),
@@ -213,7 +213,7 @@ impl Parser {
         return Ok(());
     }
 
-    fn match_token_collection(&mut self, token_stream: &Vec<Token>, expected_tokens: Vec<TokenType>, cst: &mut Cst) -> Result<(), String> {
+    fn match_token_collection(&mut self, token_stream: &Vec<Token>, expected_tokens: Vec<TokenType>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Get the next token
         let cur_token_res: Option<Token> = self.peek_next_token(token_stream);
 
@@ -224,7 +224,7 @@ impl Parser {
             // Check to see if we are expecting the token
             if expected_tokens.contains(&cur_token.token_type) {
                 // Consume the token if it is ok
-                cst.add_node(CstNodeTypes::Leaf, CstNode::Terminal(cur_token.to_owned()));
+                cst.add_node(SyntaxTreeNodeTypes::Leaf, SyntaxTreeNode::Terminal(cur_token.to_owned()));
                 self.cur_token_index += 1;
                 return Ok(());
             } else {
@@ -236,7 +236,7 @@ impl Parser {
         }
     }
 
-    fn parse_statement_list(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_statement_list(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Make sure that the statement list is not empty
         if !self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::RBrace)) {
             // Log that we are parsing a statement list
@@ -245,7 +245,7 @@ impl Parser {
                 nexus_log::LogSources::Parser,
                 String::from("Parsing StatementList")
             );
-            cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::StatementList));
+            cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::StatementList));
             // Parse the statement
             let statement_res: Result<(), String> = self.parse_statement(token_stream, cst);
             if statement_res.is_err() {
@@ -271,7 +271,7 @@ impl Parser {
         }
     }
 
-    fn parse_statement(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_statement(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing a statement
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -280,7 +280,7 @@ impl Parser {
         );
 
         // Add the Statement node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::Statement));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::Statement));
 
         // Look ahead to the next token
         let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
@@ -321,7 +321,7 @@ impl Parser {
         }
     }
 
-    fn parse_print_statement(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_print_statement(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing a print statement
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -330,7 +330,7 @@ impl Parser {
         );
 
         // Add the PrintStatement node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::PrintStatement));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::PrintStatement));
 
         // Check for the print keyword
         let keyword_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::Print), cst);
@@ -364,7 +364,7 @@ impl Parser {
         return Ok(());
     }
 
-    fn parse_assignment_statement(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_assignment_statement(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing a print statement
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -373,7 +373,7 @@ impl Parser {
         );
 
         // Add the AssignmentStatement node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::AssignmentStatement));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::AssignmentStatement));
 
         // Assignment statements begin with an identifier
         let id_res: Result<(), String> = self.parse_identifier(token_stream, cst);
@@ -397,7 +397,7 @@ impl Parser {
         return Ok(());
     }
 
-    fn parse_var_declaration(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String>{
+    fn parse_var_declaration(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String>{
         // Log that we are parsing a variable declaration
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -406,7 +406,7 @@ impl Parser {
         );
 
         // Add the VarDecl node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::VarDecl));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::VarDecl));
 
         // Make sure we have a valid type
         let type_res: Result<(), String> = self.parse_type(token_stream, cst);
@@ -424,7 +424,7 @@ impl Parser {
         return Ok(());
     }
 
-    fn parse_while_statement(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_while_statement(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing a while statement
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -433,7 +433,7 @@ impl Parser {
         );
 
         // Add the WhileStatementNode
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::WhileStatement));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::WhileStatement));
 
         // Make sure we have the while token
         let while_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::While), cst);
@@ -457,7 +457,7 @@ impl Parser {
         return Ok(());
     }
 
-    fn parse_if_statement(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_if_statement(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing an if statement
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -466,7 +466,7 @@ impl Parser {
         );
 
         // Add the IfStatement node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::IfStatement));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::IfStatement));
 
         // Make sure we have the if token
         let if_res: Result<(), String> = self.match_token(token_stream, TokenType::Keyword(Keywords::If), cst);
@@ -490,7 +490,7 @@ impl Parser {
         return Ok(());
     }
 
-    fn parse_expression(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_expression(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing an expression
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -499,7 +499,7 @@ impl Parser {
         );
 
         // Add the Expr node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::Expr));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::Expr));
 
         // Look ahead to the next token
         let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
@@ -534,7 +534,7 @@ impl Parser {
     }
 
 
-    fn parse_int_expression(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_int_expression(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing an integer expression
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -543,7 +543,7 @@ impl Parser {
         );
 
         // Add the IntExpr node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::IntExpr));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::IntExpr));
 
         // Parse the first digit and return error if needed
         let first_digit_res: Result<(), String> = self.parse_digit(token_stream, cst);
@@ -571,7 +571,7 @@ impl Parser {
         return Ok(());
     }
 
-    fn parse_string_expression(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_string_expression(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing a string expression
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -580,7 +580,7 @@ impl Parser {
         );
 
         // Add the StringExpr node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::StringExpr));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::StringExpr));
 
         // Check for the open quote
         let open_quote_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::Quote), cst);
@@ -618,7 +618,7 @@ impl Parser {
         return Ok(());
     }
 
-    fn parse_bool_expression(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_bool_expression(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing a boolean expression
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -627,7 +627,7 @@ impl Parser {
         );
 
         // Add BooleanExpr node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::BooleanExpr));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::BooleanExpr));
 
         let next_token_peek: Option<Token> = self.peek_next_token(token_stream);
         if next_token_peek.is_some() {
@@ -654,7 +654,7 @@ impl Parser {
         }
     }
 
-    fn long_bool_expression_helper(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn long_bool_expression_helper(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         let lparen_res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::LParen), cst);
         if lparen_res.is_err() {
             return lparen_res;
@@ -684,7 +684,7 @@ impl Parser {
         return rparen_res;
     }
 
-    fn parse_identifier(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_identifier(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing an identifier
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -693,7 +693,7 @@ impl Parser {
         );
 
         // Add the Id node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::Id));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::Id));
 
         // Match the id
         let id_res: Result<(), String> = self.match_token(token_stream, TokenType::Identifier(String::from("a-z")), cst);
@@ -704,7 +704,7 @@ impl Parser {
         return id_res;
     }
 
-    fn parse_char_list(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_char_list(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Recursion base case
         // We have reached the end of the character list
         if self.peek_and_match_next_token(token_stream, TokenType::Symbol(Symbols::Quote)) {
@@ -725,7 +725,7 @@ impl Parser {
             );
     
             // Add the CharList node
-            cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::CharList));
+            cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::CharList));
             let char_res: Result<(), String> = self.parse_char(token_stream, cst);
             if char_res.is_err() {
                 // Break from error
@@ -741,7 +741,7 @@ impl Parser {
         }
     }
 
-    fn parse_type(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_type(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing a type
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -749,7 +749,7 @@ impl Parser {
             String::from("Parsing type")
         );
 
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::Type));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::Type));
 
         // Try to consume the int token
         let type_res: Result<(), String> = self.match_token_collection(token_stream, vec![TokenType::Keyword(Keywords::Int), TokenType::Keyword(Keywords::String), TokenType::Keyword(Keywords::Boolean)], cst);
@@ -761,7 +761,7 @@ impl Parser {
         return type_res;
     }
 
-    fn parse_digit(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_digit(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log what we are doing
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -770,7 +770,7 @@ impl Parser {
         );
 
         // Add the node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::Digit));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::Digit));
 
         // Match the token with a digit
         let digit_res: Result<(), String> = self.match_token(token_stream, TokenType::Digit(0), cst);
@@ -782,7 +782,7 @@ impl Parser {
         }
     }
 
-    fn parse_char(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_char(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Check for the next character's content to have the correct output (space vs char)
         let cur_token: Option<Token> = self.peek_next_token(token_stream);
         if cur_token.is_some() {
@@ -795,7 +795,7 @@ impl Parser {
                     );
 
                     // Add the node
-                    cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::Space));
+                    cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::Space));
                 },
                 _ => {
                     // Log that we are parsing a Char
@@ -804,7 +804,7 @@ impl Parser {
                         nexus_log::LogSources::Parser,
                         String::from("Parsing char")
                     );
-                    cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::Char));
+                    cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::Char));
                 }
             }
         }
@@ -819,7 +819,7 @@ impl Parser {
         return char_res;
     }
 
-    fn parse_bool_op(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_bool_op(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing a boolean operator
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -827,7 +827,7 @@ impl Parser {
             String::from("Parsing boolop")
         );
 
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::BoolOp));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::BoolOp));
 
         // Try to consume the token
         let bool_op_res: Result<(), String> = self.match_token_collection(token_stream, vec![TokenType::Symbol(Symbols::EqOp), TokenType::Symbol(Symbols::NeqOp)], cst);
@@ -839,7 +839,7 @@ impl Parser {
         return bool_op_res;
     }
 
-    fn parse_bool_val(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_bool_val(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing a boolean operator
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -848,7 +848,7 @@ impl Parser {
         );
 
         // Add the boolval node
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::BoolVal));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::BoolVal));
 
         // Attempt to consume the token
         let bool_val_res: Result<(), String> = self.match_token_collection(token_stream, vec![TokenType::Keyword(Keywords::False), TokenType::Keyword(Keywords::True)], cst);
@@ -861,7 +861,7 @@ impl Parser {
         return bool_val_res;
     }
 
-    fn parse_int_op(&mut self, token_stream: &Vec<Token>, cst: &mut Cst) -> Result<(), String> {
+    fn parse_int_op(&mut self, token_stream: &Vec<Token>, cst: &mut SyntaxTree) -> Result<(), String> {
         // Log that we are parsing an integer operator
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -869,7 +869,7 @@ impl Parser {
             String::from("Parsing intop")
         );
 
-        cst.add_node(CstNodeTypes::Branch, CstNode::NonTerminal(NonTerminals::IntOp));
+        cst.add_node(SyntaxTreeNodeTypes::Branch, SyntaxTreeNode::NonTerminalCst(NonTerminalsCst::IntOp));
 
         // Match the token or get the error
         let res: Result<(), String> = self.match_token(token_stream, TokenType::Symbol(Symbols::AdditionOp), cst);

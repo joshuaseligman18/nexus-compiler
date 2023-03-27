@@ -1,7 +1,7 @@
 use log::*;
 
 use crate::util::nexus_log;
-use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, cst::Cst};
+use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, semantic_analyzer::SemanticAnalyzer, syntax_tree::SyntaxTree};
 
 // Function to compile multiple programs
 pub fn compile(source_code: &str) {
@@ -9,7 +9,7 @@ pub fn compile(source_code: &str) {
     let mut parser: Parser = Parser::new();
 
     // Clean up the output area
-    Cst::clear_display();
+    SyntaxTree::clear_display();
     nexus_log::clear_logs();
     nexus_log::log(
         nexus_log::LogTypes::Info,
@@ -58,6 +58,24 @@ pub fn compile(source_code: &str) {
                 nexus_log::LogSources::Nexus,
                 String::from("CST display skipped due to lex failure")
             );
+            
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("AST generation and display skipped due to lex failure")
+            );
+
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::SemanticAnalyzer,
+                String::from("Semantic analysis skipped due to lex failure")
+            );
+
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Symbol table display skipped due to lex failure")
+            );
 
             // No need to move on if lex failed, so can go to next program
             continue;
@@ -71,7 +89,7 @@ pub fn compile(source_code: &str) {
         );
 
         let token_stream: Vec<Token> = lex_res.unwrap();
-        let parse_res: Result<Cst, ()> = parser.parse_program(&token_stream);
+        let parse_res: Result<SyntaxTree, ()> = parser.parse_program(&token_stream);
 
         if parse_res.is_err() {
             nexus_log::insert_empty_line();
@@ -82,17 +100,75 @@ pub fn compile(source_code: &str) {
                 nexus_log::LogSources::Nexus,
                 String::from("CST display skipped due to parse failure")
             );
+            
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("AST generation and display skipped due to parse failure")
+            );
+
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::SemanticAnalyzer,
+                String::from("Semantic analysis skipped due to parse failure")
+            );
+
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Symbol table display skipped due to parse failure")
+            );
+
             continue;
         }
 
         nexus_log::log(
             nexus_log::LogTypes::Info,
             nexus_log::LogSources::Nexus,
-            format!("CST display for Program {} is below", program_number)
+            format!("CST display for program {} is below", program_number)
         );
-        let cst: Cst = parse_res.unwrap();
+        let cst: SyntaxTree = parse_res.unwrap();
         cst.display(&program_number);
 
-        // nexus_log::insert_empty_line();
+        nexus_log::insert_empty_line();
+        
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::Nexus,
+            format!("Generating AST for program {}", program_number)
+        );
+
+        let ast: SyntaxTree = semantic_analyzer.generate_ast(&token_stream);
+        ast.display(&program_number);
+
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::Nexus,
+            format!("AST display for program {} is below", program_number)
+        );
+
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::SemanticAnalyzer,
+            format!("Beginning semantic analysis on program {}", program_number)
+        );
+        let semantic_analysis_res: bool = semantic_analyzer.analyze_program(&ast);
+
+        if !semantic_analysis_res {
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Symbol table display skipped due to semantic analysis failure")
+            );
+
+            continue;
+        }
+
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::Nexus,
+            format!("Symbol table for program {} is below", program_number)
+        );
+        semantic_analyzer.symbol_table.display_symbol_table(&program_number);
     }
 }

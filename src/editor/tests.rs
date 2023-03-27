@@ -159,6 +159,51 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::Parse,
             test_name: String::from("End of file before end of program 3"),
             test_code: String::from("{ while")
+        },
+        Test {
+            test_type: TestType::SemanticAnalysis,
+            test_name: String::from("Alan's tests"),
+            test_code: String::from("{\n\tint a\n\tboolean b\n\t{\n\t\tstring c\n\t\ta = 5\n\t\tb = true /* no comment */\n\t\tc = \"inta\"\n\t\tprint(c)\n\t}\n\tprint(b)\n\tprint(a)\n}$\n\n{\n\tint a\n\t{\n\t\tboolean b\n\t\ta = 1\n\t}\n\tprint(b)\n}$\n\n{\n\tint a\n\t{\n\t\tboolean b\n\t\t{\n\t\t\tstring c\n\t\t\t{\n\t\t\t\ta = 5\n\t\t\t\tb = false\n\t\t\t\tc = \"inta\"\n\t\t\t}\n\t\t\tprint(c)\n\t\t}\n\t\tprint(b)\n\t}\n\tprint(a)\n}$")
+        },
+        Test {
+            test_type: TestType::SemanticAnalysis,
+            test_name: String::from("Everything"),
+            test_code: String::from("{\n  /* This is a COMMENT 007 */\n  string s\n  s = \"hello world\"\n  int a\n  a = 0\n  while (a != 5) {\n    a = 1 + a\n  }\n  if (a == 5) {\n    print(\"success\")\n  }\n  if true {\n    print(s)\n  }\n}$")
+        },
+        Test {
+            test_type: TestType::SemanticAnalysis,
+            test_name: String::from("Undeclared identifiers"),
+            test_code: String::from("{\n\t/* All variables are undeclared and throw errors */\n\tx = 3 + y\n\tb = (x == y)\n\tc = a\n\tprint(j)\n}$")
+        },
+        Test {
+            test_type: TestType::SemanticAnalysis,
+            test_name: String::from("Uninitialized identifiers"),
+            test_code: String::from("{\n\t/* x is never initialized, so lots of warnings here  */\n\tint x\n\tint y\n\ty = 2 + x\n\tif (x == 0) {\n\t\tprint(x)\n\t}\n}$")
+        },
+        Test {
+            test_type: TestType::SemanticAnalysis,
+            test_name: String::from("Scope hell"),
+            test_code: String::from("{\n\tint a\n\t{\n\t\tstring a\n\t\t/* This should work */\n\t\t/* This a is in scope 1 */\n\t\ta = \"hello\"\n\t\t/* This should throw an error */\n\t\ta = 5\n\t\t{\n\t\t\t/* But this should work */\n\t\t\tint a\n\t\t\t/* This a is in scope 2 */\n\t\t\ta = 5\n\t\t}\n\t}\n\t/* This should be an int and from scope 0 */\n\tprint(a)\n}$")
+        },
+        Test {
+            test_type: TestType::SemanticAnalysis,
+            test_name: String::from("Mismatched types"),
+            test_code: String::from("{\n\t/* There are type mismatches everywhere */\n\tint a\n\ta = \"hello\"\n\ta = true\n\ta = (5 == 2)\n\ta = 2 + 3 + \"not int\"\n\ta = 2 + 3 + (\"hello\" == \"world\")\n\n\tboolean b\n\tb = (\"hello\" == 2)\n\tb = (a == true)\n\tb = a\n}$")
+        },
+        Test {
+            test_type: TestType::SemanticAnalysis,
+            test_name: String::from("Redeclared identifiers"),
+            test_code: String::from("{\n\tint a\n\ta = 5\n\t/* These should throw errors */\n\tint a\n\tstring a\n\t{\n\t\t/* But this should be ok */\n\t\tint a\n\t}\n}$")
+        },
+        Test {
+            test_type: TestType::SemanticAnalysis,
+            test_name: String::from("Boolean expression type checks"),
+            test_code: String::from("{\n\tprint((((\"hi\" != \"hello\") == false) == ((5 == 2) == (false != true))))\n}$")
+        },
+        Test {
+            test_type: TestType::SemanticAnalysis,
+            test_name: String::from("Lots of warnings"),
+            test_code: String::from("{\n\t/* Uninitialized and never used */\n\tint a\n\t/* Uninitialized and used */\n\tint b\n\t/* Initialized but never used */\n\tint c\n\tc = 2 + b\n\t/* Initialized after being used */\n\tint d\n\tc = d\n\td = 5\n}$")
         }
     ];
 

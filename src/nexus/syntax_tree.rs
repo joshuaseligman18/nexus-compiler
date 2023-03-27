@@ -6,7 +6,7 @@ use petgraph::{graph::{NodeIndex, Graph}, dot::{Dot, Config}};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{Window, Document, HtmlTextAreaElement, Element, DomTokenList};
 
-use crate::nexus::cst_node::{CstNode, CstNodeTypes};
+use crate::nexus::syntax_tree_node::{SyntaxTreeNode, SyntaxTreeNodeTypes, NonTerminalsCst, NonTerminalsAst};
 
 use string_builder::Builder;
 
@@ -14,39 +14,68 @@ use string_builder::Builder;
 // Have to import the treeRenderer js module
 #[wasm_bindgen(module = "/treeRenderer.js")]
 extern "C" {
-    // Import the createCst function from js so we can call it from the Rust code
-    #[wasm_bindgen(js_name = "createCst")]
-    fn create_cst_rendering(dotSrc: &str, svgId: &str);
+    // Import the createSyntaxTree function from js so we can call it from the Rust code
+    #[wasm_bindgen(js_name = "createSyntaxTree")]
+    fn create_rendering(dotSrc: &str, svgId: &str);
+}
+
+// Enum for differentiating a CST vs an AST
+#[derive (Debug, strum::Display, PartialEq)]
+#[strum (serialize_all = "lowercase")]
+pub enum SyntaxTreeTypes {
+    Cst,
+    Ast
 }
 
 #[derive (Debug)]
-pub struct Cst {
+pub struct SyntaxTree {
     // A graph with a string as the node content and no edge weights
-    pub graph: Graph<CstNode, ()>,
+    pub graph: Graph<SyntaxTreeNode, ()>,
 
     // The root of the tree
-    root: Option<usize>,
+    pub root: Option<usize>,
 
     // The current node we are at
     current: Option<usize>,
 
     // A hashmap to keep track of parents
-    parents: HashMap<usize, Option<usize>>
+    parents: HashMap<usize, Option<usize>>,
+
+    // The type of the syntax tree
+    tree_type: SyntaxTreeTypes
 }
 
-impl Cst {
-    // Constructor for a cst
-    pub fn new() -> Self {
-        return Cst {
+impl SyntaxTree {
+    // Constructor for a syntax tree
+    pub fn new(syntax_tree_type: SyntaxTreeTypes) -> Self {
+        return Self {
             graph: Graph::new(),
             root: None,
             current: None,
-            parents: HashMap::new()
+            parents: HashMap::new(),
+            tree_type: syntax_tree_type
         };
     }
 
-    // Function to add a node to the CST
-    pub fn add_node(&mut self, kind: CstNodeTypes, label: CstNode) {
+    // Function to add a node to the syntax tree
+    pub fn add_node(&mut self, kind: SyntaxTreeNodeTypes, label: SyntaxTreeNode) {
+        // This is a basic check to make sure that we are receiving the correct
+        // nonterminal type for the type of tree we are storing
+        match &label {
+            SyntaxTreeNode::Terminal(_) => { /* Do nothing because terminal is always valid */ }
+            SyntaxTreeNode::NonTerminalCst(_) => {
+                if self.tree_type.ne(&SyntaxTreeTypes::Cst) {
+                    error!("Received an AST nonterminal for a CST");
+                    return;
+                }
+            },
+            SyntaxTreeNode::NonTerminalAst(_) => {
+                if self.tree_type.ne(&SyntaxTreeTypes::Ast) {
+                    error!("Received a CST nonterminal for an AST");
+                    return;
+                }
+            }
+        }
         // Create the node
         let new_node: NodeIndex = self.graph.add_node(label);
 
@@ -62,7 +91,7 @@ impl Cst {
         }
 
         // If it is not a leaf, then move down the tree
-        if kind.ne(&CstNodeTypes::Leaf) {
+        if kind.ne(&SyntaxTreeNodeTypes::Leaf) {
             self.current = Some(new_node.index());
         }
     }
@@ -84,16 +113,16 @@ impl Cst {
     pub fn display(&self, program_number: &u32) {
         let svg_id: String = self.create_display_area(program_number);
 
-        let cst_string: String = self.create_text();
+        let tree_string: String = self.create_text();
         // Get the preliminary objects
         let window: Window = web_sys::window().expect("Should be able to get the window");
         let document: Document = window.document().expect("Should be able to get the document");
-        let text_area_cst: HtmlTextAreaElement = document.get_element_by_id(format!("program{}-cst-text", *program_number).as_str())
+        let text_area_tree: HtmlTextAreaElement = document.get_element_by_id(format!("program{}-{}-text", *program_number, self.tree_type).as_str())
                                                     .expect("Should be able to get the textarea")
                                                     .dyn_into::<HtmlTextAreaElement>()
                                                     .expect("Should be able to convert to textarea");
 
-        text_area_cst.set_value(&cst_string);
+        text_area_tree.set_value(&tree_string);
 
 
 
@@ -117,9 +146,10 @@ impl Cst {
         
         // Set the appropriate text output
         match self.graph.node_weight(NodeIndex::new(cur_id)).unwrap() {
-            CstNode::Terminal(token) => builder.append(format!("[{}]\n", token.text)),
-            CstNode::NonTerminal(non_terminal) => builder.append(format!("<{}>\n", non_terminal))
-        }
+            SyntaxTreeNode::Terminal(token) => builder.append(format!("[{}]\n", token.text)),
+            SyntaxTreeNode::NonTerminalCst(non_terminal) => builder.append(format!("<{}>\n", non_terminal)),
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => builder.append(format!("<{}>\n", non_terminal)),
+       }
         
         // Get the neighbors (children) of the current node
         let neighbors: Vec<NodeIndex> = self.graph.neighbors(NodeIndex::new(cur_id)).collect();
@@ -133,10 +163,10 @@ impl Cst {
     // Function that creates 
     fn create_image(&self, svg_id: String) {
         // Convert the graph into a dot format
-        let graph_dot: Dot<&Graph<CstNode, ()>> = Dot::with_config(&self.graph, &[Config::EdgeNoLabel]);
+        let graph_dot: Dot<&Graph<SyntaxTreeNode, ()>> = Dot::with_config(&self.graph, &[Config::EdgeNoLabel]);
         
         // Call the JS to create the graph on the webpage using d3.js
-        create_cst_rendering(format!("{:?}", graph_dot).as_str(), &svg_id);
+        create_rendering(format!("{:?}", graph_dot).as_str(), &svg_id);
     }
 
     fn create_display_area(&self, program_number: &u32) -> String {
@@ -145,7 +175,7 @@ impl Cst {
         let document: Document = window.document().expect("Should be able to get the document");
 
         // The ul of the tabs
-        let tabs_area: Element = document.get_element_by_id("cst-tabs").expect("Should be able to find the element");
+        let tabs_area: Element = document.get_element_by_id(format!("{}-tabs", self.tree_type).as_str()).expect("Should be able to find the element");
     
         // Create the new tab in the list
         let new_li: Element = document.create_element("li").expect("Should be able to create the li element");
@@ -172,14 +202,14 @@ impl Cst {
         }
 
         // Set the id of the button
-        new_button.set_id(format!("program{}-cst-btn", *program_number).as_str());
+        new_button.set_id(format!("program{}-{}-btn", *program_number, self.tree_type).as_str());
 
         // All of the toggle elements from the example above
         new_button.set_attribute("data-bs-toggle", "tab").expect("Should be able to add the attribute");
         new_button.set_attribute("type", "button").expect("Should be able to add the attribute");
         new_button.set_attribute("role", "tab").expect("Should be able to add the attribute");
-        new_button.set_attribute("data-bs-target", format!("#program{}-cst-pane", *program_number).as_str()).expect("Should be able to add the attribute");
-        new_button.set_attribute("aria-controls", format!("program{}-cst-pane", *program_number).as_str()).expect("Should be able to add the attribute");
+        new_button.set_attribute("data-bs-target", format!("#program{}-{}-pane", *program_number, self.tree_type).as_str()).expect("Should be able to add the attribute");
+        new_button.set_attribute("aria-controls", format!("program{}-{}-pane", *program_number, self.tree_type).as_str()).expect("Should be able to add the attribute");
 
         // Set the inner text
         new_button.set_inner_html(format!("Program {}", *program_number).as_str());
@@ -189,7 +219,7 @@ impl Cst {
         tabs_area.append_child(&new_li).expect("Should be able to add the child node");
 
         // Get the content area
-        let content_area: Element = document.get_element_by_id("cst-tab-content").expect("Should be able to find the element");
+        let content_area: Element = document.get_element_by_id(format!("{}-tab-content", self.tree_type).as_str()).expect("Should be able to find the element");
 
         // Create the individual pane div
         let display_area_div: Element = document.create_element("div").expect("Should be able to create the element");
@@ -204,36 +234,38 @@ impl Cst {
         // Add the appropriate attributes
         display_area_div.set_attribute("role", "tabpanel").expect("Should be able to add the attribute");
         display_area_div.set_attribute("tabindex", "0").expect("Should be able to add the attribute");
-        display_area_div.set_attribute("aria-labeledby", format!("program{}-cst-btn", *program_number).as_str()).expect("Should be able to add the attribute");
+        display_area_div.set_attribute("aria-labeledby", format!("program{}-{}-btn", *program_number, self.tree_type).as_str()).expect("Should be able to add the attribute");
 
         // Set the id of the pane
-        display_area_div.set_id(format!("program{}-cst-pane", *program_number).as_str());
+        display_area_div.set_id(format!("program{}-{}-pane", *program_number, self.tree_type).as_str());
 
-        // The div is a container for the content of the cst info
-        display_area_class_list.add_2("container", "cst-pane").expect("Should be able to add the classes");
+        // The div is a container for the content of the ast info
+        display_area_class_list.add_2("container", format!("{}-pane", self.tree_type).as_str()).expect("Should be able to add the classes");
 
         // Single row container
         let row_div: Element = document.create_element("div").expect("Should be able to create the div");
-        row_div.set_class_name("row");
+        let row_classes: DomTokenList = row_div.class_list();
+        row_classes.add_2("row", "justify-content-around").expect("Should be able to add the classes");
+        row_div.set_id(format!("program{}-{}-row", *program_number, self.tree_type).as_str());
         
         // The text area is needed for the text representation
-        let cst_text_area: HtmlTextAreaElement = document.create_element("textarea")
+        let tree_text_area: HtmlTextAreaElement = document.create_element("textarea")
                                                     .expect("Should be able to create the textarea")
                                                     .dyn_into::<HtmlTextAreaElement>()
                                                     .expect("Should be able to convert to textarea");
 
         // Set the appropriate styles and general information
-        let cst_text_classes: DomTokenList = cst_text_area.class_list();
-        cst_text_classes.add_2("col-4", "cst-text").expect("Should be able to add the classes");
-        cst_text_area.set_read_only(true);
-        cst_text_area.set_id(format!("program{}-cst-text", *program_number).as_str());
-        row_div.append_child(&cst_text_area).expect("Should be able to add child node");
+        let tree_text_classes: DomTokenList = tree_text_area.class_list();
+        tree_text_classes.add_2("col-4", format!("{}-text", self.tree_type).as_str()).expect("Should be able to add the classes");
+        tree_text_area.set_read_only(true);
+        tree_text_area.set_id(format!("program{}-{}-text", *program_number, self.tree_type).as_str());
+        row_div.append_child(&tree_text_area).expect("Should be able to add child node");
 
         // The div for the svg where d3 will render the graph
         let svg_div_elem: Element = document.create_element("div").expect("Should be able to create the element");
         let svg_classes: DomTokenList = svg_div_elem.class_list();
-        svg_classes.add_2("col-8", "cst-svg-div").expect("Should be able to add the classes");
-        svg_div_elem.set_id(format!("program{}-cst-svg-div", *program_number).as_str());
+        svg_classes.add_2("col-8", format!("{}-svg-div", self.tree_type).as_str()).expect("Should be able to add the classes");
+        svg_div_elem.set_id(format!("program{}-{}-svg-div", *program_number, self.tree_type).as_str());
         row_div.append_child(&svg_div_elem).expect("Should be able to add child node");
 
         // Add the row to the container
@@ -251,10 +283,16 @@ impl Cst {
         let window: Window = web_sys::window().expect("Should be able to get the window");
         let document: Document = window.document().expect("Should be able to get the document");
 
-        // Clear the entire area
-        let tabs_area: Element = document.get_element_by_id("cst-tabs").expect("Should be able to find the element");
-        tabs_area.set_inner_html("");
-        let content_area: Element = document.get_element_by_id("cst-tab-content").expect("Should be able to find the element");
-        content_area.set_inner_html("");
+        // Clear the entire CST area
+        let cst_tabs_area: Element = document.get_element_by_id("cst-tabs").expect("Should be able to find the element");
+        cst_tabs_area.set_inner_html("");
+        let cst_content_area: Element = document.get_element_by_id("cst-tab-content").expect("Should be able to find the element");
+        cst_content_area.set_inner_html("");
+
+        // Clear the entire AST and symbol table area
+        let ast_tabs_area: Element = document.get_element_by_id("ast-tabs").expect("Should be able to find the element");
+        ast_tabs_area.set_inner_html("");
+        let ast_content_area: Element = document.get_element_by_id("ast-tab-content").expect("Should be able to find the element");
+        ast_content_area.set_inner_html("");
     }
 }
