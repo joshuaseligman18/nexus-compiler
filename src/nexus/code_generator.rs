@@ -124,6 +124,7 @@ impl CodeGenerator {
                         NonTerminalsAst::Block => self.code_gen_block(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::VarDecl => self.code_gen_var_decl(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Assign => self.code_gen_assignment(ast, neighbor_index, symbol_table),
+                        NonTerminalsAst::Print => self.code_gen_print(ast, neighbor_index, symbol_table),
                         _ => error!("Received {:?} when expecting an AST nonterminal statement in a block", non_terminal)
                     }
                 }
@@ -238,5 +239,58 @@ impl CodeGenerator {
             },
             _ => error!("Received {:?} when expecting terminal for assignmentchild in code gen", id_node)
         }
+    }
+
+    // Function for generating code for a print statement
+    fn code_gen_print(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
+        debug!("Code gen print statement");
+
+        // Get the child on the print statement to evaluate
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
+
+        match child {
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Identifier(id_name) => {
+                        let print_id: &SymbolTableEntry = symbol_table.get_symbol(&id_name).unwrap();
+                        match &print_id.symbol_type {
+                            Type::Int => {
+                                debug!("Print id int");
+                            },
+                            Type::String => {
+                                debug!("Print id string");
+                            },
+                            Type::Boolean => {
+                                debug!("Print id boolean");
+                            }
+                        }
+                    },
+                    TokenType::Digit(digit) => {
+                        // Sys call 1 for integers needs the number in Y
+                        self.add_code(0xA0);
+                        self.add_code(*digit as u8);
+
+                        // And X = 1
+                        self.add_code(0xA2);
+                        self.add_code(0x01);
+                    },
+                    TokenType::Char(string) => {
+
+                    },
+                    TokenType::Keyword(keyword) => {
+
+                    },
+                    _ => error!("Received {:?} when expecting id, digit, string, or keyword for print terminal", token)
+                }
+            },
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+                debug!("Print nonterminal");
+            },
+            _ => error!("Received {:?} when expecting terminal or AST nonterminal for print in code gen", child)
+        }
+
+        // The x and y registers are all set up, so just add the sys call
+        self.add_code(0xFF);
     }
 }
