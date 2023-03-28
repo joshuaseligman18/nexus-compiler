@@ -14,7 +14,9 @@ enum CodeGenBytes {
     // Temporary code until AST is traversed with identifier for later use
     Temp(usize),
     // Spot is available for anything to take it
-    Empty
+    Empty,
+    // Represents data on the heap
+    Data(u8)
 }
 
 // Customize the output when printing the string
@@ -23,7 +25,8 @@ impl fmt::Debug for CodeGenBytes {
         match &self {
             CodeGenBytes::Code(code) => write!(f, "{:02X}", code),
             CodeGenBytes::Temp(temp) => write!(f, "T{}", temp),
-            CodeGenBytes::Empty => write!(f, "00")
+            CodeGenBytes::Empty => write!(f, "00"),
+            CodeGenBytes::Data(data) => write!(f, "{:02X}", data)
         }
     }
 }
@@ -155,6 +158,27 @@ impl CodeGenerator {
         self.code_pointer += 1;
     }
 
+    // Function to add a byte of data to the heap
+    fn add_data(&mut self, data: u8) {
+        // Heap starts from the end of the 256 bytes and moves towards the front
+        self.code_arr[self.heap_pointer as usize] = CodeGenBytes::Data(data);
+        self.heap_pointer -= 1;
+    }
+
+    fn store_string(&mut self, string: &str) -> u8 {
+        // All strings are null terminated, so start with a 0x00 at the end
+        self.add_data(0x00);
+
+        // Loop through the string in reverse order
+        for c in string.chars().rev() {
+            // Add the ascii code of each character
+            self.add_data(c as u8);
+        }
+        
+        return self.heap_pointer + 1;
+    }
+
+    // Replaces temp addresses with the actual position in memory
     fn clean_up_temp_addr(&mut self) {
         for i in 0..self.code_arr.len() {
             match &self.code_arr[i] {
@@ -180,12 +204,20 @@ impl CodeGenerator {
                 let static_offset: usize = self.static_table.len();
                 self.static_table.insert((token.text.to_owned(), symbol_table.cur_scope.unwrap()), static_offset);
 
-                // Generate the code for the variable declaration
-                self.add_code(0xA9);
-                self.add_code(0x00);
-                self.add_code(0x8D);
-                self.add_temp(static_offset);
-                self.add_code(0x00);
+                // Get the symbol table entry because strings have no code gen here, just the
+                // static table entry
+                let symbol_table_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap();
+                match symbol_table_entry.symbol_type {
+                    Type::Int | Type::Boolean => {
+                        // Generate the code for the variable declaration
+                        self.add_code(0xA9);
+                        self.add_code(0x00);
+                        self.add_code(0x8D);
+                        self.add_temp(static_offset);
+                        self.add_code(0x00);
+                    },
+                    Type::String => { /* Nothing to do here */ }
+                }
             },
             _ => error!("Received {:?} when expecting terminal for var decl child in code gen", id_node)
         }
@@ -211,8 +243,15 @@ impl CodeGenerator {
                         self.add_code(0xA9);
                         self.add_code(*val as u8);
                     },
-                    TokenType::Char(_) => {
+                    TokenType::Char(string) => {
                         debug!("Assignment string");
+                        
+                        // Start by storing the string
+                        let addr: u8 = self.store_string(&string);
+
+                        // Store the starting address of the string in memory
+                        self.add_code (0xA9);
+                        self.add_code(addr);
                     },
                     TokenType::Keyword(keyword) => {
                         match &keyword {
@@ -285,6 +324,14 @@ impl CodeGenerator {
                             },
                             Type::String => {
                                 debug!("Print id string");
+                                // Store the string address in Y
+                                self.add_code(0xAC);
+                                self.add_temp(static_offset);
+                                self.add_code(0x00);
+
+                                // X = 2 for this sys call
+                                self.add_code(0xA2);
+                                self.add_code(0x02);
                             },
                         }
                     },
@@ -298,7 +345,14 @@ impl CodeGenerator {
                         self.add_code(0x01);
                     },
                     TokenType::Char(string) => {
+                        // Store the string in memory and load its address to Y
+                        let addr: u8 = self.store_string(&string);
+                        self.add_code(0xA0);
+                        self.add_code(addr);
 
+                        // X = 2 for a string sys call
+                        self.add_code(0xA2);
+                        self.add_code(0x02);
                     },
                     TokenType::Keyword(keyword) => {
                         self.add_code(0xA0);
