@@ -254,9 +254,19 @@ impl CodeGenerator {
                 match &token.token_type {
                     TokenType::Identifier(id_name) => {
                         let print_id: &SymbolTableEntry = symbol_table.get_symbol(&id_name).unwrap();
+                        let static_offset: usize = self.static_table.get(&(id_name.to_owned(), print_id.scope)).unwrap().to_owned();
                         match &print_id.symbol_type {
                             Type::Int => {
                                 debug!("Print id int");
+                                
+                                // Load the integer value into the Y register
+                                self.add_code(0xAC);
+                                self.add_temp(static_offset);
+                                self.add_code(0x00);
+
+                                // Set X to 1 for the system call
+                                self.add_code(0xA2);
+                                self.add_code(0x01);
                             },
                             Type::String => {
                                 debug!("Print id string");
