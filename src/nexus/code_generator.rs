@@ -95,6 +95,8 @@ impl CodeGenerator {
         // All programs end with 0x00, which is HALT
         self.add_code(0x00);
 
+        self.clean_up_temp_addr();
+
         debug!("{:?}", self.static_table); 
         debug!("{:?}", self.code_arr);
     }
@@ -150,6 +152,16 @@ impl CodeGenerator {
         self.code_pointer += 1;
     }
 
+    fn clean_up_temp_addr(&mut self) {
+        for i in 0..self.code_arr.len() {
+            match &self.code_arr[i] {
+                CodeGenBytes::Temp(offset) => {
+                    self.code_arr[i] = CodeGenBytes::Code(self.code_pointer + *offset as u8);
+                },
+                _ => {}
+            }
+        }
+    }
 
     // Function for creating the code for a variable declaration
     fn code_gen_var_decl(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
