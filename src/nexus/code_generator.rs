@@ -396,6 +396,25 @@ impl CodeGenerator {
             },
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
                 debug!("Print nonterminal");
+                match non_terminal {
+                    NonTerminalsAst::Add => {
+                        // Generate the result of the addition expression
+                        let res_addr: u8 = self.code_gen_add(ast, children[0], symbol_table);
+                        
+                        // Load the result to ACC (wish there was TAY)
+                        self.add_code(0xAC);
+                        self.add_code(res_addr);
+                        self.add_code(0x00);
+
+                        // We are done with the memory cell now that it is in Y
+                        self.remove_data();
+
+                        // X = 1 for the sys call for integers
+                        self.add_code(0xA2);
+                        self.add_code(0x01);
+                    },
+                    _ => error!("Received {:?} when expecting addition or boolean expression for nonterminal print", non_terminal)
+                }
             },
             _ => error!("Received {:?} when expecting terminal or AST nonterminal for print in code gen", child)
         }
