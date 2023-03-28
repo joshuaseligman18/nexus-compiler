@@ -236,6 +236,12 @@ impl CodeGenerator {
                 match &token.token_type {
                     TokenType::Identifier(id_name) => {
                         debug!("Assignment id");
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
+                        let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
+                        
+                        self.add_code(0xAD);
+                        self.add_temp(value_static_offset);
+                        self.add_code(0x00);
                     },
                     TokenType::Digit(val) => {
                         debug!("Assignment digit");
