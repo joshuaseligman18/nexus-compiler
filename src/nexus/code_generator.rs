@@ -271,8 +271,8 @@ impl CodeGenerator {
                         let print_id: &SymbolTableEntry = symbol_table.get_symbol(&id_name).unwrap();
                         let static_offset: usize = self.static_table.get(&(id_name.to_owned(), print_id.scope)).unwrap().to_owned();
                         match &print_id.symbol_type {
-                            Type::Int => {
-                                debug!("Print id int");
+                            Type::Int | Type::Boolean => {
+                                debug!("Print id int/boolean");
                                 
                                 // Load the integer value into the Y register
                                 self.add_code(0xAC);
@@ -286,9 +286,6 @@ impl CodeGenerator {
                             Type::String => {
                                 debug!("Print id string");
                             },
-                            Type::Boolean => {
-                                debug!("Print id boolean");
-                            }
                         }
                     },
                     TokenType::Digit(digit) => {
@@ -304,7 +301,21 @@ impl CodeGenerator {
 
                     },
                     TokenType::Keyword(keyword) => {
-
+                        self.add_code(0xA0);
+                        match keyword {
+                            Keywords::True => {
+                                // Y = 1 for true
+                                self.add_code(0x01);
+                            },
+                            Keywords::False => {
+                                // Y = 0 for false
+                                self.add_code(0x00);
+                            },
+                            _ => error!("Received {:?} when expecting true or false for print keyword", keyword)
+                        }
+                        // X = 1 for the sys call
+                        self.add_code(0xA2);
+                        self.add_code(0x01);
                     },
                     _ => error!("Received {:?} when expecting id, digit, string, or keyword for print terminal", token)
                 }
