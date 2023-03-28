@@ -165,6 +165,11 @@ impl CodeGenerator {
         self.heap_pointer -= 1;
     }
 
+    // Removes a memory cell from in-use to free in the heap
+    fn remove_data(&mut self) {
+        self.heap_pointer += 1;
+    }
+
     fn store_string(&mut self, string: &str) -> u8 {
         // All strings are null terminated, so start with a 0x00 at the end
         self.add_data(0x00);
@@ -281,6 +286,15 @@ impl CodeGenerator {
             },
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
                 debug!("Assignment nonterminal");
+                match non_terminal {
+                    NonTerminalsAst::Add => {
+                        // Call add, so the result will be in both the accumulator and in memory
+                        self.code_gen_add(ast, children[0], symbol_table);
+                        // We do not need the memory location, so remove it
+                        self.remove_data();
+                    },
+                    _ => error!("Received {:?} for nonterminal on right side of assignment for code gen", non_terminal)
+                }
             },
             _ => error!("Received {:?} when expecting terminal or AST nonterminal for assignment in code gen", value_node)
         }
@@ -388,6 +402,83 @@ impl CodeGenerator {
 
         // The x and y registers are all set up, so just add the sys call
         self.add_code(0xFF);
+    }
+
+    // Function to generate code for an addition statement
+    // Result is left in both the accumulator and the memory address that is returned,
+    // so parent functions must clean up the memory that was used to prevent stack overflow
+    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> u8 {
+        debug!("Code gen add");
+
+        // Get the child for addition
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let right_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
+        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
+
+        // This is the address where the result is stored
+        let mut res_addr: u8 = 0x00;
+
+        match right_child {
+            SyntaxTreeNode::Terminal(token) => {
+                // Create a spot on the heap for the result
+                self.add_data(0x00);
+                res_addr = self.heap_pointer + 1;
+                match &token.token_type {
+                    TokenType::Digit(num) => {
+                        // Store right side digit in the accumulator
+                        self.add_code(0xA9);
+                        self.add_code(*num);
+                    },
+                    TokenType::Identifier(id_name) => {
+                        // Get the address needed from memory for the identifier
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
+                        let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
+                        
+                        // Load the value into the accumulator
+                        self.add_code(0xAD);
+                        self.add_temp(value_static_offset);
+                        self.add_code(0x00);
+                    },
+                    _ => error!("Received {:?} when expecting digit or id for right side of addition", token)
+                }
+
+                // Both digits and ids are in the accumulator, so move them to
+                // the res address for usage in the math operation
+                self.add_code(0x8D);
+                self.add_code(res_addr);
+                self.add_code(0x00);
+            },
+            // Nonterminals are always add, so just call it
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => res_addr = self.code_gen_add(ast, children[0], symbol_table),
+            _ => error!("Received {:?} when expecting terminal or AST nonterminal for right addition value", right_child)
+        }
+
+        match left_child {
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Digit(num) => {
+                        // Put left digit in acc
+                        self.add_code(0xA9);
+                        self.add_code(*num);
+
+                        // Perform the addition
+                        self.add_code(0x6D);
+                        self.add_code(res_addr);
+                        self.add_code(0x00);
+
+                        // Store it back in the resulting address
+                        self.add_code(0x8D);
+                        self.add_code(res_addr);
+                        self.add_code(0x00);
+                    },
+                    _ => error!("Received {:?} when expecting a digit for left side of addition for code gen", token)
+                }
+            },
+            _ => error!("Received {:?} when expecting a terminal for the left side of addition for code gen", left_child)
+        }
+
+        // Return the resulting address for others to use
+        return res_addr;
     }
 
     fn display_code(&mut self, program_number: &u32) {

@@ -469,7 +469,7 @@ impl Lexer {
                 }
             } else if self.digits.is_match(substr) {
                 // We have a digit
-                *best_token_type = TokenType::Digit(substr.parse::<u32>().unwrap());
+                *best_token_type = TokenType::Digit(substr.parse::<u8>().unwrap());
                 return true;
             } else if substr.len() == 1 {
                 // We have an unrecognized symbol

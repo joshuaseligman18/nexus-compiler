@@ -26,7 +26,7 @@ pub enum TokenType {
     Keyword(Keywords),
     Identifier(String),
     Symbol(Symbols),
-    Digit(u32),
+    Digit(u8),
     Char(String),
     Unrecognized(String)
 }
