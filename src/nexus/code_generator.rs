@@ -6,6 +6,7 @@ use petgraph::graph::{NodeIndex};
 
 use std::collections::HashMap;
 use std::fmt;
+use web_sys::{Document, Window, Element, DomTokenList};
 
 enum CodeGenBytes {
     // Representation for final code/data in memory
@@ -74,7 +75,7 @@ impl CodeGenerator {
         return code_gen;
     }
 
-    pub fn generate_code(&mut self, ast: &SyntaxTree, symbol_table: &mut SymbolTable) {
+    pub fn generate_code(&mut self, ast: &SyntaxTree, symbol_table: &mut SymbolTable, program_number: &u32) {
         debug!("Code gen called");
 
         // Make sure the current scope is set to be a flag for none
@@ -99,6 +100,8 @@ impl CodeGenerator {
 
         debug!("{:?}", self.static_table); 
         debug!("{:?}", self.code_arr);
+
+        self.display_code(program_number);
     }
 
     fn code_gen_block(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
@@ -314,5 +317,95 @@ impl CodeGenerator {
 
         // The x and y registers are all set up, so just add the sys call
         self.add_code(0xFF);
+    }
+
+    fn display_code(&mut self, program_number: &u32) {
+        let window: Window = web_sys::window().expect("Should be able to get the window");
+        let document: Document = window.document().expect("Should be able to get the document");
+
+        let code_gen_tabs: Element = document.get_element_by_id("code-gen-tabs").expect("Should be able to get the element");
+
+        // Create the new tab in the list
+        let new_li: Element = document.create_element("li").expect("Should be able to create the li element");
+
+        // Add the appropriate classes
+        let li_classes: DomTokenList = new_li.class_list();
+        li_classes.add_1("nav-item").expect("Should be able to add the class");
+        new_li.set_attribute("role", "presentation").expect("Should be able to add the attribute");
+
+        // Create the button
+        let new_button: Element = document.create_element("button").expect("Should be able to create the button");
+        let btn_classes: DomTokenList = new_button.class_list();
+        btn_classes.add_1("nav-link").expect("Should be able to add the class");
+
+        // Only make the first one active
+        if code_gen_tabs.child_element_count() == 0 {
+            btn_classes.add_1("active").expect("Should be able to add the class");
+            new_button.set_attribute("aria-selected", "true").expect("Should be able to add the attribute");
+        } else {
+            new_button.set_attribute("aria-selected", "false").expect("Should be able to add the attribute");
+        }
+
+        // Set the id of the button
+        new_button.set_id(format!("program{}-code-gen-btn", *program_number).as_str());
+
+        // All of the toggle elements from the example above
+        new_button.set_attribute("data-bs-toggle", "tab").expect("Should be able to add the attribute");
+        new_button.set_attribute("type", "button").expect("Should be able to add the attribute");
+        new_button.set_attribute("role", "tab").expect("Should be able to add the attribute");
+        new_button.set_attribute("data-bs-target", format!("#program{}-code-gen-pane", *program_number).as_str()).expect("Should be able to add the attribute");
+        new_button.set_attribute("aria-controls", format!("program{}-code-gen-pane", *program_number).as_str()).expect("Should be able to add the attribute");
+
+        // Set the inner text
+        new_button.set_inner_html(format!("Program {}", *program_number).as_str());
+
+        // Append the button and the list element to the area
+        new_li.append_child(&new_button).expect("Should be able to add the child node");
+        code_gen_tabs.append_child(&new_li).expect("Should be able to add the child node");
+
+        // Get the content area
+        let content_area: Element = document.get_element_by_id("code-gen-tab-content").expect("Should be able to find the element");
+
+        // Create the individual pane div
+        let display_area_div: Element = document.create_element("div").expect("Should be able to create the element");
+
+        // Also from the example link above to only let the first pane initially show and be active
+        let display_area_class_list: DomTokenList = display_area_div.class_list();
+        display_area_class_list.add_1("tab-pane").expect("Should be able to add the class");
+        if content_area.child_element_count() == 0 {
+            display_area_class_list.add_2("show", "active").expect("Should be able to add the classes");
+        }
+
+        // Add the appropriate attributes
+        display_area_div.set_attribute("role", "tabpanel").expect("Should be able to add the attribute");
+        display_area_div.set_attribute("tabindex", "0").expect("Should be able to add the attribute");
+        display_area_div.set_attribute("aria-labeledby", format!("program{}-code-gen-btn", *program_number).as_str()).expect("Should be able to add the attribute");
+
+        // Set the id of the pane
+        display_area_div.set_id(format!("program{}-code-gen-pane", *program_number).as_str());
+
+        // The div is a container for the content of the ast info
+        display_area_class_list.add_2("container", "code-gen-pane").expect("Should be able to add the classes");
+
+        // Get the array of values but only keep the hex digits and spaces
+        let mut code_str: String = format!("{:?}", self.code_arr);
+        code_str.retain(|c| c != ',' && c != '[' && c != ']');
+
+        display_area_div.set_inner_html(&code_str);
+
+        // Add the div to the pane
+        content_area.append_child(&display_area_div).expect("Should be able to add the child node");
+    }
+
+    pub fn clear_display() {
+        // Get the preliminary objects
+        let window: Window = web_sys::window().expect("Should be able to get the window");
+        let document: Document = window.document().expect("Should be able to get the document");
+
+        // Clear the entire area
+        let tabs_area: Element = document.get_element_by_id("code-gen-tabs").expect("Should be able to find the element");
+        tabs_area.set_inner_html("");
+        let content_area: Element = document.get_element_by_id("code-gen-tab-content").expect("Should be able to find the element");
+        content_area.set_inner_html("");
     }
 }

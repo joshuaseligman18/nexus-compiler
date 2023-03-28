@@ -84,16 +84,16 @@ textarea {
     background-color: #F05454;
 }
 
-#cst-area, #ast-area {
+#cst-area, #ast-area, #code-gen-area {
     width: 95%;
     margin: 2.5%;
 }
 
-#cst-tab-content, #ast-tab-content {
+#cst-tab-content, #ast-tab-content, #code-gen-tab-content {
     margin-top: 1.5%;
 }
 
-.cst-pane *, .ast-pane div, .ast-pane textarea {
+.cst-pane *, .ast-pane div, .ast-pane textarea, .code-gen-pane * {
     height: 450px;
 }
 
@@ -111,5 +111,4 @@ textarea {
 
 .symbol-table-area {
     text-align: center;
-    height: 0px !important;
 }

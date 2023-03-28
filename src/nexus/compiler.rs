@@ -13,6 +13,7 @@ pub fn compile(source_code: &str) {
 
     // Clean up the output area
     SyntaxTree::clear_display();
+    CodeGenerator::clear_display();
     nexus_log::clear_logs();
     nexus_log::log(
         nexus_log::LogTypes::Info,
@@ -202,6 +203,6 @@ pub fn compile(source_code: &str) {
             format!("Generating code for program {}", program_number)
         );
         
-        code_generator.generate_code(&ast, &mut semantic_analyzer.symbol_table);
+        code_generator.generate_code(&ast, &mut semantic_analyzer.symbol_table, &program_number);
     }
 }
