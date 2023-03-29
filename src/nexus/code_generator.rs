@@ -55,7 +55,10 @@ pub struct CodeGenerator {
     static_table: HashMap<(String, usize), usize>,
 
     // Index for the temoprary data
-    temp_index: usize
+    temp_index: usize,
+
+    // Hashmap to keep track of the strings being stored on the heap
+    string_history: HashMap<String, u8>
 }
 
 impl CodeGenerator {
@@ -76,7 +79,9 @@ impl CodeGenerator {
             static_table: HashMap::new(),
 
             // Always start with a temp index of 0
-            temp_index: 0
+            temp_index: 0,
+
+            string_history: HashMap::new()
         };
 
         // Initialize the entire array to be unused spot in memory
@@ -103,6 +108,7 @@ impl CodeGenerator {
 
         self.static_table.clear();
         self.temp_index = 0;
+        self.string_history.clear();
 
         // Generate the code for the program
         self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
@@ -184,16 +190,25 @@ impl CodeGenerator {
     }
 
     fn store_string(&mut self, string: &str) -> u8 {
-        // All strings are null terminated, so start with a 0x00 at the end
-        self.add_data(0x00);
+        let addr: Option<&u8> = self.string_history.get(string);
+        if addr.is_none() {
+            // All strings are null terminated, so start with a 0x00 at the end
+            self.add_data(0x00);
 
-        // Loop through the string in reverse order
-        for c in string.chars().rev() {
-            // Add the ascii code of each character
-            self.add_data(c as u8);
+            // Loop through the string in reverse order
+            for c in string.chars().rev() {
+                // Add the ascii code of each character
+                self.add_data(c as u8);
+            }
+            
+            // Store it for future use
+            self.string_history.insert(String::from(string), self.heap_pointer + 1);
+            
+            return self.heap_pointer + 1;
+        } else {
+            // The string is already on the heap, so return its address
+            return *addr.unwrap();
         }
-        
-        return self.heap_pointer + 1;
     }
 
     // Replaces temp addresses with the actual position in memory
