@@ -73,8 +73,8 @@ impl CodeGenerator {
             // Code starts at 0x00
             code_pointer: 0x00,
 
-            // Heap starts at 0xFF
-            heap_pointer: 0xFF,
+            // Heap starts at 0xFE (0xFF reserved for 0x00)
+            heap_pointer: 0xFE,
 
             static_table: HashMap::new(),
 
@@ -104,7 +104,7 @@ impl CodeGenerator {
         }
 
         self.code_pointer = 0x00;
-        self.heap_pointer = 0xFF;
+        self.heap_pointer = 0xFE;
 
         self.static_table.clear();
         self.temp_index = 0;
@@ -321,6 +321,12 @@ impl CodeGenerator {
                     NonTerminalsAst::Add => {
                         // Call add, so the result will be in both the accumulator and in memory
                         self.code_gen_add(ast, children[0], symbol_table, true);
+                    },
+                    NonTerminalsAst::IsEq => {
+                        self.code_gen_compare(ast, children[0], symbol_table, true);
+                    },
+                    NonTerminalsAst::NotEq => {
+                        self.code_gen_compare(ast, children[0], symbol_table, false);
                     },
                     _ => error!("Received {:?} for nonterminal on right side of assignment for code gen", non_terminal)
                 }
@@ -543,17 +549,127 @@ impl CodeGenerator {
         let right_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
         let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
 
-        // This is the address where the result is stored
-        let mut res_addr: u8 = 0x00;
-
         match left_child {
             SyntaxTreeNode::Terminal(token) => {
-                
+                match &token.token_type {
+                    TokenType::Identifier(id_name) => {
+                        // Get the address needed from memory for the identifier
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
+                        let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
+                        
+                        // Load the value into the accumulator
+                        self.add_code(0xAD);
+                        self.add_var(value_static_offset);
+                        self.add_code(0x00);
+
+                        self.add_code(0x8D);
+                        self.add_temp(self.temp_index);
+                        self.temp_index += 1;
+                        self.add_code(0x00);
+                    },
+                    TokenType::Digit(num) => {
+                        // Store the digit in memory
+                        self.add_code(0xA9);
+                        self.add_code(*num);
+
+                        self.add_code(0x8D);
+                        self.add_temp(self.temp_index);
+                        self.temp_index += 1;
+                        self.add_code(0x00);
+                    },
+                    TokenType::Char(string) => {
+                        let string_addr: u8 = self.store_string(string);
+                        self.add_code(0xA9);
+                        self.add_code(string_addr);
+
+                        self.add_code(0x8D);
+                        self.add_temp(self.temp_index);
+                        self.temp_index += 1;
+                        self.add_code(0x00);
+                    },
+                    TokenType::Keyword(keyword) => {
+                        self.add_code(0xA9);
+                        match &keyword {
+                            Keywords::True => self.add_code(0x01),
+                            Keywords::False => self.add_code(0x00),
+                            _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
+                        }
+                        
+                        self.add_code(0x8D);
+                        self.add_temp(self.temp_index);
+                        self.temp_index += 1;
+                        self.add_code(0x00);
+                    },
+                    _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
+                }
             },
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
 
             },
             _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
+        }
+
+        match right_child {
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Identifier(id_name) => {
+                        // Get the address needed from memory for the identifier
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
+                        let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
+                        
+                        // Load the value into the X register
+                        self.add_code(0xAE);
+                        self.add_var(value_static_offset);
+                        self.add_code(0x00);
+                    },
+                    TokenType::Digit(num) => {
+                        // Store the digit in X
+                        self.add_code(0xA2);
+                        self.add_code(*num);
+                    },
+                    TokenType::Char(string) => {
+                        let string_addr: u8 = self.store_string(string);
+                        self.add_code(0xA2);
+                        self.add_code(string_addr);
+                    },
+                    TokenType::Keyword(keyword) => {
+                        self.add_code(0xA2);
+                        match &keyword {
+                            Keywords::True => self.add_code(0x01),
+                            Keywords::False => self.add_code(0x00),
+                            _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
+                        }
+                    },
+                    _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
+                }
+            },
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+            },
+            _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
+        }
+
+        self.add_code(0xEC);
+        self.add_temp(self.temp_index - 1);
+        self.add_code(0x00);
+
+        // We are done with this data
+        self.temp_index += 1;
+
+        // Add code if the operation is for not equals
+        if !is_eq {
+            // Start assuming that they were not equal
+            self.add_code(0xA2);
+            self.add_code(0x00);
+            // Take the branch if not equal
+            self.add_code(0xD0);
+            self.add_code(0x02);
+            // If equal, set x to 1
+            self.add_code(0xA2);
+            self.add_code(0x01);
+            // Compare with 0 to flip the Z flag
+            self.add_code(0xEC);
+            self.add_code(0xFF);
+            self.add_code(0x00);
         }
     }
 
