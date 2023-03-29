@@ -11,7 +11,9 @@ use web_sys::{Document, Window, Element, DomTokenList};
 enum CodeGenBytes {
     // Representation for final code/data in memory
     Code(u8),
-    // Temporary code until AST is traversed with identifier for later use
+    // Temporary variable address  until AST is traversed with identifier for later use
+    Var(usize),
+    // Temproary data for addition and boolean expression evaluation
     Temp(usize),
     // Spot is available for anything to take it
     Empty,
@@ -24,6 +26,7 @@ impl fmt::Debug for CodeGenBytes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self {
             CodeGenBytes::Code(code) => write!(f, "{:02X}", code),
+            CodeGenBytes::Var(var) => write!(f, "V{}", var),
             CodeGenBytes::Temp(temp) => write!(f, "T{}", temp),
             CodeGenBytes::Empty => write!(f, "00"),
             CodeGenBytes::Data(data) => write!(f, "{:02X}", data)
@@ -49,7 +52,10 @@ pub struct CodeGenerator {
     heap_pointer: u8,
 
     // The static table hashmap for <(id, scope), offset>
-    static_table: HashMap<(String, usize), usize>
+    static_table: HashMap<(String, usize), usize>,
+
+    // Index for the temoprary data
+    temp_index: usize
 }
 
 impl CodeGenerator {
@@ -67,7 +73,10 @@ impl CodeGenerator {
             // Heap starts at 0xFF
             heap_pointer: 0xFF,
 
-            static_table: HashMap::new()
+            static_table: HashMap::new(),
+
+            // Always start with a temp index of 0
+            temp_index: 0
         };
 
         // Initialize the entire array to be unused spot in memory
@@ -93,13 +102,15 @@ impl CodeGenerator {
         self.heap_pointer = 0xFF;
 
         self.static_table.clear();
+        self.temp_index = 0;
 
         // Generate the code for the program
         self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
         // All programs end with 0x00, which is HALT
         self.add_code(0x00);
+        debug!("{:?}", self.code_arr);
 
-        self.clean_up_temp_addr();
+        self.backpatch_addresses();
 
         debug!("{:?}", self.static_table); 
         debug!("{:?}", self.code_arr);
@@ -151,9 +162,16 @@ impl CodeGenerator {
         self.code_pointer += 1;
     }
 
-    // Function to add byte of code to the memory array
-    fn add_temp(&mut self, temp: usize) {
+    // Function to add byte of code to the memory array for variable addressing
+    fn add_var(&mut self, var: usize) {
         // Add the code to the next available spot in memory
+        self.code_arr[self.code_pointer as usize] = CodeGenBytes::Var(var);
+        self.code_pointer += 1;
+    }
+
+    // Function to add byte of code to memory array for temporary data
+    fn add_temp(&mut self, temp: usize) {
+        // Add the addressing for the temporary value
         self.code_arr[self.code_pointer as usize] = CodeGenBytes::Temp(temp);
         self.code_pointer += 1;
     }
@@ -163,11 +181,6 @@ impl CodeGenerator {
         // Heap starts from the end of the 256 bytes and moves towards the front
         self.code_arr[self.heap_pointer as usize] = CodeGenBytes::Data(data);
         self.heap_pointer -= 1;
-    }
-
-    // Removes a memory cell from in-use to free in the heap
-    fn remove_data(&mut self) {
-        self.heap_pointer += 1;
     }
 
     fn store_string(&mut self, string: &str) -> u8 {
@@ -184,11 +197,14 @@ impl CodeGenerator {
     }
 
     // Replaces temp addresses with the actual position in memory
-    fn clean_up_temp_addr(&mut self) {
+    fn backpatch_addresses(&mut self) {
         for i in 0..self.code_arr.len() {
             match &self.code_arr[i] {
-                CodeGenBytes::Temp(offset) => {
+                CodeGenBytes::Var(offset) => {
                     self.code_arr[i] = CodeGenBytes::Code(self.code_pointer + *offset as u8);
+                },
+                CodeGenBytes::Temp(offset) => {
+                    self.code_arr[i] = CodeGenBytes::Code(self.heap_pointer - *offset as u8);
                 },
                 _ => {}
             }
@@ -218,7 +234,7 @@ impl CodeGenerator {
                         self.add_code(0xA9);
                         self.add_code(0x00);
                         self.add_code(0x8D);
-                        self.add_temp(static_offset);
+                        self.add_var(static_offset);
                         self.add_code(0x00);
                     },
                     Type::String => { /* Nothing to do here */ }
@@ -245,7 +261,7 @@ impl CodeGenerator {
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
                         self.add_code(0xAD);
-                        self.add_temp(value_static_offset);
+                        self.add_var(value_static_offset);
                         self.add_code(0x00);
                     },
                     TokenType::Digit(val) => {
@@ -289,9 +305,7 @@ impl CodeGenerator {
                 match non_terminal {
                     NonTerminalsAst::Add => {
                         // Call add, so the result will be in both the accumulator and in memory
-                        self.code_gen_add(ast, children[0], symbol_table);
-                        // We do not need the memory location, so remove it
-                        self.remove_data();
+                        self.code_gen_add(ast, children[0], symbol_table, true);
                     },
                     _ => error!("Received {:?} for nonterminal on right side of assignment for code gen", non_terminal)
                 }
@@ -308,7 +322,7 @@ impl CodeGenerator {
                 // The data that we are storing is already in the accumulator
                 // so just run the code to store the data
                 self.add_code(0x8D);
-                self.add_temp(static_offset);
+                self.add_var(static_offset);
                 self.add_code(0x00);
             },
             _ => error!("Received {:?} when expecting terminal for assignmentchild in code gen", id_node)
@@ -335,7 +349,7 @@ impl CodeGenerator {
                                 
                                 // Load the integer value into the Y register
                                 self.add_code(0xAC);
-                                self.add_temp(static_offset);
+                                self.add_var(static_offset);
                                 self.add_code(0x00);
 
                                 // Set X to 1 for the system call
@@ -346,7 +360,7 @@ impl CodeGenerator {
                                 debug!("Print id string");
                                 // Store the string address in Y
                                 self.add_code(0xAC);
-                                self.add_temp(static_offset);
+                                self.add_var(static_offset);
                                 self.add_code(0x00);
 
                                 // X = 2 for this sys call
@@ -399,15 +413,18 @@ impl CodeGenerator {
                 match non_terminal {
                     NonTerminalsAst::Add => {
                         // Generate the result of the addition expression
-                        let res_addr: u8 = self.code_gen_add(ast, children[0], symbol_table);
-                        
-                        // Load the result to ACC (wish there was TAY)
-                        self.add_code(0xAC);
-                        self.add_code(res_addr);
-                        self.add_code(0x00);
+                        self.code_gen_add(ast, children[0], symbol_table, true);
 
-                        // We are done with the memory cell now that it is in Y
-                        self.remove_data();
+                        self.add_code(0x8D);
+                        self.add_temp(self.temp_index);
+                        self.temp_index += 1;
+                        self.add_code(0x00);
+                        
+                        // Load the result to Y (wish there was TAY)
+                        self.add_code(0xAC);
+                        self.add_temp(self.temp_index - 1);
+                        self.temp_index -= 1;
+                        self.add_code(0x00);
 
                         // X = 1 for the sys call for integers
                         self.add_code(0xA2);
@@ -424,9 +441,8 @@ impl CodeGenerator {
     }
 
     // Function to generate code for an addition statement
-    // Result is left in both the accumulator and the memory address that is returned,
-    // so parent functions must clean up the memory that was used to prevent stack overflow
-    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> u8 {
+    // Result is left in both the accumulator
+    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, first: bool) {
         debug!("Code gen add");
 
         // Get the child for addition
@@ -434,14 +450,8 @@ impl CodeGenerator {
         let right_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
         let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
 
-        // This is the address where the result is stored
-        let mut res_addr: u8 = 0x00;
-
         match right_child {
             SyntaxTreeNode::Terminal(token) => {
-                // Create a spot on the heap for the result
-                self.add_data(0x00);
-                res_addr = self.heap_pointer + 1;
                 match &token.token_type {
                     TokenType::Digit(num) => {
                         // Store right side digit in the accumulator
@@ -455,7 +465,7 @@ impl CodeGenerator {
                         
                         // Load the value into the accumulator
                         self.add_code(0xAD);
-                        self.add_temp(value_static_offset);
+                        self.add_var(value_static_offset);
                         self.add_code(0x00);
                     },
                     _ => error!("Received {:?} when expecting digit or id for right side of addition", token)
@@ -464,11 +474,13 @@ impl CodeGenerator {
                 // Both digits and ids are in the accumulator, so move them to
                 // the res address for usage in the math operation
                 self.add_code(0x8D);
-                self.add_code(res_addr);
+                self.add_temp(self.temp_index);
+                // We are using a new temporary value for temps, so increment the index
+                self.temp_index += 1;
                 self.add_code(0x00);
             },
             // Nonterminals are always add, so just call it
-            SyntaxTreeNode::NonTerminalAst(non_terminal) => res_addr = self.code_gen_add(ast, children[0], symbol_table),
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => self.code_gen_add(ast, children[0], symbol_table, false),
             _ => error!("Received {:?} when expecting terminal or AST nonterminal for right addition value", right_child)
         }
 
@@ -482,22 +494,52 @@ impl CodeGenerator {
 
                         // Perform the addition
                         self.add_code(0x6D);
-                        self.add_code(res_addr);
+                        // Temp index - 1 is where the data is being stored
+                        self.add_temp(self.temp_index - 1);
                         self.add_code(0x00);
 
-                        // Store it back in the resulting address
-                        self.add_code(0x8D);
-                        self.add_code(res_addr);
-                        self.add_code(0x00);
+                        // Only store the result back in memory if we have more addition to do
+                        if !first {
+                            // Store it back in the resulting address
+                            self.add_code(0x8D);
+                            self.add_temp(self.temp_index - 1);
+                            self.add_code(0x00);
+                        } else {
+                            // We are done with the memory location, so can move
+                            // the pointer back over 1
+                            self.temp_index -= 1;
+                        }
                     },
                     _ => error!("Received {:?} when expecting a digit for left side of addition for code gen", token)
                 }
             },
             _ => error!("Received {:?} when expecting a terminal for the left side of addition for code gen", left_child)
         }
+    }
 
-        // Return the resulting address for others to use
-        return res_addr;
+    // Function to generate code for comparisons
+    // Result is left in both the Z flag and the memory address that is returned,
+    // so parent functions must clean up the memory that was used to prevent stack overflow
+    fn code_gen_compare(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_eq: bool) {
+        debug!("Code gen add");
+
+        // Get the child for comparison
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let right_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
+        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
+
+        // This is the address where the result is stored
+        let mut res_addr: u8 = 0x00;
+
+        match left_child {
+            SyntaxTreeNode::Terminal(token) => {
+                
+            },
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+
+            },
+            _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
+        }
     }
 
     fn display_code(&mut self, program_number: &u32) {
