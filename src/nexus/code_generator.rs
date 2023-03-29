@@ -324,9 +324,11 @@ impl CodeGenerator {
                     },
                     NonTerminalsAst::IsEq => {
                         self.code_gen_compare(ast, children[0], symbol_table, true);
+                        self.get_z_flag_value();
                     },
                     NonTerminalsAst::NotEq => {
                         self.code_gen_compare(ast, children[0], symbol_table, false);
+                        self.get_z_flag_value();
                     },
                     _ => error!("Received {:?} for nonterminal on right side of assignment for code gen", non_terminal)
                 }
@@ -451,6 +453,45 @@ impl CodeGenerator {
                         self.add_code(0xA2);
                         self.add_code(0x01);
                     },
+                    NonTerminalsAst::IsEq => {
+                        self.code_gen_compare(ast, children[0], symbol_table, true);
+                        self.get_z_flag_value();
+
+                        self.add_code(0x8D);
+                        self.add_temp(self.temp_index);
+                        self.temp_index += 1;
+                        self.add_code(0x00);
+                        
+                        // Load the result to Y (wish there was TAY)
+                        self.add_code(0xAC);
+                        self.add_temp(self.temp_index - 1);
+                        self.temp_index -= 1;
+                        self.add_code(0x00);
+
+                        // X = 1 for the sys call for integers
+                        self.add_code(0xA2);
+                        self.add_code(0x01);
+                    },
+                    NonTerminalsAst::NotEq => {
+                        self.code_gen_compare(ast, children[0], symbol_table, false);
+                        self.get_z_flag_value();
+
+                        self.add_code(0x8D);
+                        self.add_temp(self.temp_index);
+                        self.temp_index += 1;
+                        self.add_code(0x00);
+                        
+                        // Load the result to Y (wish there was TAY)
+                        self.add_code(0xAC);
+                        self.add_temp(self.temp_index - 1);
+                        self.temp_index -= 1;
+                        self.add_code(0x00);
+
+                        // X = 1 for the sys call for integers
+                        self.add_code(0xA2);
+                        self.add_code(0x01);
+
+                    },
                     _ => error!("Received {:?} when expecting addition or boolean expression for nonterminal print", non_terminal)
                 }
             },
@@ -539,7 +580,7 @@ impl CodeGenerator {
     }
 
     // Function to generate code for comparisons
-    // Result is left in both the Z flag and the memory address that is returned,
+    // Result is left in both the Z flag
     // so parent functions must clean up the memory that was used to prevent stack overflow
     fn code_gen_compare(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_eq: bool) {
         debug!("Code gen add");
@@ -653,9 +694,10 @@ impl CodeGenerator {
         self.add_code(0x00);
 
         // We are done with this data
-        self.temp_index += 1;
+        self.temp_index -= 1;
 
         // Add code if the operation is for not equals
+        // This effectively flips the Z flag
         if !is_eq {
             // Start assuming that they were not equal
             self.add_code(0xA2);
@@ -671,6 +713,19 @@ impl CodeGenerator {
             self.add_code(0xFF);
             self.add_code(0x00);
         }
+    }
+
+    // Stores the value of the Z flag into the accumulator
+    fn get_z_flag_value(&mut self) {
+        // Assume Z is set to 0
+        self.add_code(0xA9);
+        self.add_code(0x00);
+        // If it is 0, branch
+        self.add_code(0xD0);
+        self.add_code(0x02);
+        // Otherwise, set the acc to 1
+        self.add_code(0xA9);
+        self.add_code(0x01);
     }
 
     fn display_code(&mut self, program_number: &u32) {
