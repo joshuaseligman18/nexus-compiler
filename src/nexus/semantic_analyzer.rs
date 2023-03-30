@@ -266,8 +266,8 @@ impl SemanticAnalyzer {
 
         // Counter for the open parentheses we are seeing prior to the bool op
         let mut paren_count: i32 = 0;
-        // Start with the second token because there is at least 1 before the bool op
-        let mut cur_offset: usize = 1;
+        // Start with the first token that has not been consumed yet
+        let mut cur_offset: usize = 0;
         // Flag for breaking out of the loop
         let mut bool_op_found: bool = false;
 
@@ -329,7 +329,6 @@ impl SemanticAnalyzer {
         self.symbol_table.reset();
         if (*ast).root.is_some() {
             self.analyze_dfs(ast, (*ast).root.unwrap());
-            debug!("Symbol table: {:?}", self.symbol_table);
 
             self.num_warnings += self.symbol_table.mass_warnings();
 
