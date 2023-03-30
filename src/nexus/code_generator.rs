@@ -18,7 +18,9 @@ enum CodeGenBytes {
     // Spot is available for anything to take it
     Empty,
     // Represents data on the heap
-    Data(u8)
+    Data(u8),
+    // This is a jump address for if and while statements
+    Jump(usize)
 }
 
 // Customize the output when printing the string
@@ -29,7 +31,8 @@ impl fmt::Debug for CodeGenBytes {
             CodeGenBytes::Var(var) => write!(f, "V{}", var),
             CodeGenBytes::Temp(temp) => write!(f, "T{}", temp),
             CodeGenBytes::Empty => write!(f, "00"),
-            CodeGenBytes::Data(data) => write!(f, "{:02X}", data)
+            CodeGenBytes::Data(data) => write!(f, "{:02X}", data),
+            CodeGenBytes::Jump(jump) => write!(f, "J{}", jump)
         }
     }
 }
@@ -58,7 +61,10 @@ pub struct CodeGenerator {
     temp_index: usize,
 
     // Hashmap to keep track of the strings being stored on the heap
-    string_history: HashMap<String, u8>
+    string_history: HashMap<String, u8>,
+
+    // Vector to keep track of each jump in the code
+    jumps: Vec<u8>
 }
 
 impl CodeGenerator {
@@ -81,7 +87,9 @@ impl CodeGenerator {
             // Always start with a temp index of 0
             temp_index: 0,
 
-            string_history: HashMap::new()
+            string_history: HashMap::new(),
+
+            jumps: Vec::new()
         };
 
         // Initialize the entire array to be unused spot in memory
@@ -109,6 +117,7 @@ impl CodeGenerator {
         self.static_table.clear();
         self.temp_index = 0;
         self.string_history.clear();
+        self.jumps.clear();
 
         // Generate the code for the program
         self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
@@ -118,7 +127,8 @@ impl CodeGenerator {
 
         self.backpatch_addresses();
 
-        debug!("{:?}", self.static_table); 
+        debug!("Static table: {:?}", self.static_table);
+        debug!("Jumps vector: {:?}", self.jumps);
         debug!("{:?}", self.code_arr);
 
         self.display_code(program_number);
@@ -150,6 +160,7 @@ impl CodeGenerator {
                         NonTerminalsAst::VarDecl => self.code_gen_var_decl(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Assign => self.code_gen_assignment(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Print => self.code_gen_print(ast, neighbor_index, symbol_table),
+                        NonTerminalsAst::If => self.code_gen_if(ast, neighbor_index, symbol_table),
                         _ => error!("Received {:?} when expecting an AST nonterminal statement in a block", non_terminal)
                     }
                 }
@@ -211,6 +222,12 @@ impl CodeGenerator {
         }
     }
 
+    fn add_jump(&mut self) {
+        self.code_arr[self.code_pointer as usize] = CodeGenBytes::Jump(self.jumps.len());
+        self.code_pointer += 1;
+        self.jumps.push(0x00);
+    }
+
     // Replaces temp addresses with the actual position in memory
     fn backpatch_addresses(&mut self) {
         for i in 0..self.code_arr.len() {
@@ -221,6 +238,9 @@ impl CodeGenerator {
                 CodeGenBytes::Temp(offset) => {
                     self.code_arr[i] = CodeGenBytes::Code(self.heap_pointer - *offset as u8);
                 },
+                CodeGenBytes::Jump(jump_index) => {
+                    self.code_arr[i] = CodeGenBytes::Code(self.jumps[*jump_index])
+                }
                 _ => {}
             }
         }
@@ -749,6 +769,60 @@ impl CodeGenerator {
         // Otherwise, set the acc to 1
         self.add_code(0xA9);
         self.add_code(0x01);
+    }
+
+    fn code_gen_if(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
+        debug!("Code gen if");
+
+        // Get the child for comparison
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
+
+        // Starting address for the branch, but 0 will never be valid, so can have
+        // default value set to 0
+        let mut start_addr: u8 = 0x00;
+        // This is the index of the jump that will ultimately be backpatched
+        let jump_index: usize = self.jumps.len();
+
+        match left_child {
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+                match &non_terminal {
+                    // Evaluate the boolean expression for the if statement
+                    // The Z flag is set by these function calls
+                    NonTerminalsAst::IsEq => self.code_gen_compare(ast, children[1], symbol_table, true),
+                    NonTerminalsAst::NotEq => self.code_gen_compare(ast, children[1], symbol_table, false),
+                    _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
+                }
+                // Add the branch code
+                self.add_code(0xD0);
+                self.add_jump();
+                start_addr = self.code_pointer.to_owned();
+            },
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Keyword(Keywords::True) => {/* Small optimization because no comparison is needed */}
+                    TokenType::Keyword(Keywords::False) => {
+                        // No code should be generated here because the if-statement is just dead
+                        // code and will never be reached, so no point in trying to store the code
+                        // with the limited space that we already have (256 bytes)
+                        return;
+                    }
+                    _ => error!("Received {:?} when expecting true or false for if expression terminals", token)
+                }
+            },
+            _ => error!("Received {:?} when expecting AST nonterminal or a terminal", left_child)
+        }
+
+        // Generate the code for the body
+        self.code_gen_block(ast, children[0], symbol_table);
+
+        // If there was a comparison to make, there is a start addr
+        if start_addr != 0x00 {
+            // Compute the difference and set it in the vector for use in backpatching
+            let branch_offset: u8 = self.code_pointer - start_addr;
+            self.jumps[jump_index] = branch_offset;
+        }
+
     }
 
     fn display_code(&mut self, program_number: &u32) {
