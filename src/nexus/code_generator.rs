@@ -490,7 +490,6 @@ impl CodeGenerator {
                         // X = 1 for the sys call for integers
                         self.add_code(0xA2);
                         self.add_code(0x01);
-
                     },
                     _ => error!("Received {:?} when expecting addition or boolean expression for nonterminal print", non_terminal)
                 }
@@ -503,7 +502,7 @@ impl CodeGenerator {
     }
 
     // Function to generate code for an addition statement
-    // Result is left in both the accumulator
+    // Result is left in the accumulator
     fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, first: bool) {
         debug!("Code gen add");
 
@@ -580,10 +579,10 @@ impl CodeGenerator {
     }
 
     // Function to generate code for comparisons
-    // Result is left in both the Z flag
-    // so parent functions must clean up the memory that was used to prevent stack overflow
+    // Result is left in the Z flag and get_z_flag_vale function can be used
+    // afterwards to place z flag value into the accumulator
     fn code_gen_compare(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_eq: bool) {
-        debug!("Code gen add");
+        debug!("Code gen compare");
 
         // Get the child for comparison
         let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
@@ -602,31 +601,16 @@ impl CodeGenerator {
                         self.add_code(0xAD);
                         self.add_var(value_static_offset);
                         self.add_code(0x00);
-
-                        self.add_code(0x8D);
-                        self.add_temp(self.temp_index);
-                        self.temp_index += 1;
-                        self.add_code(0x00);
                     },
                     TokenType::Digit(num) => {
                         // Store the digit in memory
                         self.add_code(0xA9);
                         self.add_code(*num);
-
-                        self.add_code(0x8D);
-                        self.add_temp(self.temp_index);
-                        self.temp_index += 1;
-                        self.add_code(0x00);
                     },
                     TokenType::Char(string) => {
                         let string_addr: u8 = self.store_string(string);
                         self.add_code(0xA9);
                         self.add_code(string_addr);
-
-                        self.add_code(0x8D);
-                        self.add_temp(self.temp_index);
-                        self.temp_index += 1;
-                        self.add_code(0x00);
                     },
                     TokenType::Keyword(keyword) => {
                         self.add_code(0xA9);
@@ -635,20 +619,34 @@ impl CodeGenerator {
                             Keywords::False => self.add_code(0x00),
                             _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
                         }
-                        
-                        self.add_code(0x8D);
-                        self.add_temp(self.temp_index);
-                        self.temp_index += 1;
-                        self.add_code(0x00);
                     },
                     _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
                 }
             },
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-
+                match &non_terminal {
+                    NonTerminalsAst::Add => {
+                        self.code_gen_add(ast, children[1], symbol_table, true);
+                    },
+                    NonTerminalsAst::IsEq => {
+                        self.code_gen_compare(ast, children[1], symbol_table, true);
+                        self.get_z_flag_value();
+                    },
+                    NonTerminalsAst::NotEq => {
+                        self.code_gen_compare(ast, children[1], symbol_table, false);
+                        self.get_z_flag_value();
+                    },
+                    _ => error!("Received {:?} for left side of nonterminal boolean expression, when expected Add, IsEq, or NotEq", non_terminal)
+                }
             },
             _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
         }
+
+        // The left hand side is already in the ACC, so can store in temp memory
+        self.add_code(0x8D);
+        self.add_temp(self.temp_index);
+        self.temp_index += 1;
+        self.add_code(0x00);
 
         match right_child {
             SyntaxTreeNode::Terminal(token) => {
@@ -685,6 +683,31 @@ impl CodeGenerator {
                 }
             },
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+                match &non_terminal {
+                    NonTerminalsAst::Add => {
+                        self.code_gen_add(ast, children[0], symbol_table, true);
+                    },
+                    NonTerminalsAst::IsEq => {
+                        self.code_gen_compare(ast, children[0], symbol_table, true);
+                        self.get_z_flag_value();
+                    },
+                    NonTerminalsAst::NotEq => {
+                        self.code_gen_compare(ast, children[0], symbol_table, false);
+                        self.get_z_flag_value();
+                    },
+                    _ => error!("Received {:?} for right side of nonterminal boolean expression, when expected Add, IsEq, or NotEq", non_terminal)
+                }
+
+                // The nonterminal result is in the ACC, so have to move to X
+                self.add_code(0x8D);
+                self.add_temp(self.temp_index);
+                self.temp_index += 1;
+                self.add_code(0x00);
+
+                self.add_code(0xAE);
+                self.add_temp(self.temp_index - 1);
+                self.add_code(0x00);
+                self.temp_index -= 1;
             },
             _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
         }
