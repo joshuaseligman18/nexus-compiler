@@ -161,6 +161,7 @@ impl CodeGenerator {
                         NonTerminalsAst::Assign => self.code_gen_assignment(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Print => self.code_gen_print(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::If => self.code_gen_if(ast, neighbor_index, symbol_table),
+                        NonTerminalsAst::While => self.code_gen_while(ast, neighbor_index, symbol_table),
                         _ => error!("Received {:?} when expecting an AST nonterminal statement in a block", non_terminal)
                     }
                 }
@@ -822,7 +823,83 @@ impl CodeGenerator {
             let branch_offset: u8 = self.code_pointer - start_addr;
             self.jumps[jump_index] = branch_offset;
         }
+    }
 
+    fn code_gen_while(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
+        debug!("Code gen while");
+
+        // Get the child for comparison
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
+
+        // Save the current address for the loop
+        let loop_start_addr: u8 = self.code_pointer.to_owned();
+
+        // Starting address for the body of the while structure,
+        // but 0 will never be valid, so can have default value set to 0
+        let mut body_start_addr: u8 = 0x00;
+        // This is the index of the body jump if a condition eveluates to false
+        // that will ultimately be backpatched
+        let body_jump_index: usize = self.jumps.len();
+
+        match left_child {
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+                match &non_terminal {
+                    // Evaluate the boolean expression for the while statement
+                    // The Z flag is set by these function calls
+                    NonTerminalsAst::IsEq => self.code_gen_compare(ast, children[1], symbol_table, true),
+                    NonTerminalsAst::NotEq => self.code_gen_compare(ast, children[1], symbol_table, false),
+                    _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
+                }
+                // Add the branch code
+                self.add_code(0xD0);
+                self.add_jump();
+                body_start_addr = self.code_pointer.to_owned();
+            },
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Keyword(Keywords::True) => {/* Small optimization because no comparison is needed */}
+                    TokenType::Keyword(Keywords::False) => {
+                        // No code should be generated here because the while-statement is just dead
+                        // code and will never be reached, so no point in trying to store the code
+                        // with the limited space that we already have (256 bytes)
+                        return;
+                    }
+                    _ => error!("Received {:?} when expecting true or false for while expression terminals", token)
+                }
+            },
+            _ => error!("Received {:?} when expecting AST nonterminal or a terminal", left_child)
+        }
+
+        // Generate the code for the body
+        self.code_gen_block(ast, children[0], symbol_table);
+
+        // Get the position in the vector for the unconditional branch
+        let unconditional_jump_index: usize = self.jumps.len();
+        // Set X to 1
+        self.add_code(0xA2);
+        self.add_code(0x01);
+        // 0xFF is always 0, so comparing it to 1 will result in Z = 0,
+        // so the branch will always be taken
+        self.add_code(0xEC);
+        self.add_code(0xFF);
+        self.add_code(0x00);
+        self.add_code(0xD0);
+        self.add_jump();
+
+        // If there was a comparison to make, there is a start addr for the body
+        // to skip over in case evaluate to false
+        if body_start_addr != 0x00 {
+            // Compute the difference and set it in the vector for use in backpatching
+            let conditional_branch_offset: u8 = self.code_pointer - body_start_addr;
+            self.jumps[body_jump_index] = conditional_branch_offset;
+        }
+        
+        // The branch offset is the 2s complement difference between the current position
+        // and the start of the loop, so take the difference and negate and add 1
+        let unconditional_branch_offset: u8 = !(self.code_pointer - loop_start_addr) + 1;
+        // Set the unconditional branch offset in the jump
+        self.jumps[unconditional_jump_index] = unconditional_branch_offset;
     }
 
     fn display_code(&mut self, program_number: &u32) {
