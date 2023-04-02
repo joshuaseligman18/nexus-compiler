@@ -180,17 +180,16 @@ impl CodeGenerator {
         symbol_table.end_cur_scope();
     }
 
-    fn on_last_byte(&mut self) -> bool {
-        return self.code_pointer == self.heap_pointer;
+    fn has_available_memory(&mut self) -> bool {
+        let num_vars: usize = self.static_table.len();
+        // Check for collision at the double bar (where stack meets heap)
+        //  |  Code  |  Vars  ||  Temp  |  Heap  |
+        return self.code_pointer + (num_vars as u8) <= self.heap_pointer - (self.temp_index as u8);
     }
 
     // Function to add byte of code to the memory array
     fn add_code(&mut self, code: u8) -> bool {
-        if !self.is_memory_full {
-            if self.on_last_byte() {
-                // We are about the fill memory
-                self.is_memory_full = true;
-            }
+        if self.has_available_memory() {
             // Add the code to the next available spot in memory
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::Code(code);
             self.code_pointer += 1;
@@ -208,11 +207,7 @@ impl CodeGenerator {
 
     // Function to add byte of code to the memory array for variable addressing
     fn add_var(&mut self, var: usize) -> bool {
-        if !self.is_memory_full {
-            if self.on_last_byte() {
-                // We are about the fill memory
-                self.is_memory_full = true;
-            }
+        if self.has_available_memory() {
             // Add the code to the next available spot in memory
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::Var(var);
             self.code_pointer += 1;
@@ -227,13 +222,25 @@ impl CodeGenerator {
         }
     }
 
+    fn new_temp(&mut self) -> Option<usize> {
+        let num_vars: usize = self.static_table.len();
+        if self.code_pointer + (num_vars as u8) < self.heap_pointer - (self.temp_index as u8) {
+            let temp_addr: usize = self.temp_index.to_owned();
+            self.temp_index += 1;
+            return Some(temp_addr);
+        } else {
+            nexus_log::log(
+                nexus_log::LogTypes::Error,
+                nexus_log::LogSources::CodeGenerator,
+                String::from("The heap has collided with the stack causing a heap overflow error")
+            );
+            return None;
+        }
+    }
+
     // Function to add byte of code to memory array for temporary data
     fn add_temp(&mut self, temp: usize) -> bool {
-        if !self.is_memory_full {
-            if self.on_last_byte() {
-                // We are about the fill memory
-                self.is_memory_full = true;
-            }
+        if self.has_available_memory() {
             // Add the addressing for the temporary value
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::Temp(temp);
             self.code_pointer += 1;
@@ -242,7 +249,7 @@ impl CodeGenerator {
             nexus_log::log(
                 nexus_log::LogTypes::Error,
                 nexus_log::LogSources::CodeGenerator,
-                String::from("The stack has collided with the heap causing a stack overflow error")
+                String::from("The heap has collided with the stack causing a heap overflow error")
             );
             return false;
         }
@@ -250,15 +257,10 @@ impl CodeGenerator {
 
     // Function to add a byte of data to the heap
     fn add_data(&mut self, data: u8) -> bool {
-        if !self.is_memory_full {
-            if self.on_last_byte() {
-                // We are about the fill memory
-                self.is_memory_full = true;
-            }
+        if self.has_available_memory() {
             // Heap starts from the end of the 256 bytes and moves towards the front
             self.code_arr[self.heap_pointer as usize] = CodeGenBytes::Data(data);
             self.heap_pointer -= 1;
-            debug!("{:02X}; {:02X}", self.code_pointer, self.heap_pointer);
             return true;
         } else {
             nexus_log::log(
@@ -304,11 +306,7 @@ impl CodeGenerator {
     }
 
     fn add_jump(&mut self) -> bool {
-        if !self.is_memory_full {
-            if self.on_last_byte() {
-                // We are about the fill memory
-                self.is_memory_full = true;
-            }
+        if self.has_available_memory() {
             // Add the jump to the code and set it to 0 in the vector of jumps
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::Jump(self.jumps.len());
             self.code_pointer += 1;
@@ -326,54 +324,18 @@ impl CodeGenerator {
 
     // Replaces temp addresses with the actual position in memory
     fn backpatch_addresses(&mut self) -> bool { 
-        // Determines where the memory is for the variables
-        let mut var_pointer: u8 = self.code_pointer.to_owned();
-        // Determines where the memory is for the temporary data
-        let mut temp_pointer: u8 = self.heap_pointer.to_owned();
         for i in 0..self.code_arr.len() {
             match &self.code_arr[i] {
                 CodeGenBytes::Var(offset) => {
-                    // Get the variable address and make sure it is valid
-                    let var_addr: u8 = self.code_pointer + *offset as u8;
-                    if var_addr <= temp_pointer {
-                        // If it is valid, update the array
-                        self.code_arr[i] = CodeGenBytes::Code(var_addr);
-                        if var_addr >= var_pointer {
-                            // Update the pointer because we found a new variable
-                            var_pointer = var_addr + 1;
-                        }
-                    } else {
-                        // There was a collision
-                        nexus_log::log(
-                            nexus_log::LogTypes::Error,
-                            nexus_log::LogSources::CodeGenerator,
-                            String::from("The stack has collided with the heap causing a stack overflow error")
-                        ); 
-                        return false;
-                    }
+                    self.code_arr[i] = CodeGenBytes::Code(self.code_pointer + *offset as u8);
                 },
                 CodeGenBytes::Temp(offset) => {
-                    let temp_addr: u8 = self.heap_pointer - *offset as u8;
-                    if temp_addr >= var_pointer {
-                        self.code_arr[i] = CodeGenBytes::Code(temp_addr);
-                        if temp_addr <= temp_pointer {
-                            // Update the max temp pointer
-                            temp_pointer = temp_addr - 1;
-                        }
-                    } else {
-                        // There was a collision
-                        nexus_log::log(
-                            nexus_log::LogTypes::Error,
-                            nexus_log::LogSources::CodeGenerator,
-                            String::from("The heap has collided with the stack causing a heap overflow error")
-                        );
-                        return false;
-                    }
+                    self.code_arr[i] = CodeGenBytes::Code(self.heap_pointer - *offset as u8);
                 },
                 CodeGenBytes::Jump(jump_index) => {
                     self.code_arr[i] = CodeGenBytes::Code(self.jumps[*jump_index])
                 }
-                _ => {}
+                _ => {} 
             }
         }
         return true;
@@ -595,16 +557,23 @@ impl CodeGenerator {
                         // Generate the result of the addition expression
                         self.code_gen_add(ast, children[0], symbol_table, true);
 
+                        let temp_addr_option: Option<usize> = self.new_temp();
+                        if temp_addr_option.is_none() {
+                            return;
+                        }
+                        let temp_addr: usize = temp_addr_option.unwrap();
+
                         self.add_code(0x8D);
-                        self.add_temp(self.temp_index);
-                        self.temp_index += 1;
+                        self.add_temp(temp_addr);
                         self.add_code(0x00);
                         
                         // Load the result to Y (wish there was TAY)
                         self.add_code(0xAC);
-                        self.add_temp(self.temp_index - 1);
-                        self.temp_index -= 1;
+                        self.add_temp(temp_addr);
                         self.add_code(0x00);
+                        
+                        // We are done with the temp data
+                        self.temp_index -= 1;
 
                         // X = 1 for the sys call for integers
                         self.add_code(0xA2);
@@ -614,16 +583,23 @@ impl CodeGenerator {
                         self.code_gen_compare(ast, children[0], symbol_table, true);
                         self.get_z_flag_value();
 
+                        let temp_addr_option: Option<usize> = self.new_temp();
+                        if temp_addr_option.is_none() {
+                            return;
+                        }
+                        let temp_addr: usize = temp_addr_option.unwrap();
+
                         self.add_code(0x8D);
-                        self.add_temp(self.temp_index);
-                        self.temp_index += 1;
+                        self.add_temp(temp_addr);
                         self.add_code(0x00);
                         
                         // Load the result to Y (wish there was TAY)
                         self.add_code(0xAC);
-                        self.add_temp(self.temp_index - 1);
-                        self.temp_index -= 1;
+                        self.add_temp(temp_addr);
                         self.add_code(0x00);
+
+                        // We are done with the temp data now
+                        self.temp_index -= 1;
 
                         // X = 1 for the sys call for integers
                         self.add_code(0xA2);
@@ -633,16 +609,23 @@ impl CodeGenerator {
                         self.code_gen_compare(ast, children[0], symbol_table, false);
                         self.get_z_flag_value();
 
+                        let temp_addr_option: Option<usize> = self.new_temp();
+                        if temp_addr_option.is_none() {
+                            return;
+                        }
+                        let temp_addr: usize = temp_addr_option.unwrap();
+                        
                         self.add_code(0x8D);
-                        self.add_temp(self.temp_index);
-                        self.temp_index += 1;
+                        self.add_temp(temp_addr);
                         self.add_code(0x00);
                         
                         // Load the result to Y (wish there was TAY)
                         self.add_code(0xAC);
-                        self.add_temp(self.temp_index - 1);
-                        self.temp_index -= 1;
+                        self.add_temp(temp_addr);
                         self.add_code(0x00);
+
+                        // We are done with the temp data
+                        self.temp_index -= 1;
 
                         // X = 1 for the sys call for integers
                         self.add_code(0xA2);
@@ -668,6 +651,13 @@ impl CodeGenerator {
         let right_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
         let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
 
+        // Make some space for the temporary data
+        let temp_addr_option: Option<usize> = self.new_temp();
+        if temp_addr_option.is_none() {
+            return;
+        }
+        let temp_addr: usize = temp_addr_option.unwrap();
+
         match right_child {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
@@ -692,9 +682,8 @@ impl CodeGenerator {
                 // Both digits and ids are in the accumulator, so move them to
                 // the res address for usage in the math operation
                 self.add_code(0x8D);
-                self.add_temp(self.temp_index);
+                self.add_temp(temp_addr);
                 // We are using a new temporary value for temps, so increment the index
-                self.temp_index += 1;
                 self.add_code(0x00);
             },
             // Nonterminals are always add, so just call it
@@ -712,15 +701,14 @@ impl CodeGenerator {
 
                         // Perform the addition
                         self.add_code(0x6D);
-                        // Temp index - 1 is where the data is being stored
-                        self.add_temp(self.temp_index - 1);
+                        self.add_temp(temp_addr);
                         self.add_code(0x00);
 
                         // Only store the result back in memory if we have more addition to do
                         if !first {
                             // Store it back in the resulting address
                             self.add_code(0x8D);
-                            self.add_temp(self.temp_index - 1);
+                            self.add_temp(temp_addr);
                             self.add_code(0x00);
                         } else {
                             // We are done with the memory location, so can move
@@ -805,9 +793,14 @@ impl CodeGenerator {
         }
 
         // The left hand side is already in the ACC, so can store in temp memory
+        let left_temp_option: Option<usize> = self.new_temp();
+        if left_temp_option.is_none() {
+            return;
+        }
+        let left_temp: usize = left_temp_option.unwrap();
+
         self.add_code(0x8D);
-        self.add_temp(self.temp_index);
-        self.temp_index += 1;
+        self.add_temp(left_temp);
         self.add_code(0x00);
 
         match right_child {
@@ -866,13 +859,18 @@ impl CodeGenerator {
                 }
 
                 // The nonterminal result is in the ACC, so have to move to X
+                let temp_addr_option: Option<usize> = self.new_temp();
+                if temp_addr_option.is_none() {
+                    return;
+                }
+                let temp_addr: usize = temp_addr_option.unwrap();
+
                 self.add_code(0x8D);
-                self.add_temp(self.temp_index);
-                self.temp_index += 1;
+                self.add_temp(temp_addr);
                 self.add_code(0x00);
 
                 self.add_code(0xAE);
-                self.add_temp(self.temp_index - 1);
+                self.add_temp(temp_addr);
                 self.add_code(0x00);
                 self.temp_index -= 1;
             },
@@ -880,7 +878,7 @@ impl CodeGenerator {
         }
 
         self.add_code(0xEC);
-        self.add_temp(self.temp_index - 1);
+        self.add_temp(left_temp);
         self.add_code(0x00);
 
         // We are done with this data
