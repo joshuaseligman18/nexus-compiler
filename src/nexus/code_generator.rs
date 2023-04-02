@@ -126,6 +126,11 @@ impl CodeGenerator {
         self.jumps.clear();
         self.is_memory_full = false;
 
+        // We are going to store the strings false and true to print them
+        // out instead of 0 and 1
+        self.store_string("false");
+        self.store_string("true");
+
         // Generate the code for the program
         self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
         // All programs end with 0x00, which is HALT
@@ -222,8 +227,10 @@ impl CodeGenerator {
         }
     }
 
+    // Function to create space for new temp data and return its index
     fn new_temp(&mut self) -> Option<usize> {
         if self.has_available_memory() {
+            // Make the room for the single byte
             let temp_addr: usize = self.temp_index.to_owned();
             self.temp_index += 1;
             return Some(temp_addr);
@@ -477,8 +484,8 @@ impl CodeGenerator {
                         let print_id: &SymbolTableEntry = symbol_table.get_symbol(&id_name).unwrap();
                         let static_offset: usize = self.static_table.get(&(id_name.to_owned(), print_id.scope)).unwrap().to_owned();
                         match &print_id.symbol_type {
-                            Type::Int | Type::Boolean => {
-                                debug!("Print id int/boolean");
+                            Type::Int  => {
+                                debug!("Print id int");
                                 
                                 // Load the integer value into the Y register
                                 self.add_code(0xAC);
@@ -500,6 +507,33 @@ impl CodeGenerator {
                                 self.add_code(0xA2);
                                 self.add_code(0x02);
                             },
+                            Type::Boolean => {
+                                // Compare the value of the variable with true
+                                self.add_code(0xA2);
+                                self.add_code(0x01);
+                                self.add_code(0xEC);
+                                self.add_var(static_offset);
+                                self.add_code(0x00);
+                                // Skip to the false string if it is false
+                                self.add_code(0xD0);
+                                self.add_code(0x07);
+                                
+                                // Load the true string and skip over the false string
+                                self.add_code(0xA0);
+                                self.add_code(*self.string_history.get("true").unwrap());
+                                self.add_code(0xEC);
+                                self.add_code(0xFF);
+                                self.add_code(0x00);
+                                self.add_code(0xD0);
+                                self.add_code(0x02);
+                                // Load the false string
+                                self.add_code(0xA0);
+                                self.add_code(*self.string_history.get("false").unwrap());
+
+                                // We are printing a string, so X = 2
+                                self.add_code(0xA2);
+                                self.add_code(0x02);
+                            }
                         }
                     },
                     TokenType::Digit(digit) => {
@@ -527,18 +561,18 @@ impl CodeGenerator {
                         self.add_code(0xA0);
                         match keyword {
                             Keywords::True => {
-                                // Y = 1 for true
-                                self.add_code(0x01);
+                                // Y = true addr for true
+                                self.add_code(*self.string_history.get("true").unwrap());
                             },
                             Keywords::False => {
-                                // Y = 0 for false
-                                self.add_code(0x00);
+                                // Y = false addr for false
+                                self.add_code(*self.string_history.get("false").unwrap());
                             },
                             _ => error!("Received {:?} when expecting true or false for print keyword", keyword)
                         }
-                        // X = 1 for the sys call
+                        // X = 2 for the sys call
                         self.add_code(0xA2);
-                        self.add_code(0x01);
+                        self.add_code(0x02);
                     },
                     _ => error!("Received {:?} when expecting id, digit, string, or keyword for print terminal", token)
                 }
@@ -573,57 +607,53 @@ impl CodeGenerator {
                         self.add_code(0x01);
                     },
                     NonTerminalsAst::IsEq => {
+                        // If it is true or false is in the Z flag
                         self.code_gen_compare(ast, children[0], symbol_table, true);
-                        self.get_z_flag_value();
 
-                        let temp_addr_option: Option<usize> = self.new_temp();
-                        if temp_addr_option.is_none() {
-                            return;
-                        }
-                        let temp_addr: usize = temp_addr_option.unwrap();
-
-                        self.add_code(0x8D);
-                        self.add_temp(temp_addr);
-                        self.add_code(0x00);
-                        
-                        // Load the result to Y (wish there was TAY)
-                        self.add_code(0xAC);
-                        self.add_temp(temp_addr);
-                        self.add_code(0x00);
-
-                        // We are done with the temp data now
-                        self.temp_index -= 1;
-
-                        // X = 1 for the sys call for integers
+                        // We are printing a string, so X = 2
                         self.add_code(0xA2);
-                        self.add_code(0x01);
+                        self.add_code(0x02);
+
+                        // Skip to the false string if it is false
+                        self.add_code(0xD0);
+                        self.add_code(0x07);
+                        
+                        // Load the true string and skip over the false string
+                        self.add_code(0xA0);
+                        self.add_code(*self.string_history.get("true").unwrap());
+                        self.add_code(0xEC);
+                        self.add_code(0xFF);
+                        self.add_code(0x00);
+                        self.add_code(0xD0);
+                        self.add_code(0x02);
+
+                        // Load the false string
+                        self.add_code(0xA0);
+                        self.add_code(*self.string_history.get("false").unwrap());
                     },
                     NonTerminalsAst::NotEq => {
                         self.code_gen_compare(ast, children[0], symbol_table, false);
-                        self.get_z_flag_value();
-
-                        let temp_addr_option: Option<usize> = self.new_temp();
-                        if temp_addr_option.is_none() {
-                            return;
-                        }
-                        let temp_addr: usize = temp_addr_option.unwrap();
-                        
-                        self.add_code(0x8D);
-                        self.add_temp(temp_addr);
-                        self.add_code(0x00);
-                        
-                        // Load the result to Y (wish there was TAY)
-                        self.add_code(0xAC);
-                        self.add_temp(temp_addr);
-                        self.add_code(0x00);
-
-                        // We are done with the temp data
-                        self.temp_index -= 1;
-
-                        // X = 1 for the sys call for integers
+                         // We are printing a string, so X = 2
                         self.add_code(0xA2);
-                        self.add_code(0x01);
-                    },
+                        self.add_code(0x02);
+
+                        // Skip to the false string if it is false
+                        self.add_code(0xD0);
+                        self.add_code(0x07);
+                        
+                        // Load the true string and skip over the false string
+                        self.add_code(0xA0);
+                        self.add_code(*self.string_history.get("true").unwrap());
+                        self.add_code(0xEC);
+                        self.add_code(0xFF);
+                        self.add_code(0x00);
+                        self.add_code(0xD0);
+                        self.add_code(0x02);
+
+                        // Load the false string
+                        self.add_code(0xA0);
+                        self.add_code(*self.string_history.get("false").unwrap());
+                   },
                     _ => error!("Received {:?} when expecting addition or boolean expression for nonterminal print", non_terminal)
                 }
             },
