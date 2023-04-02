@@ -2,6 +2,7 @@ use log::*;
 
 use crate::nexus::{syntax_tree::SyntaxTree, syntax_tree_node::*, symbol_table::*};
 use crate::nexus::token::{TokenType, Keywords};
+use crate::util::nexus_log;
 use petgraph::graph::{NodeIndex};
 
 use std::collections::HashMap;
@@ -64,7 +65,10 @@ pub struct CodeGenerator {
     string_history: HashMap<String, u8>,
 
     // Vector to keep track of each jump in the code
-    jumps: Vec<u8>
+    jumps: Vec<u8>,
+
+    // Flag for the memory being full
+    is_memory_full: bool,
 }
 
 impl CodeGenerator {
@@ -89,7 +93,9 @@ impl CodeGenerator {
 
             string_history: HashMap::new(),
 
-            jumps: Vec::new()
+            jumps: Vec::new(),
+
+            is_memory_full: false
         };
 
         // Initialize the entire array to be unused spot in memory
@@ -118,6 +124,7 @@ impl CodeGenerator {
         self.temp_index = 0;
         self.string_history.clear();
         self.jumps.clear();
+        self.is_memory_full = false;
 
         // Generate the code for the program
         self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
@@ -173,71 +180,195 @@ impl CodeGenerator {
         symbol_table.end_cur_scope();
     }
 
+    fn on_last_byte(&mut self) -> bool {
+        return self.code_pointer == self.heap_pointer;
+    }
+
     // Function to add byte of code to the memory array
-    fn add_code(&mut self, code: u8) {
-        // Add the code to the next available spot in memory
-        self.code_arr[self.code_pointer as usize] = CodeGenBytes::Code(code);
-        self.code_pointer += 1;
+    fn add_code(&mut self, code: u8) -> bool {
+        if !self.is_memory_full {
+            if self.on_last_byte() {
+                // We are about the fill memory
+                self.is_memory_full = true;
+            }
+            // Add the code to the next available spot in memory
+            self.code_arr[self.code_pointer as usize] = CodeGenBytes::Code(code);
+            self.code_pointer += 1;
+            // No error, so successful addition to the code
+            return true;
+        } else {
+            nexus_log::log(
+                nexus_log::LogTypes::Error,
+                nexus_log::LogSources::CodeGenerator,
+                String::from("The stack has collided with the heap causing a stack overflow error")
+            );
+            return false;
+        }
     }
 
     // Function to add byte of code to the memory array for variable addressing
-    fn add_var(&mut self, var: usize) {
-        // Add the code to the next available spot in memory
-        self.code_arr[self.code_pointer as usize] = CodeGenBytes::Var(var);
-        self.code_pointer += 1;
+    fn add_var(&mut self, var: usize) -> bool {
+        if !self.is_memory_full {
+            if self.on_last_byte() {
+                // We are about the fill memory
+                self.is_memory_full = true;
+            }
+            // Add the code to the next available spot in memory
+            self.code_arr[self.code_pointer as usize] = CodeGenBytes::Var(var);
+            self.code_pointer += 1;
+            return true;
+        } else {
+            nexus_log::log(
+                nexus_log::LogTypes::Error,
+                nexus_log::LogSources::CodeGenerator,
+                String::from("The stack has collided with the heap causing a stack overflow error")
+            );
+            return false;
+        }
     }
 
     // Function to add byte of code to memory array for temporary data
-    fn add_temp(&mut self, temp: usize) {
-        // Add the addressing for the temporary value
-        self.code_arr[self.code_pointer as usize] = CodeGenBytes::Temp(temp);
-        self.code_pointer += 1;
+    fn add_temp(&mut self, temp: usize) -> bool {
+        if !self.is_memory_full {
+            if self.on_last_byte() {
+                // We are about the fill memory
+                self.is_memory_full = true;
+            }
+            // Add the addressing for the temporary value
+            self.code_arr[self.code_pointer as usize] = CodeGenBytes::Temp(temp);
+            self.code_pointer += 1;
+            return true;
+        } else {
+            nexus_log::log(
+                nexus_log::LogTypes::Error,
+                nexus_log::LogSources::CodeGenerator,
+                String::from("The stack has collided with the heap causing a stack overflow error")
+            );
+            return false;
+        }
     }
 
     // Function to add a byte of data to the heap
-    fn add_data(&mut self, data: u8) {
-        // Heap starts from the end of the 256 bytes and moves towards the front
-        self.code_arr[self.heap_pointer as usize] = CodeGenBytes::Data(data);
-        self.heap_pointer -= 1;
+    fn add_data(&mut self, data: u8) -> bool {
+        if !self.is_memory_full {
+            if self.on_last_byte() {
+                // We are about the fill memory
+                self.is_memory_full = true;
+            }
+            // Heap starts from the end of the 256 bytes and moves towards the front
+            self.code_arr[self.heap_pointer as usize] = CodeGenBytes::Data(data);
+            self.heap_pointer -= 1;
+            debug!("{:02X}; {:02X}", self.code_pointer, self.heap_pointer);
+            return true;
+        } else {
+            nexus_log::log(
+                nexus_log::LogTypes::Error,
+                nexus_log::LogSources::CodeGenerator,
+                String::from("The heap has collided with the stack causing a heap overflow error")
+            );
+            return false;
+        }
     }
 
-    fn store_string(&mut self, string: &str) -> u8 {
+    fn store_string(&mut self, string: &str) -> Option<u8> {
         let addr: Option<&u8> = self.string_history.get(string);
         if addr.is_none() {
+            // Assume the string gets stored
+            let mut is_stored: bool = true;
+
             // All strings are null terminated, so start with a 0x00 at the end
             self.add_data(0x00);
 
             // Loop through the string in reverse order
             for c in string.chars().rev() {
                 // Add the ascii code of each character
-                self.add_data(c as u8);
+                if !self.add_data(c as u8) {
+                    is_stored = false;
+                    // Break if there was a heap overflow error
+                    break;
+                }
             }
-            
-            // Store it for future use
-            self.string_history.insert(String::from(string), self.heap_pointer + 1);
-            
-            return self.heap_pointer + 1;
+           
+            if is_stored {
+                // Store it for future use
+                self.string_history.insert(String::from(string), self.heap_pointer + 1);
+                return Some(self.heap_pointer + 1);
+            } else {
+                // There is no address to return
+                return None;
+            }
         } else {
             // The string is already on the heap, so return its address
-            return *addr.unwrap();
+            return Some(*addr.unwrap());
         }
     }
 
-    fn add_jump(&mut self) {
-        self.code_arr[self.code_pointer as usize] = CodeGenBytes::Jump(self.jumps.len());
-        self.code_pointer += 1;
-        self.jumps.push(0x00);
+    fn add_jump(&mut self) -> bool {
+        if !self.is_memory_full {
+            if self.on_last_byte() {
+                // We are about the fill memory
+                self.is_memory_full = true;
+            }
+            // Add the jump to the code and set it to 0 in the vector of jumps
+            self.code_arr[self.code_pointer as usize] = CodeGenBytes::Jump(self.jumps.len());
+            self.code_pointer += 1;
+            self.jumps.push(0x00);
+            return true;
+        } else {
+            nexus_log::log(
+                nexus_log::LogTypes::Error,
+                nexus_log::LogSources::CodeGenerator,
+                String::from("The stack has collided with the heap causing a stack overflow error")
+            );
+            return false;
+        }
     }
 
     // Replaces temp addresses with the actual position in memory
-    fn backpatch_addresses(&mut self) {
+    fn backpatch_addresses(&mut self) -> bool { 
+        // Determines where the memory is for the variables
+        let mut var_pointer: u8 = self.code_pointer.to_owned();
+        // Determines where the memory is for the temporary data
+        let mut temp_pointer: u8 = self.heap_pointer.to_owned();
         for i in 0..self.code_arr.len() {
             match &self.code_arr[i] {
                 CodeGenBytes::Var(offset) => {
-                    self.code_arr[i] = CodeGenBytes::Code(self.code_pointer + *offset as u8);
+                    // Get the variable address and make sure it is valid
+                    let var_addr: u8 = self.code_pointer + *offset as u8;
+                    if var_addr <= temp_pointer {
+                        // If it is valid, update the array
+                        self.code_arr[i] = CodeGenBytes::Code(var_addr);
+                        if var_addr >= var_pointer {
+                            // Update the pointer because we found a new variable
+                            var_pointer = var_addr + 1;
+                        }
+                    } else {
+                        // There was a collision
+                        nexus_log::log(
+                            nexus_log::LogTypes::Error,
+                            nexus_log::LogSources::CodeGenerator,
+                            String::from("The stack has collided with the heap causing a stack overflow error")
+                        ); 
+                        return false;
+                    }
                 },
                 CodeGenBytes::Temp(offset) => {
-                    self.code_arr[i] = CodeGenBytes::Code(self.heap_pointer - *offset as u8);
+                    let temp_addr: u8 = self.heap_pointer - *offset as u8;
+                    if temp_addr >= var_pointer {
+                        self.code_arr[i] = CodeGenBytes::Code(temp_addr);
+                        if temp_addr <= temp_pointer {
+                            // Update the max temp pointer
+                            temp_pointer = temp_addr - 1;
+                        }
+                    } else {
+                        // There was a collision
+                        nexus_log::log(
+                            nexus_log::LogTypes::Error,
+                            nexus_log::LogSources::CodeGenerator,
+                            String::from("The heap has collided with the stack causing a heap overflow error")
+                        );
+                        return false;
+                    }
                 },
                 CodeGenBytes::Jump(jump_index) => {
                     self.code_arr[i] = CodeGenBytes::Code(self.jumps[*jump_index])
@@ -245,6 +376,7 @@ impl CodeGenerator {
                 _ => {}
             }
         }
+        return true;
     }
 
     // Function for creating the code for a variable declaration
@@ -310,11 +442,13 @@ impl CodeGenerator {
                         debug!("Assignment string");
                         
                         // Start by storing the string
-                        let addr: u8 = self.store_string(&string);
+                        let addr: Option<u8> = self.store_string(&string);
 
                         // Store the starting address of the string in memory
-                        self.add_code (0xA9);
-                        self.add_code(addr);
+                        if addr.is_some() {
+                            self.add_code (0xA9);
+                            self.add_code(addr.unwrap());
+                        }
                     },
                     TokenType::Keyword(keyword) => {
                         match &keyword {
@@ -424,9 +558,11 @@ impl CodeGenerator {
                     },
                     TokenType::Char(string) => {
                         // Store the string in memory and load its address to Y
-                        let addr: u8 = self.store_string(&string);
-                        self.add_code(0xA0);
-                        self.add_code(addr);
+                        let addr: Option<u8> = self.store_string(&string);
+                        if addr.is_some() {
+                            self.add_code(0xA0);
+                            self.add_code(addr.unwrap());
+                        }
 
                         // X = 2 for a string sys call
                         self.add_code(0xA2);
@@ -629,17 +765,22 @@ impl CodeGenerator {
                         self.add_code(*num);
                     },
                     TokenType::Char(string) => {
-                        let string_addr: u8 = self.store_string(string);
-                        self.add_code(0xA9);
-                        self.add_code(string_addr);
+                        let string_addr: Option<u8> = self.store_string(string);
+                        if string_addr.is_some() {
+                            self.add_code(0xA9);
+                            self.add_code(string_addr.unwrap());
+                        }
                     },
                     TokenType::Keyword(keyword) => {
                         self.add_code(0xA9);
-                        match &keyword {
+                        let res: bool = match &keyword {
                             Keywords::True => self.add_code(0x01),
                             Keywords::False => self.add_code(0x00),
-                            _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
-                        }
+                            _ => {
+                                error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword);
+                                false
+                            }
+                        };
                     },
                     _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
                 }
@@ -688,17 +829,22 @@ impl CodeGenerator {
                         self.add_code(*num);
                     },
                     TokenType::Char(string) => {
-                        let string_addr: u8 = self.store_string(string);
-                        self.add_code(0xA2);
-                        self.add_code(string_addr);
+                        let string_addr: Option<u8> = self.store_string(string);
+                        if string_addr.is_some() {
+                            self.add_code(0xA2);
+                            self.add_code(string_addr.unwrap());
+                        }
                     },
                     TokenType::Keyword(keyword) => {
                         self.add_code(0xA2);
-                        match &keyword {
+                        let res: bool = match &keyword {
                             Keywords::True => self.add_code(0x01),
                             Keywords::False => self.add_code(0x00),
-                            _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
-                        }
+                            _ => {
+                                error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword);
+                                false
+                            }
+                        };
                     },
                     _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
                 }
