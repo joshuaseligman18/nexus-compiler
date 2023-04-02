@@ -223,8 +223,7 @@ impl CodeGenerator {
     }
 
     fn new_temp(&mut self) -> Option<usize> {
-        let num_vars: usize = self.static_table.len();
-        if self.code_pointer + (num_vars as u8) < self.heap_pointer - (self.temp_index as u8) {
+        if self.has_available_memory() {
             let temp_addr: usize = self.temp_index.to_owned();
             self.temp_index += 1;
             return Some(temp_addr);
@@ -355,20 +354,14 @@ impl CodeGenerator {
                 let static_offset: usize = self.static_table.len();
                 self.static_table.insert((token.text.to_owned(), symbol_table.cur_scope.unwrap()), static_offset);
 
-                // Get the symbol table entry because strings have no code gen here, just the
-                // static table entry
-                let symbol_table_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap();
-                match symbol_table_entry.symbol_type {
-                    Type::Int | Type::Boolean => {
-                        // Generate the code for the variable declaration
-                        self.add_code(0xA9);
-                        self.add_code(0x00);
-                        self.add_code(0x8D);
-                        self.add_var(static_offset);
-                        self.add_code(0x00);
-                    },
-                    Type::String => { /* Nothing to do here */ }
-                }
+                // Iniitialize the variable to 0
+                // Because of how temp data works, strings have to be initialized
+                // to prevent starting with a dirty byte
+                self.add_code(0xA9);
+                self.add_code(0x00);
+                self.add_code(0x8D);
+                self.add_var(static_offset);
+                self.add_code(0x00);
             },
             _ => error!("Received {:?} when expecting terminal for var decl child in code gen", id_node)
         }
