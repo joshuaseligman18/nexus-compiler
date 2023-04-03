@@ -200,7 +200,6 @@ impl CodeGenerator {
         let mut block_res: bool = true;
 
         for neighbor_index in neighbors.into_iter().rev() {
-            debug!("{:?}", (*ast).graph.node_weight(neighbor_index).unwrap());
             let child: &SyntaxTreeNode = (*ast).graph.node_weight(neighbor_index).unwrap();
             
             match child {
@@ -832,7 +831,7 @@ impl CodeGenerator {
 
     // Function to generate code for an addition statement
     // Result is left in the accumulator
-    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, first: bool) -> bool {
+    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_first: bool) -> bool {
         nexus_log::log(
             nexus_log::LogTypes::Debug,
             nexus_log::LogSources::CodeGenerator,
@@ -844,12 +843,16 @@ impl CodeGenerator {
         let right_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
         let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
 
-        // Make some space for the temporary data
-        let temp_addr_option: Option<usize> = self.new_temp();
-        if temp_addr_option.is_none() {
-            return false;
+        // Make some space for the temporary data only if first addition
+        // Otherwise, use the current max temp index, which is the working temp location
+        let mut temp_addr: usize = self.temp_index - 1;
+        if is_first {
+            let temp_addr_option: Option<usize> = self.new_temp();
+            if temp_addr_option.is_none() {
+                return false;
+            }
+            temp_addr = temp_addr_option.unwrap();
         }
-        let temp_addr: usize = temp_addr_option.unwrap();
 
         match right_child {
             SyntaxTreeNode::Terminal(token) => {
@@ -895,7 +898,7 @@ impl CodeGenerator {
                         if !self.add_temp(temp_addr) { return false; }
 
                         // Only store the result back in memory if we have more addition to do
-                        if !first {
+                        if !is_first {
                             // Store it back in the resulting address
                             if !self.add_code(0x8D) { return false; }
                             if !self.add_temp(temp_addr) { return false; }
