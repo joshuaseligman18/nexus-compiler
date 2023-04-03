@@ -132,21 +132,26 @@ impl CodeGenerator {
         self.store_string("true");
 
         // Generate the code for the program
-        self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
-        // All programs end with 0x00, which is HALT
-        self.add_code(0x00);
-        debug!("{:?}", self.code_arr);
+        let program_res: bool = self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
 
-        self.backpatch_addresses();
+        if program_res {
+            // All programs end with 0x00, which is HALT
+            let final_res: bool = self.add_code(0x00);
+            debug!("{:?}", self.code_arr);
 
-        debug!("Static table: {:?}", self.static_table);
-        debug!("Jumps vector: {:?}", self.jumps);
-        debug!("{:?}", self.code_arr);
+            if final_res {
+                self.backpatch_addresses();
 
-        self.display_code(program_number);
+                debug!("Static table: {:?}", self.static_table);
+                debug!("Jumps vector: {:?}", self.jumps);
+                debug!("{:?}", self.code_arr);
+
+                self.display_code(program_number);
+            }
+        }
     }
 
-    fn code_gen_block(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
+    fn code_gen_block(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
         // If this is the first block, then the first scope is 0
         if self.max_scope == usize::MAX {
             self.max_scope = 0;
@@ -161,20 +166,29 @@ impl CodeGenerator {
         // The current node is the block, so we need to loop through each of its children
         let neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
 
+        // Assume a success
+        let mut block_res: bool = true;
+
         for neighbor_index in neighbors.into_iter().rev() {
             debug!("{:?}", (*ast).graph.node_weight(neighbor_index).unwrap());
             let child: &SyntaxTreeNode = (*ast).graph.node_weight(neighbor_index).unwrap();
             
             match child {
                 SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-                    match non_terminal {
+                    block_res = match non_terminal {
                         NonTerminalsAst::Block => self.code_gen_block(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::VarDecl => self.code_gen_var_decl(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Assign => self.code_gen_assignment(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Print => self.code_gen_print(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::If => self.code_gen_if(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::While => self.code_gen_while(ast, neighbor_index, symbol_table),
-                        _ => error!("Received {:?} when expecting an AST nonterminal statement in a block", non_terminal)
+                        _ => { 
+                            error!("Received {:?} when expecting an AST nonterminal statement in a block", non_terminal);
+                            false
+                        }
+                    };
+                    if !block_res {
+                        return false;
                     }
                 }
                 _ => error!("Received {:?} when expecting an AST nonterminal for code gen in a block", child)
@@ -183,6 +197,7 @@ impl CodeGenerator {
 
         // Exit the current scope
         symbol_table.end_cur_scope();
+        return block_res;
     }
 
     fn has_available_memory(&mut self) -> bool {
@@ -349,7 +364,7 @@ impl CodeGenerator {
     }
 
     // Function for creating the code for a variable declaration
-    fn code_gen_var_decl(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
+    fn code_gen_var_decl(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
         debug!("Code gen var decl");
         
         let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
@@ -368,11 +383,11 @@ impl CodeGenerator {
                     // Only integers and booleans are initialized
                     Type::Int | Type::Boolean => {
                         // Generate the code for the variable declaration
-                        self.add_code(0xA9);
-                        self.add_code(0x00);
-                        self.add_code(0x8D);
-                        self.add_var(static_offset);
-                        self.add_code(0x00);
+                        if !self.add_code(0xA9) { return false; }
+                        if !self.add_code(0x00) { return false; }
+                        if !self.add_code(0x8D) { return false; }
+                        if !self.add_var(static_offset) { return false; }
+                        if !self.add_code(0x00) { return false; }
                     },
                     // Strings do not get initialized
                     Type::String => {
@@ -383,10 +398,12 @@ impl CodeGenerator {
             },
             _ => error!("Received {:?} when expecting terminal for var decl child in code gen", id_node)
         }
+
+        return true;
     }
 
     // Function for creating the code for an assignment
-    fn code_gen_assignment(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
+    fn code_gen_assignment(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
         debug!("Code gen assignment");
 
         let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
@@ -401,15 +418,15 @@ impl CodeGenerator {
                         let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
-                        self.add_code(0xAD);
-                        self.add_var(value_static_offset);
-                        self.add_code(0x00);
+                        if !self.add_code(0xAD) { return false; }
+                        if !self.add_var(value_static_offset) { return false; }
+                        if !self.add_code(0x00) { return false; }
                     },
                     TokenType::Digit(val) => {
                         debug!("Assignment digit");
                         // Digits just load a constant to the accumulator
-                        self.add_code(0xA9);
-                        self.add_code(*val as u8);
+                        if !self.add_code(0xA9) { return false; }
+                        if !self.add_code(*val as u8) { return false; }
                     },
                     TokenType::Char(string) => {
                         debug!("Assignment string");
@@ -419,8 +436,10 @@ impl CodeGenerator {
 
                         // Store the starting address of the string in memory
                         if addr.is_some() {
-                            self.add_code (0xA9);
-                            self.add_code(addr.unwrap());
+                            if !self.add_code (0xA9) { return false; }
+                            if !self.add_code(addr.unwrap()) { return false; }
+                        } else {
+                            return false;
                         }
                     },
                     TokenType::Keyword(keyword) => {
@@ -428,14 +447,14 @@ impl CodeGenerator {
                             Keywords::True => {
                                 debug!("Assignment true");
                                 // True is 0x01
-                                self.add_code(0xA9);
-                                self.add_code(0x01);
+                                if !self.add_code(0xA9) { return false; }
+                                if !self.add_code(0x01) { return false; }
                             },
                             Keywords::False => {
                                 debug!("Assignment false");
                                 // False is 0x00
-                                self.add_code(0xA9);
-                                self.add_code(0x00);
+                                if !self.add_code(0xA9) { return false; }
+                                if !self.add_code(0x00) { return false; }
                             },
                             _ => error!("Received {:?} when expecting true or false for keyword terminals in assignment", keyword)
                         }
@@ -448,15 +467,15 @@ impl CodeGenerator {
                 match non_terminal {
                     NonTerminalsAst::Add => {
                         // Call add, so the result will be in both the accumulator and in memory
-                        self.code_gen_add(ast, children[0], symbol_table, true);
+                        if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
                     },
                     NonTerminalsAst::IsEq => {
-                        self.code_gen_compare(ast, children[0], symbol_table, true);
-                        self.get_z_flag_value();
+                        if !self.code_gen_compare(ast, children[0], symbol_table, true) { return false; }
+                        if !self.get_z_flag_value() { return false; }
                     },
                     NonTerminalsAst::NotEq => {
-                        self.code_gen_compare(ast, children[0], symbol_table, false);
-                        self.get_z_flag_value();
+                        if !self.code_gen_compare(ast, children[0], symbol_table, false) { return false; }
+                        if !self.get_z_flag_value() { return false; }
                     },
                     _ => error!("Received {:?} for nonterminal on right side of assignment for code gen", non_terminal)
                 }
@@ -472,16 +491,18 @@ impl CodeGenerator {
                 
                 // The data that we are storing is already in the accumulator
                 // so just run the code to store the data
-                self.add_code(0x8D);
-                self.add_var(static_offset);
-                self.add_code(0x00);
+                if !self.add_code(0x8D) { return false; }
+                if !self.add_var(static_offset) { return false; }
+                if !self.add_code(0x00) { return false; }
             },
             _ => error!("Received {:?} when expecting terminal for assignmentchild in code gen", id_node)
         }
+
+        return true;
     }
 
     // Function for generating code for a print statement
-    fn code_gen_print(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
+    fn code_gen_print(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
         debug!("Code gen print statement");
 
         // Get the child on the print statement to evaluate
@@ -499,91 +520,93 @@ impl CodeGenerator {
                                 debug!("Print id int");
                                 
                                 // Load the integer value into the Y register
-                                self.add_code(0xAC);
-                                self.add_var(static_offset);
-                                self.add_code(0x00);
+                                if !self.add_code(0xAC) { return false; }
+                                if !self.add_var(static_offset) { return false; }
+                                if !self.add_code(0x00) { return false; }
 
                                 // Set X to 1 for the system call
-                                self.add_code(0xA2);
-                                self.add_code(0x01);
+                                if !self.add_code(0xA2) { return false; }
+                                if !self.add_code(0x01) { return false; }
                             },
                             Type::String => {
                                 debug!("Print id string");
                                 // Store the string address in Y
-                                self.add_code(0xAC);
-                                self.add_var(static_offset);
-                                self.add_code(0x00);
+                                if !self.add_code(0xAC) { return false; }
+                                if !self.add_var(static_offset) { return false; }
+                                if !self.add_code(0x00) { return false; }
 
                                 // X = 2 for this sys call
-                                self.add_code(0xA2);
-                                self.add_code(0x02);
+                                if !self.add_code(0xA2) { return false; }
+                                if !self.add_code(0x02) { return false; }
                             },
                             Type::Boolean => {
                                 // Compare the value of the variable with true
-                                self.add_code(0xA2);
-                                self.add_code(0x01);
-                                self.add_code(0xEC);
-                                self.add_var(static_offset);
-                                self.add_code(0x00);
+                                if !self.add_code(0xA2) { return false; }
+                                if !self.add_code(0x01) { return false; }
+                                if !self.add_code(0xEC) { return false; }
+                                if !self.add_var(static_offset) { return false; }
+                                if !self.add_code(0x00) { return false; }
                                 // Skip to the false string if it is false
-                                self.add_code(0xD0);
-                                self.add_code(0x07);
+                                if !self.add_code(0xD0) { return false; }
+                                if !self.add_code(0x07) { return false; }
                                 
                                 // Load the true string and skip over the false string
-                                self.add_code(0xA0);
-                                self.add_code(*self.string_history.get("true").unwrap());
-                                self.add_code(0xEC);
-                                self.add_code(0xFF);
-                                self.add_code(0x00);
-                                self.add_code(0xD0);
-                                self.add_code(0x02);
+                                if !self.add_code(0xA0) { return false; }
+                                if !self.add_code(*self.string_history.get("true").unwrap()) { return false; }
+                                if !self.add_code(0xEC) { return false; }
+                                if !self.add_code(0xFF) { return false; }
+                                if !self.add_code(0x00) { return false; }
+                                if !self.add_code(0xD0) { return false; }
+                                if !self.add_code(0x02) { return false; }
                                 // Load the false string
-                                self.add_code(0xA0);
-                                self.add_code(*self.string_history.get("false").unwrap());
+                                if !self.add_code(0xA0) { return false; }
+                                if !self.add_code(*self.string_history.get("false").unwrap()) { return false; }
 
                                 // We are printing a string, so X = 2
-                                self.add_code(0xA2);
-                                self.add_code(0x02);
+                                if !self.add_code(0xA2) { return false; }
+                                if !self.add_code(0x02) { return false; }
                             }
                         }
                     },
                     TokenType::Digit(digit) => {
                         // Sys call 1 for integers needs the number in Y
-                        self.add_code(0xA0);
-                        self.add_code(*digit as u8);
+                        if !self.add_code(0xA0) { return false; }
+                        if !self.add_code(*digit as u8) { return false; }
 
                         // And X = 1
-                        self.add_code(0xA2);
-                        self.add_code(0x01);
+                        if !self.add_code(0xA2) { return false; }
+                        if !self.add_code(0x01) { return false; }
                     },
                     TokenType::Char(string) => {
                         // Store the string in memory and load its address to Y
                         let addr: Option<u8> = self.store_string(&string);
                         if addr.is_some() {
-                            self.add_code(0xA0);
-                            self.add_code(addr.unwrap());
+                            if !self.add_code(0xA0) { return false; }
+                            if !self.add_code(addr.unwrap()) { return false; }
+                        } else {
+                            return false;
                         }
 
                         // X = 2 for a string sys call
-                        self.add_code(0xA2);
-                        self.add_code(0x02);
+                        if !self.add_code(0xA2) { return false; }
+                        if !self.add_code(0x02) { return false; }
                     },
                     TokenType::Keyword(keyword) => {
-                        self.add_code(0xA0);
+                        if !self.add_code(0xA0) { return false; }
                         match keyword {
                             Keywords::True => {
                                 // Y = true addr for true
-                                self.add_code(*self.string_history.get("true").unwrap());
+                                if !self.add_code(*self.string_history.get("true").unwrap()) { return false; }
                             },
                             Keywords::False => {
                                 // Y = false addr for false
-                                self.add_code(*self.string_history.get("false").unwrap());
+                                if !self.add_code(*self.string_history.get("false").unwrap()) { return false; }
                             },
                             _ => error!("Received {:?} when expecting true or false for print keyword", keyword)
                         }
                         // X = 2 for the sys call
-                        self.add_code(0xA2);
-                        self.add_code(0x02);
+                        if !self.add_code(0xA2) { return false; }
+                        if !self.add_code(0x02) { return false; }
                     },
                     _ => error!("Received {:?} when expecting id, digit, string, or keyword for print terminal", token)
                 }
@@ -593,77 +616,77 @@ impl CodeGenerator {
                 match non_terminal {
                     NonTerminalsAst::Add => {
                         // Generate the result of the addition expression
-                        self.code_gen_add(ast, children[0], symbol_table, true);
+                        if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
 
                         let temp_addr_option: Option<usize> = self.new_temp();
                         if temp_addr_option.is_none() {
-                            return;
+                            return false;
                         }
                         let temp_addr: usize = temp_addr_option.unwrap();
 
-                        self.add_code(0x8D);
-                        self.add_temp(temp_addr);
-                        self.add_code(0x00);
+                        if !self.add_code(0x8D) { return false; }
+                        if !self.add_temp(temp_addr) { return false; }
+                        if !self.add_code(0x00) { return false; }
                         
                         // Load the result to Y (wish there was TAY)
-                        self.add_code(0xAC);
-                        self.add_temp(temp_addr);
-                        self.add_code(0x00);
+                        if !self.add_code(0xAC) { return false; }
+                        if !self.add_temp(temp_addr) { return false; }
+                        if !self.add_code(0x00) { return false; }
                         
                         // We are done with the temp data
                         self.temp_index -= 1;
 
                         // X = 1 for the sys call for integers
-                        self.add_code(0xA2);
-                        self.add_code(0x01);
+                        if !self.add_code(0xA2) { return false; }
+                        if !self.add_code(0x01) { return false; }
                     },
                     NonTerminalsAst::IsEq => {
                         // If it is true or false is in the Z flag
-                        self.code_gen_compare(ast, children[0], symbol_table, true);
+                        if !self.code_gen_compare(ast, children[0], symbol_table, true) { return false; }
 
                         // We are printing a string, so X = 2
-                        self.add_code(0xA2);
-                        self.add_code(0x02);
+                        if !self.add_code(0xA2) { return false; }
+                        if !self.add_code(0x02) { return false; }
 
                         // Skip to the false string if it is false
-                        self.add_code(0xD0);
-                        self.add_code(0x07);
+                        if !self.add_code(0xD0) { return false; }
+                        if !self.add_code(0x07) { return false; }
                         
                         // Load the true string and skip over the false string
-                        self.add_code(0xA0);
-                        self.add_code(*self.string_history.get("true").unwrap());
-                        self.add_code(0xEC);
-                        self.add_code(0xFF);
-                        self.add_code(0x00);
-                        self.add_code(0xD0);
-                        self.add_code(0x02);
+                        if !self.add_code(0xA0) { return false; }
+                        if !self.add_code(*self.string_history.get("true").unwrap()) { return false; }
+                        if !self.add_code(0xEC) { return false; }
+                        if !self.add_code(0xFF) { return false; }
+                        if !self.add_code(0x00) { return false; }
+                        if !self.add_code(0xD0) { return false; }
+                        if !self.add_code(0x02) { return false; }
 
                         // Load the false string
-                        self.add_code(0xA0);
-                        self.add_code(*self.string_history.get("false").unwrap());
+                        if !self.add_code(0xA0) { return false; }
+                        if !self.add_code(*self.string_history.get("false").unwrap()) { return false; }
                     },
                     NonTerminalsAst::NotEq => {
-                        self.code_gen_compare(ast, children[0], symbol_table, false);
+                        if !self.code_gen_compare(ast, children[0], symbol_table, false) { return false; }
                          // We are printing a string, so X = 2
-                        self.add_code(0xA2);
-                        self.add_code(0x02);
+                        if !self.add_code(0xA2) { return false; }
+                        if !self.add_code(0x02) { return false; }
 
                         // Skip to the false string if it is false
-                        self.add_code(0xD0);
-                        self.add_code(0x07);
+                        if !self.add_code(0xD0) { return false; }
+                        if !self.add_code(0x07) { return false; }
                         
                         // Load the true string and skip over the false string
-                        self.add_code(0xA0);
-                        self.add_code(*self.string_history.get("true").unwrap());
-                        self.add_code(0xEC);
-                        self.add_code(0xFF);
-                        self.add_code(0x00);
-                        self.add_code(0xD0);
-                        self.add_code(0x02);
+                        if !self.add_code(0xA0) { return false; }
+                        if !self.add_code(*self.string_history.get("true").unwrap()) { return false; }
+                        if !self.add_code(0xEC) { return false; }
+                        if !self.add_code(0xFF) { return false; }
+                        if !self.add_code(0x00) { return false; }
+                        if !self.add_code(0xD0) { return false; }
+                        if !self.add_code(0x02) { return false; }
 
                         // Load the false string
-                        self.add_code(0xA0);
-                        self.add_code(*self.string_history.get("false").unwrap());
+                        if !self.add_code(0xA0) { return false; }
+                        if !self.add_code(*self.string_history.get("false").unwrap()) { return false; }
                    },
                     _ => error!("Received {:?} when expecting addition or boolean expression for nonterminal print", non_terminal)
                 }
@@ -672,12 +695,13 @@ impl CodeGenerator {
         }
 
         // The x and y registers are all set up, so just add the sys call
-        self.add_code(0xFF);
+        if !self.add_code(0xFF) { return false; }
+        return true;
     }
 
     // Function to generate code for an addition statement
     // Result is left in the accumulator
-    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, first: bool) {
+    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, first: bool) -> bool {
         debug!("Code gen add");
 
         // Get the child for addition
@@ -688,7 +712,7 @@ impl CodeGenerator {
         // Make some space for the temporary data
         let temp_addr_option: Option<usize> = self.new_temp();
         if temp_addr_option.is_none() {
-            return;
+            return false;
         }
         let temp_addr: usize = temp_addr_option.unwrap();
 
@@ -697,8 +721,8 @@ impl CodeGenerator {
                 match &token.token_type {
                     TokenType::Digit(num) => {
                         // Store right side digit in the accumulator
-                        self.add_code(0xA9);
-                        self.add_code(*num);
+                        if !self.add_code(0xA9) { return false; }
+                        if !self.add_code(*num) { return false; }
                     },
                     TokenType::Identifier(id_name) => {
                         // Get the address needed from memory for the identifier
@@ -706,22 +730,22 @@ impl CodeGenerator {
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
                         // Load the value into the accumulator
-                        self.add_code(0xAD);
-                        self.add_var(value_static_offset);
-                        self.add_code(0x00);
+                        if !self.add_code(0xAD) { return false; }
+                        if !self.add_var(value_static_offset) { return false; }
+                        if !self.add_code(0x00) { return false; }
                     },
                     _ => error!("Received {:?} when expecting digit or id for right side of addition", token)
                 }
 
                 // Both digits and ids are in the accumulator, so move them to
                 // the res address for usage in the math operation
-                self.add_code(0x8D);
-                self.add_temp(temp_addr);
+                if !self.add_code(0x8D) { return false; }
+                if !self.add_temp(temp_addr) { return false; }
                 // We are using a new temporary value for temps, so increment the index
-                self.add_code(0x00);
+                if !self.add_code(0x00) { return false; }
             },
             // Nonterminals are always add, so just call it
-            SyntaxTreeNode::NonTerminalAst(non_terminal) => self.code_gen_add(ast, children[0], symbol_table, false),
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => if !self.code_gen_add(ast, children[0], symbol_table, false) { return false; },
             _ => error!("Received {:?} when expecting terminal or AST nonterminal for right addition value", right_child)
         }
 
@@ -730,20 +754,20 @@ impl CodeGenerator {
                 match &token.token_type {
                     TokenType::Digit(num) => {
                         // Put left digit in acc
-                        self.add_code(0xA9);
-                        self.add_code(*num);
+                        if !self.add_code(0xA9) { return false; }
+                        if !self.add_code(*num) { return false; }
 
                         // Perform the addition
-                        self.add_code(0x6D);
-                        self.add_temp(temp_addr);
-                        self.add_code(0x00);
+                        if !self.add_code(0x6D) { return false; }
+                        if !self.add_temp(temp_addr) { return false; }
+                        if !self.add_code(0x00) { return false; }
 
                         // Only store the result back in memory if we have more addition to do
                         if !first {
                             // Store it back in the resulting address
-                            self.add_code(0x8D);
-                            self.add_temp(temp_addr);
-                            self.add_code(0x00);
+                            if !self.add_code(0x8D) { return false; }
+                            if !self.add_temp(temp_addr) { return false; }
+                            if !self.add_code(0x00) { return false; }
                         } else {
                             // We are done with the memory location, so can move
                             // the pointer back over 1
@@ -755,12 +779,14 @@ impl CodeGenerator {
             },
             _ => error!("Received {:?} when expecting a terminal for the left side of addition for code gen", left_child)
         }
+
+        return true;
     }
 
     // Function to generate code for comparisons
     // Result is left in the Z flag and get_z_flag_vale function can be used
     // afterwards to place z flag value into the accumulator
-    fn code_gen_compare(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_eq: bool) {
+    fn code_gen_compare(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_eq: bool) -> bool {
         debug!("Code gen compare");
 
         // Get the child for comparison
@@ -777,32 +803,31 @@ impl CodeGenerator {
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
                         // Load the value into the accumulator
-                        self.add_code(0xAD);
-                        self.add_var(value_static_offset);
-                        self.add_code(0x00);
+                        if !self.add_code(0xAD) { return false; }
+                        if !self.add_var(value_static_offset) { return false; }
+                        if !self.add_code(0x00) { return false; }
                     },
                     TokenType::Digit(num) => {
                         // Store the digit in memory
-                        self.add_code(0xA9);
-                        self.add_code(*num);
+                        if !self.add_code(0xA9) { return false; }
+                        if !self.add_code(*num) { return false; }
                     },
                     TokenType::Char(string) => {
                         let string_addr: Option<u8> = self.store_string(string);
                         if string_addr.is_some() {
-                            self.add_code(0xA9);
-                            self.add_code(string_addr.unwrap());
+                            if !self.add_code(0xA9) { return false; }
+                            if !self.add_code(string_addr.unwrap()) { return false; }
+                        } else {
+                            return false;
                         }
                     },
                     TokenType::Keyword(keyword) => {
-                        self.add_code(0xA9);
-                        let res: bool = match &keyword {
-                            Keywords::True => self.add_code(0x01),
-                            Keywords::False => self.add_code(0x00),
-                            _ => {
-                                error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword);
-                                false
-                            }
-                        };
+                        if !self.add_code(0xA9) { return false; }
+                        match &keyword {
+                            Keywords::True => if !self.add_code(0x01) { return false; },
+                            Keywords::False => if !self.add_code(0x00) { return false; },
+                            _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
+                        }
                     },
                     _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
                 }
@@ -810,15 +835,15 @@ impl CodeGenerator {
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
                 match &non_terminal {
                     NonTerminalsAst::Add => {
-                        self.code_gen_add(ast, children[1], symbol_table, true);
+                        if !self.code_gen_add(ast, children[1], symbol_table, true) { return false; }
                     },
                     NonTerminalsAst::IsEq => {
-                        self.code_gen_compare(ast, children[1], symbol_table, true);
-                        self.get_z_flag_value();
+                        if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; }
+                        if !self.get_z_flag_value() { return false; }
                     },
                     NonTerminalsAst::NotEq => {
-                        self.code_gen_compare(ast, children[1], symbol_table, false);
-                        self.get_z_flag_value();
+                        if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; }
+                        if !self.get_z_flag_value() { return false; }
                     },
                     _ => error!("Received {:?} for left side of nonterminal boolean expression, when expected Add, IsEq, or NotEq", non_terminal)
                 }
@@ -829,13 +854,13 @@ impl CodeGenerator {
         // The left hand side is already in the ACC, so can store in temp memory
         let left_temp_option: Option<usize> = self.new_temp();
         if left_temp_option.is_none() {
-            return;
+            return false;
         }
         let left_temp: usize = left_temp_option.unwrap();
 
-        self.add_code(0x8D);
-        self.add_temp(left_temp);
-        self.add_code(0x00);
+        if !self.add_code(0x8D) { return false; }
+        if !self.add_temp(left_temp) { return false; }
+        if !self.add_code(0x00) { return false; }
 
         match right_child {
             SyntaxTreeNode::Terminal(token) => {
@@ -846,32 +871,31 @@ impl CodeGenerator {
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
                         // Load the value into the X register
-                        self.add_code(0xAE);
-                        self.add_var(value_static_offset);
-                        self.add_code(0x00);
+                        if !self.add_code(0xAE) { return false; }
+                        if !self.add_var(value_static_offset) { return false; }
+                        if !self.add_code(0x00) { return false; }
                     },
                     TokenType::Digit(num) => {
                         // Store the digit in X
-                        self.add_code(0xA2);
-                        self.add_code(*num);
+                        if !self.add_code(0xA2) { return false; }
+                        if !self.add_code(*num) { return false; }
                     },
                     TokenType::Char(string) => {
                         let string_addr: Option<u8> = self.store_string(string);
                         if string_addr.is_some() {
-                            self.add_code(0xA2);
-                            self.add_code(string_addr.unwrap());
+                            if !self.add_code(0xA2) { return false; }
+                            if !self.add_code(string_addr.unwrap()) { return false; }
+                        } else {
+                            return false;
                         }
                     },
                     TokenType::Keyword(keyword) => {
-                        self.add_code(0xA2);
-                        let res: bool = match &keyword {
-                            Keywords::True => self.add_code(0x01),
-                            Keywords::False => self.add_code(0x00),
-                            _ => {
-                                error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword);
-                                false
-                            }
-                        };
+                        if !self.add_code(0xA2) { return false; }
+                        match &keyword {
+                            Keywords::True => if !self.add_code(0x01) { return false; },
+                            Keywords::False => if !self.add_code(0x00) { return false; },
+                            _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
+                        }
                     },
                     _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
                 }
@@ -879,15 +903,15 @@ impl CodeGenerator {
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
                 match &non_terminal {
                     NonTerminalsAst::Add => {
-                        self.code_gen_add(ast, children[0], symbol_table, true);
+                        if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
                     },
                     NonTerminalsAst::IsEq => {
-                        self.code_gen_compare(ast, children[0], symbol_table, true);
-                        self.get_z_flag_value();
+                        if !self.code_gen_compare(ast, children[0], symbol_table, true) { return false; }
+                        if !self.get_z_flag_value() { return false; }
                     },
                     NonTerminalsAst::NotEq => {
-                        self.code_gen_compare(ast, children[0], symbol_table, false);
-                        self.get_z_flag_value();
+                        if !self.code_gen_compare(ast, children[0], symbol_table, false) { return false; }
+                        if !self.get_z_flag_value() { return false; }
                     },
                     _ => error!("Received {:?} for right side of nonterminal boolean expression, when expected Add, IsEq, or NotEq", non_terminal)
                 }
@@ -895,25 +919,25 @@ impl CodeGenerator {
                 // The nonterminal result is in the ACC, so have to move to X
                 let temp_addr_option: Option<usize> = self.new_temp();
                 if temp_addr_option.is_none() {
-                    return;
+                    return false;
                 }
                 let temp_addr: usize = temp_addr_option.unwrap();
 
-                self.add_code(0x8D);
-                self.add_temp(temp_addr);
-                self.add_code(0x00);
+                if !self.add_code(0x8D) { return false; }
+                if !self.add_temp(temp_addr) { return false; }
+                if !self.add_code(0x00) { return false; }
 
-                self.add_code(0xAE);
-                self.add_temp(temp_addr);
-                self.add_code(0x00);
+                if !self.add_code(0xAE) { return false; }
+                if !self.add_temp(temp_addr) { return false; }
+                if !self.add_code(0x00) { return false; }
                 self.temp_index -= 1;
             },
             _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
         }
 
-        self.add_code(0xEC);
-        self.add_temp(left_temp);
-        self.add_code(0x00);
+        if !self.add_code(0xEC) { return false; }
+        if !self.add_temp(left_temp) { return false; }
+        if !self.add_code(0x00) { return false; }
 
         // We are done with this data
         self.temp_index -= 1;
@@ -922,35 +946,39 @@ impl CodeGenerator {
         // This effectively flips the Z flag
         if !is_eq {
             // Start assuming that they were not equal
-            self.add_code(0xA2);
-            self.add_code(0x00);
+            if !self.add_code(0xA2) { return false; }
+            if !self.add_code(0x00) { return false; }
             // Take the branch if not equal
-            self.add_code(0xD0);
-            self.add_code(0x02);
+            if !self.add_code(0xD0) { return false; }
+            if !self.add_code(0x02) { return false; }
             // If equal, set x to 1
-            self.add_code(0xA2);
-            self.add_code(0x01);
+            if !self.add_code(0xA2) { return false; }
+            if !self.add_code(0x01) { return false; }
             // Compare with 0 to flip the Z flag
-            self.add_code(0xEC);
-            self.add_code(0xFF);
-            self.add_code(0x00);
+            if !self.add_code(0xEC) { return false; }
+            if !self.add_code(0xFF) { return false; }
+            if !self.add_code(0x00) { return false; }
         }
+
+        return true;
     }
 
     // Stores the value of the Z flag into the accumulator
-    fn get_z_flag_value(&mut self) {
+    fn get_z_flag_value(&mut self) -> bool {
         // Assume Z is set to 0
-        self.add_code(0xA9);
-        self.add_code(0x00);
+        if !self.add_code(0xA9) { return false; }
+        if !self.add_code(0x00) { return false; }
         // If it is 0, branch
-        self.add_code(0xD0);
-        self.add_code(0x02);
+        if !self.add_code(0xD0) { return false; }
+        if !self.add_code(0x02) { return false; }
         // Otherwise, set the acc to 1
-        self.add_code(0xA9);
-        self.add_code(0x01);
+        if !self.add_code(0xA9) { return false; }
+        if !self.add_code(0x01) { return false; }
+
+        return true;
     }
 
-    fn code_gen_if(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
+    fn code_gen_if(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
         debug!("Code gen if");
 
         // Get the child for comparison
@@ -968,23 +996,23 @@ impl CodeGenerator {
                 match &non_terminal {
                     // Evaluate the boolean expression for the if statement
                     // The Z flag is set by these function calls
-                    NonTerminalsAst::IsEq => self.code_gen_compare(ast, children[1], symbol_table, true),
-                    NonTerminalsAst::NotEq => self.code_gen_compare(ast, children[1], symbol_table, false),
+                    NonTerminalsAst::IsEq => if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; },
+                    NonTerminalsAst::NotEq => if self.code_gen_compare(ast, children[1], symbol_table, false) { return false; },
                     _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
                 }
                 // Add the branch code
-                self.add_code(0xD0);
-                self.add_jump();
+                if !self.add_code(0xD0) { return false; }
+                if !self.add_jump() { return false; }
                 start_addr = self.code_pointer.to_owned();
             },
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
-                    TokenType::Keyword(Keywords::True) => {/* Small optimization because no comparison is needed */}
+                    TokenType::Keyword(Keywords::True) => { /* Small optimization because no comparison is needed */ }
                     TokenType::Keyword(Keywords::False) => {
                         // No code should be generated here because the if-statement is just dead
                         // code and will never be reached, so no point in trying to store the code
                         // with the limited space that we already have (256 bytes)
-                        return;
+                        return true;
                     }
                     _ => error!("Received {:?} when expecting true or false for if expression terminals", token)
                 }
@@ -993,7 +1021,7 @@ impl CodeGenerator {
         }
 
         // Generate the code for the body
-        self.code_gen_block(ast, children[0], symbol_table);
+        if !self.code_gen_block(ast, children[0], symbol_table) { return false; }
 
         // If there was a comparison to make, there is a start addr
         if start_addr != 0x00 {
@@ -1001,9 +1029,11 @@ impl CodeGenerator {
             let branch_offset: u8 = self.code_pointer - start_addr;
             self.jumps[jump_index] = branch_offset;
         }
+
+        return true;
     }
 
-    fn code_gen_while(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
+    fn code_gen_while(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
         debug!("Code gen while");
 
         // Get the child for comparison
@@ -1025,23 +1055,23 @@ impl CodeGenerator {
                 match &non_terminal {
                     // Evaluate the boolean expression for the while statement
                     // The Z flag is set by these function calls
-                    NonTerminalsAst::IsEq => self.code_gen_compare(ast, children[1], symbol_table, true),
-                    NonTerminalsAst::NotEq => self.code_gen_compare(ast, children[1], symbol_table, false),
+                    NonTerminalsAst::IsEq => if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; },
+                    NonTerminalsAst::NotEq => if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; },
                     _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
                 }
                 // Add the branch code
-                self.add_code(0xD0);
-                self.add_jump();
+                if !self.add_code(0xD0) { return false; }
+                if !self.add_jump() { return false; }
                 body_start_addr = self.code_pointer.to_owned();
             },
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
-                    TokenType::Keyword(Keywords::True) => {/* Small optimization because no comparison is needed */}
+                    TokenType::Keyword(Keywords::True) => { /* Small optimization because no comparison is needed */ }
                     TokenType::Keyword(Keywords::False) => {
                         // No code should be generated here because the while-statement is just dead
                         // code and will never be reached, so no point in trying to store the code
                         // with the limited space that we already have (256 bytes)
-                        return;
+                        return true;
                     }
                     _ => error!("Received {:?} when expecting true or false for while expression terminals", token)
                 }
@@ -1050,20 +1080,20 @@ impl CodeGenerator {
         }
 
         // Generate the code for the body
-        self.code_gen_block(ast, children[0], symbol_table);
+        if !self.code_gen_block(ast, children[0], symbol_table) { return false; }
 
         // Get the position in the vector for the unconditional branch
         let unconditional_jump_index: usize = self.jumps.len();
         // Set X to 1
-        self.add_code(0xA2);
-        self.add_code(0x01);
+        if !self.add_code(0xA2) { return false; }
+        if !self.add_code(0x01) { return false; }
         // 0xFF is always 0, so comparing it to 1 will result in Z = 0,
         // so the branch will always be taken
-        self.add_code(0xEC);
-        self.add_code(0xFF);
-        self.add_code(0x00);
-        self.add_code(0xD0);
-        self.add_jump();
+        if !self.add_code(0xEC) { return false; }
+        if !self.add_code(0xFF) { return false; }
+        if !self.add_code(0x00) { return false; }
+        if !self.add_code(0xD0) { return false; }
+        if !self.add_jump() { return false; }
 
         // If there was a comparison to make, there is a start addr for the body
         // to skip over in case evaluate to false
@@ -1078,6 +1108,8 @@ impl CodeGenerator {
         let unconditional_branch_offset: u8 = !(self.code_pointer - loop_start_addr) + 1;
         // Set the unconditional branch offset in the jump
         self.jumps[unconditional_jump_index] = unconditional_branch_offset;
+
+        return true;
     }
 
     fn display_code(&mut self, program_number: &u32) {
