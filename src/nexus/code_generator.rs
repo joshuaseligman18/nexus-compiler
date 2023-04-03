@@ -136,6 +136,7 @@ impl CodeGenerator {
 
         // Generate the code for the program
         let program_res: bool = self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
+        debug!("{:?}", self.code_arr);
 
         if program_res {
             // All programs end with 0x00, which is HALT
@@ -1013,7 +1014,7 @@ impl CodeGenerator {
                     // Evaluate the boolean expression for the if statement
                     // The Z flag is set by these function calls
                     NonTerminalsAst::IsEq => if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; },
-                    NonTerminalsAst::NotEq => if self.code_gen_compare(ast, children[1], symbol_table, false) { return false; },
+                    NonTerminalsAst::NotEq => if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; },
                     _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
                 }
                 // Add the branch code
