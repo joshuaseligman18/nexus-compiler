@@ -21,7 +21,9 @@ enum CodeGenBytes {
     // Represents data on the heap
     Data(u8),
     // This is a jump address for if and while statements
-    Jump(usize)
+    Jump(usize),
+    // This is the unknown high order byte for var and temp data
+    HighOrderByte,
 }
 
 // Customize the output when printing the string
@@ -33,7 +35,8 @@ impl fmt::Debug for CodeGenBytes {
             CodeGenBytes::Temp(temp) => write!(f, "T{}", temp),
             CodeGenBytes::Empty => write!(f, "00"),
             CodeGenBytes::Data(data) => write!(f, "{:02X}", data),
-            CodeGenBytes::Jump(jump) => write!(f, "J{}", jump)
+            CodeGenBytes::Jump(jump) => write!(f, "J{}", jump),
+            CodeGenBytes::HighOrderByte => write!(f, "XX")
         }
     }
 }
@@ -231,6 +234,24 @@ impl CodeGenerator {
             // Add the code to the next available spot in memory
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::Var(var);
             self.code_pointer += 1;
+            // All vars are followed by the high order byte
+            return self.add_high_order_byte();
+        } else {
+            nexus_log::log(
+                nexus_log::LogTypes::Error,
+                nexus_log::LogSources::CodeGenerator,
+                String::from("The stack has collided with the heap causing a stack overflow error")
+            );
+            return false;
+        }
+    }
+
+    // Function to add the high order byte for unknown addresses that will be backpatched
+    fn add_high_order_byte(&mut self) -> bool {
+        if self.has_available_memory() {
+            // Add the code to the next available spot in memory
+            self.code_arr[self.code_pointer as usize] = CodeGenBytes::HighOrderByte;
+            self.code_pointer += 1;
             return true;
         } else {
             nexus_log::log(
@@ -265,7 +286,8 @@ impl CodeGenerator {
             // Add the addressing for the temporary value
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::Temp(temp);
             self.code_pointer += 1;
-            return true;
+            // All temps are followed by the high order byte
+            return self.add_high_order_byte();
         } else {
             nexus_log::log(
                 nexus_log::LogTypes::Error,
@@ -350,10 +372,22 @@ impl CodeGenerator {
         for i in 0..self.code_arr.len() {
             match &self.code_arr[i] {
                 CodeGenBytes::Var(offset) => {
-                    self.code_arr[i] = CodeGenBytes::Code(self.code_pointer + *offset as u8);
+                    // Compute the new address
+                    let new_addr: u8 = self.code_pointer + *offset as u8;
+                    self.code_arr[i] = CodeGenBytes::Code(new_addr);
+
+                    // The integer division result is the high order byte
+                    // Always 0 in this case
+                    self.code_arr[i + 1] = CodeGenBytes::Code((new_addr as u16 / 0x100) as u8);
                 },
                 CodeGenBytes::Temp(offset) => {
-                    self.code_arr[i] = CodeGenBytes::Code(self.heap_pointer - *offset as u8);
+                    // Compute the address of the temp data
+                    let new_addr: u8 = self.heap_pointer - *offset as u8;
+                    self.code_arr[i] = CodeGenBytes::Code(new_addr);
+
+                    // The integer division result is the high order byte
+                    // Always 0 in this case
+                    self.code_arr[i + 1] = CodeGenBytes::Code((new_addr as u16 / 0x100) as u8);
                 },
                 CodeGenBytes::Jump(jump_index) => {
                     self.code_arr[i] = CodeGenBytes::Code(self.jumps[*jump_index])
@@ -387,7 +421,6 @@ impl CodeGenerator {
                         if !self.add_code(0x00) { return false; }
                         if !self.add_code(0x8D) { return false; }
                         if !self.add_var(static_offset) { return false; }
-                        if !self.add_code(0x00) { return false; }
                     },
                     // Strings do not get initialized
                     Type::String => {
@@ -420,7 +453,6 @@ impl CodeGenerator {
                         
                         if !self.add_code(0xAD) { return false; }
                         if !self.add_var(value_static_offset) { return false; }
-                        if !self.add_code(0x00) { return false; }
                     },
                     TokenType::Digit(val) => {
                         debug!("Assignment digit");
@@ -493,7 +525,6 @@ impl CodeGenerator {
                 // so just run the code to store the data
                 if !self.add_code(0x8D) { return false; }
                 if !self.add_var(static_offset) { return false; }
-                if !self.add_code(0x00) { return false; }
             },
             _ => error!("Received {:?} when expecting terminal for assignmentchild in code gen", id_node)
         }
@@ -522,7 +553,6 @@ impl CodeGenerator {
                                 // Load the integer value into the Y register
                                 if !self.add_code(0xAC) { return false; }
                                 if !self.add_var(static_offset) { return false; }
-                                if !self.add_code(0x00) { return false; }
 
                                 // Set X to 1 for the system call
                                 if !self.add_code(0xA2) { return false; }
@@ -533,7 +563,6 @@ impl CodeGenerator {
                                 // Store the string address in Y
                                 if !self.add_code(0xAC) { return false; }
                                 if !self.add_var(static_offset) { return false; }
-                                if !self.add_code(0x00) { return false; }
 
                                 // X = 2 for this sys call
                                 if !self.add_code(0xA2) { return false; }
@@ -545,7 +574,6 @@ impl CodeGenerator {
                                 if !self.add_code(0x01) { return false; }
                                 if !self.add_code(0xEC) { return false; }
                                 if !self.add_var(static_offset) { return false; }
-                                if !self.add_code(0x00) { return false; }
                                 // Skip to the false string if it is false
                                 if !self.add_code(0xD0) { return false; }
                                 if !self.add_code(0x07) { return false; }
@@ -626,12 +654,10 @@ impl CodeGenerator {
 
                         if !self.add_code(0x8D) { return false; }
                         if !self.add_temp(temp_addr) { return false; }
-                        if !self.add_code(0x00) { return false; }
                         
                         // Load the result to Y (wish there was TAY)
                         if !self.add_code(0xAC) { return false; }
                         if !self.add_temp(temp_addr) { return false; }
-                        if !self.add_code(0x00) { return false; }
                         
                         // We are done with the temp data
                         self.temp_index -= 1;
@@ -732,7 +758,6 @@ impl CodeGenerator {
                         // Load the value into the accumulator
                         if !self.add_code(0xAD) { return false; }
                         if !self.add_var(value_static_offset) { return false; }
-                        if !self.add_code(0x00) { return false; }
                     },
                     _ => error!("Received {:?} when expecting digit or id for right side of addition", token)
                 }
@@ -742,7 +767,6 @@ impl CodeGenerator {
                 if !self.add_code(0x8D) { return false; }
                 if !self.add_temp(temp_addr) { return false; }
                 // We are using a new temporary value for temps, so increment the index
-                if !self.add_code(0x00) { return false; }
             },
             // Nonterminals are always add, so just call it
             SyntaxTreeNode::NonTerminalAst(non_terminal) => if !self.code_gen_add(ast, children[0], symbol_table, false) { return false; },
@@ -760,14 +784,12 @@ impl CodeGenerator {
                         // Perform the addition
                         if !self.add_code(0x6D) { return false; }
                         if !self.add_temp(temp_addr) { return false; }
-                        if !self.add_code(0x00) { return false; }
 
                         // Only store the result back in memory if we have more addition to do
                         if !first {
                             // Store it back in the resulting address
                             if !self.add_code(0x8D) { return false; }
                             if !self.add_temp(temp_addr) { return false; }
-                            if !self.add_code(0x00) { return false; }
                         } else {
                             // We are done with the memory location, so can move
                             // the pointer back over 1
@@ -805,7 +827,6 @@ impl CodeGenerator {
                         // Load the value into the accumulator
                         if !self.add_code(0xAD) { return false; }
                         if !self.add_var(value_static_offset) { return false; }
-                        if !self.add_code(0x00) { return false; }
                     },
                     TokenType::Digit(num) => {
                         // Store the digit in memory
@@ -860,7 +881,6 @@ impl CodeGenerator {
 
         if !self.add_code(0x8D) { return false; }
         if !self.add_temp(left_temp) { return false; }
-        if !self.add_code(0x00) { return false; }
 
         match right_child {
             SyntaxTreeNode::Terminal(token) => {
@@ -873,7 +893,6 @@ impl CodeGenerator {
                         // Load the value into the X register
                         if !self.add_code(0xAE) { return false; }
                         if !self.add_var(value_static_offset) { return false; }
-                        if !self.add_code(0x00) { return false; }
                     },
                     TokenType::Digit(num) => {
                         // Store the digit in X
@@ -925,11 +944,9 @@ impl CodeGenerator {
 
                 if !self.add_code(0x8D) { return false; }
                 if !self.add_temp(temp_addr) { return false; }
-                if !self.add_code(0x00) { return false; }
 
                 if !self.add_code(0xAE) { return false; }
                 if !self.add_temp(temp_addr) { return false; }
-                if !self.add_code(0x00) { return false; }
                 self.temp_index -= 1;
             },
             _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
@@ -937,7 +954,6 @@ impl CodeGenerator {
 
         if !self.add_code(0xEC) { return false; }
         if !self.add_temp(left_temp) { return false; }
-        if !self.add_code(0x00) { return false; }
 
         // We are done with this data
         self.temp_index -= 1;
