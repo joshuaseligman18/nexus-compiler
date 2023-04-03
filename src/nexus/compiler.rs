@@ -87,6 +87,12 @@ pub fn compile(source_code: &str) {
                 String::from("Code generation skipped due to lex failure")
             );
 
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Executable image display skipped due to lex failure")
+            );
+
             // No need to move on if lex failed, so can go to next program
             continue;
         }
@@ -133,6 +139,12 @@ pub fn compile(source_code: &str) {
                 nexus_log::LogTypes::Warning,
                 nexus_log::LogSources::Nexus,
                 String::from("Code generation skipped due to parse failure")
+            );
+
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Executable image display skipped due to parse failure")
             );
 
             continue;
@@ -183,6 +195,12 @@ pub fn compile(source_code: &str) {
                 nexus_log::LogTypes::Warning,
                 nexus_log::LogSources::Nexus,
                 String::from("Code generation skipped due to semantic analysis failure")
+            );
+
+            nexus_log::log(
+                nexus_log::LogTypes::Warning,
+                nexus_log::LogSources::Nexus,
+                String::from("Executable image display skipped due to semantic analysis failure")
             );
 
             continue;

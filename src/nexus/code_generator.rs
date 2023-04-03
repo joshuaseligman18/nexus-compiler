@@ -69,9 +69,6 @@ pub struct CodeGenerator {
 
     // Vector to keep track of each jump in the code
     jumps: Vec<u8>,
-
-    // Flag for the memory being full
-    is_memory_full: bool,
 }
 
 impl CodeGenerator {
@@ -96,9 +93,7 @@ impl CodeGenerator {
 
             string_history: HashMap::new(),
 
-            jumps: Vec::new(),
-
-            is_memory_full: false
+            jumps: Vec::new()
         };
 
         // Initialize the entire array to be unused spot in memory
@@ -110,8 +105,6 @@ impl CodeGenerator {
     }
 
     pub fn generate_code(&mut self, ast: &SyntaxTree, symbol_table: &mut SymbolTable, program_number: &u32) {
-        debug!("Code gen called");
-
         // Make sure the current scope is set to be a flag for none
         self.max_scope = usize::MAX;
         
@@ -127,7 +120,6 @@ impl CodeGenerator {
         self.temp_index = 0;
         self.string_history.clear();
         self.jumps.clear();
-        self.is_memory_full = false;
 
         // We are going to store the strings false and true to print them
         // out instead of 0 and 1
@@ -150,9 +142,36 @@ impl CodeGenerator {
                 debug!("Jumps vector: {:?}", self.jumps);
                 debug!("{:?}", self.code_arr);
 
+                nexus_log::log(
+                    nexus_log::LogTypes::Info,
+                    nexus_log::LogSources::CodeGenerator,
+                    format!("Code generation completed successfully")
+                );
+
+                nexus_log::log(
+                    nexus_log::LogTypes::Info,
+                    nexus_log::LogSources::Nexus,
+                    format!("Executable image for program {} is below", *program_number)
+                );
+
                 self.display_code(program_number);
+                return;
             }
         }
+
+        nexus_log::log(
+            nexus_log::LogTypes::Error,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Code generation failed")
+        );
+        
+        nexus_log::insert_empty_line();
+
+        nexus_log::log(
+            nexus_log::LogTypes::Warning,
+            nexus_log::LogSources::Nexus,
+            format!("Executable image display skipped due to code generation failure")
+        );
     }
 
     fn code_gen_block(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
@@ -163,6 +182,13 @@ impl CodeGenerator {
             // Otherwise just add 1
             self.max_scope += 1;
         }
+
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for the block for scope {}", self.max_scope)
+        );
+
         // Manually set the current scope because we are not able to look down
         // in the symbol table
         symbol_table.set_cur_scope(self.max_scope);
@@ -214,6 +240,12 @@ impl CodeGenerator {
     // Function to add byte of code to the memory array
     fn add_code(&mut self, code: u8) -> bool {
         if self.has_available_memory() {
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::CodeGenerator,
+                format!("Adding code 0x{:02X} at memory location 0x{:02X}", code, self.code_pointer)
+            );
+
             // Add the code to the next available spot in memory
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::Code(code);
             self.code_pointer += 1;
@@ -232,6 +264,12 @@ impl CodeGenerator {
     // Function to add byte of code to the memory array for variable addressing
     fn add_var(&mut self, var: usize) -> bool {
         if self.has_available_memory() {
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::CodeGenerator,
+                format!("Adding variable placeholder {} at memory location 0x{:02X}", var, self.code_pointer)
+            );
+
             // Add the code to the next available spot in memory
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::Var(var);
             self.code_pointer += 1;
@@ -250,6 +288,12 @@ impl CodeGenerator {
     // Function to add the high order byte for unknown addresses that will be backpatched
     fn add_high_order_byte(&mut self) -> bool {
         if self.has_available_memory() {
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::CodeGenerator,
+                format!("Adding high order byte placeholder at memory location 0x{:02X}", self.code_pointer)
+            );
+
             // Add the code to the next available spot in memory
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::HighOrderByte;
             self.code_pointer += 1;
@@ -284,6 +328,12 @@ impl CodeGenerator {
     // Function to add byte of code to memory array for temporary data
     fn add_temp(&mut self, temp: usize) -> bool {
         if self.has_available_memory() {
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::CodeGenerator,
+                format!("Adding temp data placeholder {} at memory location 0x{:02X}", temp, self.code_pointer)
+            );
+
             // Add the addressing for the temporary value
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::Temp(temp);
             self.code_pointer += 1;
@@ -302,6 +352,12 @@ impl CodeGenerator {
     // Function to add a byte of data to the heap
     fn add_data(&mut self, data: u8) -> bool {
         if self.has_available_memory() {
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::CodeGenerator,
+                format!("Adding data 0x{:02X} at memory location 0x{:02X}", data, self.heap_pointer)
+            );
+
             // Heap starts from the end of the 256 bytes and moves towards the front
             self.code_arr[self.heap_pointer as usize] = CodeGenBytes::Data(data);
             self.heap_pointer -= 1;
@@ -336,6 +392,12 @@ impl CodeGenerator {
             }
            
             if is_stored {
+                nexus_log::log(
+                    nexus_log::LogTypes::Debug,
+                    nexus_log::LogSources::CodeGenerator,
+                    format!("Stored string \"{}\" at memory location 0x{:02X}", string, self.heap_pointer + 1)
+                );
+
                 // Store it for future use
                 self.string_history.insert(String::from(string), self.heap_pointer + 1);
                 return Some(self.heap_pointer + 1);
@@ -351,6 +413,12 @@ impl CodeGenerator {
 
     fn add_jump(&mut self) -> bool {
         if self.has_available_memory() {
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::CodeGenerator,
+                format!("Adding jump placeholder {} at memory location 0x{:02X}", self.jumps.len(), self.code_pointer)
+            );
+
             // Add the jump to the code and set it to 0 in the vector of jumps
             self.code_arr[self.code_pointer as usize] = CodeGenBytes::Jump(self.jumps.len());
             self.code_pointer += 1;
@@ -375,24 +443,60 @@ impl CodeGenerator {
                 CodeGenBytes::Var(offset) => {
                     // Compute the new address
                     let new_addr: u8 = self.code_pointer + *offset as u8;
+                    nexus_log::log(
+                        nexus_log::LogTypes::Debug,
+                        nexus_log::LogSources::CodeGenerator,
+                        format!("Backpatching 0x{:02X} for variable placeholder {} at memory location 0x{:02X}", new_addr, offset, i)
+                    );
+
                     self.code_arr[i] = CodeGenBytes::Code(new_addr);
 
                     // The integer division result is the high order byte
                     // Always 0 in this case
-                    self.code_arr[i + 1] = CodeGenBytes::Code((new_addr as u16 / 0x100) as u8);
+                    let new_high: u8 = (new_addr as u16 / 0x100) as u8;
+
+                    nexus_log::log(
+                        nexus_log::LogTypes::Debug,
+                        nexus_log::LogSources::CodeGenerator,
+                        format!("Backpatching 0x{:02X} for high order byte placeholder at memory location 0x{:02X}", new_high, i + 1)
+                    );
+
+                    self.code_arr[i + 1] = CodeGenBytes::Code(new_high);
                 },
                 CodeGenBytes::Temp(offset) => {
                     // Compute the address of the temp data
                     let new_addr: u8 = self.heap_pointer - *offset as u8;
-                    self.code_arr[i] = CodeGenBytes::Code(new_addr);
+                    
+                    nexus_log::log(
+                        nexus_log::LogTypes::Debug,
+                        nexus_log::LogSources::CodeGenerator,
+                        format!("Backpatching 0x{:02X} for temp data placeholder {} at memory location 0x{:02X}", new_addr, offset, i)
+                    );
 
+                    self.code_arr[i] = CodeGenBytes::Code(new_addr);
+                   
                     // The integer division result is the high order byte
                     // Always 0 in this case
-                    self.code_arr[i + 1] = CodeGenBytes::Code((new_addr as u16 / 0x100) as u8);
+                    let new_high: u8 = (new_addr as u16 / 0x100) as u8;
+
+                    nexus_log::log(
+                        nexus_log::LogTypes::Debug,
+                        nexus_log::LogSources::CodeGenerator,
+                        format!("Backpatching 0x{:02X} for high order byte placeholder at memory location 0x{:02X}", new_high, i + 1)
+                    );
+
+                    self.code_arr[i + 1] = CodeGenBytes::Code(new_high);
                 },
+                // Store the value from the jump into the placeholder
                 CodeGenBytes::Jump(jump_index) => {
+                    nexus_log::log(
+                        nexus_log::LogTypes::Debug,
+                        nexus_log::LogSources::CodeGenerator,
+                        format!("Backpatching 0x{:02X} for jump placeholder {} at memory location 0x{:02X}", 
+                                self.jumps[*jump_index], *jump_index, i)
+                    );
                     self.code_arr[i] = CodeGenBytes::Code(self.jumps[*jump_index])
-                }
+                },
                 _ => {} 
             }
         }
@@ -400,14 +504,17 @@ impl CodeGenerator {
 
     // Function for creating the code for a variable declaration
     fn code_gen_var_decl(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
-        debug!("Code gen var decl");
-        
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for variable declaration statement in scope {}", symbol_table.cur_scope.unwrap())
+        );
+
         let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
         let id_node: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
 
         match id_node {
             SyntaxTreeNode::Terminal(token) => {
-                debug!("{:?}; {:?}", token.text, symbol_table.cur_scope.unwrap());
                 // Get the offset this variable will be on the stack
                 let static_offset: usize = self.static_table.len();
                 self.static_table.insert((token.text.to_owned(), symbol_table.cur_scope.unwrap()), static_offset);
@@ -438,7 +545,11 @@ impl CodeGenerator {
 
     // Function for creating the code for an assignment
     fn code_gen_assignment(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
-        debug!("Code gen assignment");
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for assignment statement in scope {}", symbol_table.cur_scope.unwrap())
+        );
 
         let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
         let value_node: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
@@ -448,7 +559,6 @@ impl CodeGenerator {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
                     TokenType::Identifier(id_name) => {
-                        debug!("Assignment id");
                         let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
@@ -456,14 +566,11 @@ impl CodeGenerator {
                         if !self.add_var(value_static_offset) { return false; }
                     },
                     TokenType::Digit(val) => {
-                        debug!("Assignment digit");
                         // Digits just load a constant to the accumulator
                         if !self.add_code(0xA9) { return false; }
                         if !self.add_code(*val as u8) { return false; }
                     },
                     TokenType::Char(string) => {
-                        debug!("Assignment string");
-                        
                         // Start by storing the string
                         let addr: Option<u8> = self.store_string(&string);
 
@@ -478,13 +585,11 @@ impl CodeGenerator {
                     TokenType::Keyword(keyword) => {
                         match &keyword {
                             Keywords::True => {
-                                debug!("Assignment true");
                                 // True is 0x01
                                 if !self.add_code(0xA9) { return false; }
                                 if !self.add_code(0x01) { return false; }
                             },
                             Keywords::False => {
-                                debug!("Assignment false");
                                 // False is 0x00
                                 if !self.add_code(0xA9) { return false; }
                                 if !self.add_code(0x00) { return false; }
@@ -496,7 +601,6 @@ impl CodeGenerator {
                 }
             },
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-                debug!("Assignment nonterminal");
                 match non_terminal {
                     NonTerminalsAst::Add => {
                         // Call add, so the result will be in both the accumulator and in memory
@@ -535,7 +639,11 @@ impl CodeGenerator {
 
     // Function for generating code for a print statement
     fn code_gen_print(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
-        debug!("Code gen print statement");
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for print statement in scope {}", symbol_table.cur_scope.unwrap())
+        );
 
         // Get the child on the print statement to evaluate
         let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
@@ -549,8 +657,6 @@ impl CodeGenerator {
                         let static_offset: usize = self.static_table.get(&(id_name.to_owned(), print_id.scope)).unwrap().to_owned();
                         match &print_id.symbol_type {
                             Type::Int  => {
-                                debug!("Print id int");
-                                
                                 // Load the integer value into the Y register
                                 if !self.add_code(0xAC) { return false; }
                                 if !self.add_var(static_offset) { return false; }
@@ -560,7 +666,6 @@ impl CodeGenerator {
                                 if !self.add_code(0x01) { return false; }
                             },
                             Type::String => {
-                                debug!("Print id string");
                                 // Store the string address in Y
                                 if !self.add_code(0xAC) { return false; }
                                 if !self.add_var(static_offset) { return false; }
@@ -641,7 +746,6 @@ impl CodeGenerator {
                 }
             },
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-                debug!("Print nonterminal");
                 match non_terminal {
                     NonTerminalsAst::Add => {
                         // Generate the result of the addition expression
@@ -729,7 +833,11 @@ impl CodeGenerator {
     // Function to generate code for an addition statement
     // Result is left in the accumulator
     fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, first: bool) -> bool {
-        debug!("Code gen add");
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for addition expression in scope {}", symbol_table.cur_scope.unwrap())
+        );
 
         // Get the child for addition
         let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
@@ -810,7 +918,11 @@ impl CodeGenerator {
     // Result is left in the Z flag and get_z_flag_vale function can be used
     // afterwards to place z flag value into the accumulator
     fn code_gen_compare(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_eq: bool) -> bool {
-        debug!("Code gen compare");
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for comparison expression (is_eq = {}) in scope {}", is_eq, symbol_table.cur_scope.unwrap())
+        );
 
         // Get the child for comparison
         let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
@@ -996,7 +1108,11 @@ impl CodeGenerator {
     }
 
     fn code_gen_if(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
-        debug!("Code gen if");
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for if statement in scope {}", symbol_table.cur_scope.unwrap())
+        );
 
         // Get the child for comparison
         let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
@@ -1051,7 +1167,11 @@ impl CodeGenerator {
     }
 
     fn code_gen_while(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
-        debug!("Code gen while");
+         nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for while statement in scope {}", symbol_table.cur_scope.unwrap())
+        );
 
         // Get the child for comparison
         let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();

@@ -44,10 +44,14 @@ textarea {
     resize: none;
 }
 
-#code-input, #nexus-log-area {
+#code-input {
     font-size: 12px;
     height: 350px;
-    /* width: 100%; */
+}
+
+#nexus-log-area {
+    font-size: 11px;
+    height: 350px;
 }
 
 #nexus-log-area {
@@ -93,7 +97,7 @@ textarea {
     margin-top: 1.5%;
 }
 
-.cst-pane *, .ast-pane div, .ast-pane textarea, .code-gen-pane * {
+.cst-pane *, .ast-pane svg, .ast-pane textarea {
     height: 450px;
 }
 
