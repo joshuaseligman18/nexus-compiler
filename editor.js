@@ -8,3 +8,9 @@ export function loadProgram(newCode) {
     editor.setValue(newCode);
     editor.gotoLine(Number.MAX_SAFE_INTEGER);
 }
+
+// Uses the clipboard api to set the device's clipboard
+// From https://www.freecodecamp.org/news/copy-text-to-clipboard-javascript/
+export function setClipboard(newText) {
+    navigator.clipboard.writeText(newText);
+}

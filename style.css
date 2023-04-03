@@ -116,3 +116,13 @@ textarea {
 .symbol-table-area {
     text-align: center;
 }
+
+.code-text {
+    text-align: justify !important;
+}
+
+.copy-btn {
+    font-size: 14px;
+    padding: 5px;
+    background-color: #30475E;
+}

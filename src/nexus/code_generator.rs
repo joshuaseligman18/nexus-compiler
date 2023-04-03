@@ -8,6 +8,16 @@ use petgraph::graph::{NodeIndex};
 use std::collections::HashMap;
 use std::fmt;
 use web_sys::{Document, Window, Element, DomTokenList};
+use wasm_bindgen::{prelude::Closure, JsCast};
+use wasm_bindgen::prelude::*;
+
+// Have to import the editor js module
+#[wasm_bindgen(module = "/editor.js")]
+extern "C" {
+    // Import the getCodeInput function from js so we can call it from the Rust code
+    #[wasm_bindgen(js_name = "setClipboard")]
+    fn set_clipboard(newText: &str);
+}
 
 enum CodeGenBytes {
     // Representation for final code/data in memory
@@ -97,7 +107,7 @@ impl CodeGenerator {
         };
 
         // Initialize the entire array to be unused spot in memory
-        for i in 0..0x100 {
+        for _ in 0..0x100 {
             code_gen.code_arr.push(CodeGenBytes::Empty);
         }
 
@@ -557,7 +567,7 @@ impl CodeGenerator {
         match value_node {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
-                    TokenType::Identifier(id_name) => {
+                    TokenType::Identifier(_) => {
                         let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
@@ -862,7 +872,7 @@ impl CodeGenerator {
                         if !self.add_code(0xA9) { return false; }
                         if !self.add_code(*num) { return false; }
                     },
-                    TokenType::Identifier(id_name) => {
+                    TokenType::Identifier(_) => {
                         // Get the address needed from memory for the identifier
                         let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
@@ -881,7 +891,7 @@ impl CodeGenerator {
                 // We are using a new temporary value for temps, so increment the index
             },
             // Nonterminals are always add, so just call it
-            SyntaxTreeNode::NonTerminalAst(non_terminal) => if !self.code_gen_add(ast, children[0], symbol_table, false) { return false; },
+            SyntaxTreeNode::NonTerminalAst(_) => if !self.code_gen_add(ast, children[0], symbol_table, false) { return false; },
             _ => error!("Received {:?} when expecting terminal or AST nonterminal for right addition value", right_child)
         }
 
@@ -935,7 +945,7 @@ impl CodeGenerator {
         match left_child {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
-                    TokenType::Identifier(id_name) => {
+                    TokenType::Identifier(_) => {
                         // Get the address needed from memory for the identifier
                         let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
@@ -1001,7 +1011,7 @@ impl CodeGenerator {
         match right_child {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
-                    TokenType::Identifier(id_name) => {
+                    TokenType::Identifier(_) => {
                         // Get the address needed from memory for the identifier
                         let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
@@ -1318,13 +1328,32 @@ impl CodeGenerator {
         display_area_div.set_id(format!("program{}-code-gen-pane", *program_number).as_str());
 
         // The div is a container for the content of the ast info
-        display_area_class_list.add_2("container", "code-gen-pane").expect("Should be able to add the classes");
+        display_area_class_list.add_3("container", "text-center", "code-gen-pane").expect("Should be able to add the classes");
 
         // Get the array of values but only keep the hex digits and spaces
         let mut code_str: String = format!("{:?}", self.code_arr);
         code_str.retain(|c| c != ',' && c != '[' && c != ']');
 
-        display_area_div.set_inner_html(&code_str);
+        // This is the element that the code is in
+        let code_elem: Element = document.create_element("p").expect("Should be able to create the element");
+        code_elem.set_class_name("code-text");
+        code_elem.set_inner_html(&code_str);
+
+        display_area_div.append_child(&code_elem).expect("Should be able to add the child node");
+
+        // This is the button to copy to the clipboard
+        let copy_btn: Element = document.create_element("button").expect("Should be able to create the element");
+        copy_btn.set_inner_html("Copy to Clipboard");
+        copy_btn.set_class_name("copy-btn");
+        display_area_div.append_child(&copy_btn).expect("Should be able to add the child node");
+
+        // Create a function that will be used as the event listener and add it to the copy button
+        let copy_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
+            // Call the JS function that handles the clipboard
+            set_clipboard(&code_str);
+        }) as Box<dyn FnMut()>);
+        copy_btn.add_event_listener_with_callback("click", copy_btn_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
+        copy_btn_fn.forget();
 
         // Add the div to the pane
         content_area.append_child(&display_area_div).expect("Should be able to add the child node");
