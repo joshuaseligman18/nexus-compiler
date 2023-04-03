@@ -329,7 +329,9 @@ impl CodeGenerator {
     }
 
     // Replaces temp addresses with the actual position in memory
-    fn backpatch_addresses(&mut self) -> bool { 
+    // Do not have to worry about memory availability because that was taken
+    // care of when the placeholders were created
+    fn backpatch_addresses(&mut self) { 
         for i in 0..self.code_arr.len() {
             match &self.code_arr[i] {
                 CodeGenBytes::Var(offset) => {
@@ -344,7 +346,6 @@ impl CodeGenerator {
                 _ => {} 
             }
         }
-        return true;
     }
 
     // Function for creating the code for a variable declaration
@@ -361,14 +362,24 @@ impl CodeGenerator {
                 let static_offset: usize = self.static_table.len();
                 self.static_table.insert((token.text.to_owned(), symbol_table.cur_scope.unwrap()), static_offset);
 
-                // Iniitialize the variable to 0
-                // Because of how temp data works, strings have to be initialized
-                // to prevent starting with a dirty byte
-                self.add_code(0xA9);
-                self.add_code(0x00);
-                self.add_code(0x8D);
-                self.add_var(static_offset);
-                self.add_code(0x00);
+                // Get the symbol table entry to get the type of the variable
+                let symbol_table_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap();
+                match symbol_table_entry.symbol_type {
+                    // Only integers and booleans are initialized
+                    Type::Int | Type::Boolean => {
+                        // Generate the code for the variable declaration
+                        self.add_code(0xA9);
+                        self.add_code(0x00);
+                        self.add_code(0x8D);
+                        self.add_var(static_offset);
+                        self.add_code(0x00);
+                    },
+                    // Strings do not get initialized
+                    Type::String => {
+                        // Nothing to do here, so may end up initially with dirty data
+                        // from temp values
+                    }
+                }
             },
             _ => error!("Received {:?} when expecting terminal for var decl child in code gen", id_node)
         }
