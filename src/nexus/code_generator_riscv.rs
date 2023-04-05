@@ -153,8 +153,8 @@ impl CodeGeneratorRiscV {
         self.string_history.clear();
 
         // Store the actual strings "true" and "false"
-        self.store_string("true");
         self.store_string("false");
+        self.store_string("true");
 
         // We are going to store the strings false and true to print them
         // out instead of 0 and 1
@@ -172,6 +172,7 @@ impl CodeGeneratorRiscV {
         // Add a function for printing an integer
         self.add_print_int_code();
         self.add_print_string_code();
+        self.add_print_boolean_code();
        
         debug!("{:?}", self.code_arr);
         debug!("{:?}", self.static_arr);
@@ -356,6 +357,34 @@ impl CodeGeneratorRiscV {
         // 2 bytes over is the start of the string
         self.code_arr.push(format!("addi  a1, t0, 2"));
         self.code_arr.push(format!("ecall"));
+
+        self.code_arr.push(format!("ret"));
+    }
+
+    fn add_print_boolean_code(&mut self) {
+        self.code_arr.push(format!("print_boolean:"));
+
+        // Assume a0 has the boolean value
+        self.code_arr.push(format!("beq  a0, zero, print_false"));
+
+        // If the var is true, load true
+        self.code_arr.push(format!("la  a0, string_1"));
+        self.code_arr.push(format!("j  print_bool_call"));
+
+        self.code_arr.push(format!("print_false:"));
+        // Otherwise load false
+        self.code_arr.push(format!("la  a0, string_0"));
+
+        self.code_arr.push(format!("print_bool_call:"));
+        
+        self.code_arr.push(format!("addi  sp, sp, -8"));
+        self.code_arr.push(format!("sw  ra, 0(sp)"));
+
+        // Print the string for the respective value of the variable
+        self.code_arr.push(format!("call print_string"));
+
+        self.code_arr.push(format!("lw  ra, 0(sp)"));
+        self.code_arr.push(format!("addi  sp, sp, 8"));
 
         self.code_arr.push(format!("ret"));
     }
@@ -735,7 +764,7 @@ impl CodeGeneratorRiscV {
                             },
                             Keywords::False => {
                                 // False is 0
-                                self.code_arr.push(format!("li  t0, 1")); 
+                                self.code_arr.push(format!("li  t0, 0")); 
                             },
                             _ => error!("Received {:?} when expecting true or false for keyword terminals in assignment", keyword)
                         }
@@ -804,56 +833,26 @@ impl CodeGeneratorRiscV {
         match child {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
-//                    TokenType::Identifier(id_name) => {
-//                        let print_id: &SymbolTableEntry = symbol_table.get_symbol(&id_name).unwrap();
-//                        let static_offset: usize = self.static_table.get(&(id_name.to_owned(), print_id.scope)).unwrap().to_owned();
-//                        match &print_id.symbol_type {
-//                            Type::Int  => {
-//                                // Load the integer value into the Y register
-//                                if !self.add_code(0xAC) { return false; }
-//                                if !self.add_var(static_offset) { return false; }
-//
-//                                // Set X to 1 for the system call
-//                                if !self.add_code(0xA2) { return false; }
-//                                if !self.add_code(0x01) { return false; }
-//                            },
-//                            Type::String => {
-//                                // Store the string address in Y
-//                                if !self.add_code(0xAC) { return false; }
-//                                if !self.add_var(static_offset) { return false; }
-//
-//                                // X = 2 for this sys call
-//                                if !self.add_code(0xA2) { return false; }
-//                                if !self.add_code(0x02) { return false; }
-//                            },
-//                            Type::Boolean => {
-//                                // Compare the value of the variable with true
-//                                if !self.add_code(0xA2) { return false; }
-//                                if !self.add_code(0x01) { return false; }
-//                                if !self.add_code(0xEC) { return false; }
-//                                if !self.add_var(static_offset) { return false; }
-//                                // Skip to the false string if it is false
-//                                if !self.add_code(0xD0) { return false; }
-//                                if !self.add_code(0x07) { return false; }
-//                                
-//                                // Load the true string and skip over the false string
-//                                if !self.add_code(0xA0) { return false; }
-//                                if !self.add_code(*self.string_history.get("true").unwrap()) { return false; }
-//                                if !self.add_code(0xEC) { return false; }
-//                                if !self.add_code(0xFF) { return false; }
-//                                if !self.add_code(0x00) { return false; }
-//                                if !self.add_code(0xD0) { return false; }
-//                                if !self.add_code(0x02) { return false; }
-//                                // Load the false string
-//                                if !self.add_code(0xA0) { return false; }
-//                                if !self.add_code(*self.string_history.get("false").unwrap()) { return false; }
-//
-//                                // We are printing a string, so X = 2
-//                                if !self.add_code(0xA2) { return false; }
-//                                if !self.add_code(0x02) { return false; }
-//                            }
-//                        }
-//                    },
+                    TokenType::Identifier(id_name) => {
+                        let print_id: &SymbolTableEntry = symbol_table.get_symbol(&id_name).unwrap();
+                        match &print_id.symbol_type {
+                            Type::Int => {
+                                self.code_arr.push(format!("la  t0, {}_{}", id_name, print_id.scope));
+                                self.code_arr.push(format!("lbu  a0, 0(t0)"));
+                                self.code_arr.push(format!("call print_int"));
+                            },
+                            Type::String => {
+                                // Store the string address in Y
+                                self.code_arr.push(format!("lwu  a0, {}_{}", id_name, print_id.scope));
+                                self.code_arr.push(format!("call print_string"));
+                            },
+                            Type::Boolean => {
+                                // Compare the value of the variable with false
+                                self.code_arr.push(format!("lbu  a0, {}_{}", id_name, print_id.scope));
+                                self.code_arr.push(format!("call print_boolean")); 
+                            }
+                        }
+                    },
                     TokenType::Digit(digit) => {
                         // Place the number in a0 and call the function that
                         // handles numbers
@@ -869,20 +868,18 @@ impl CodeGeneratorRiscV {
                         self.code_arr.push(format!("call print_string"));
                     },
                     TokenType::Keyword(keyword) => {
-                        let mut string_index: &usize = &0;
                         match keyword {
                             Keywords::True => {
                                 // Load the address for true
-                                string_index = self.string_history.get("true").unwrap();
+                                self.code_arr.push(format!("la  a0, string_1"));
                             },
                             Keywords::False => {
                                 // Load the address for false
-                                string_index = self.string_history.get("true").unwrap();
+                                self.code_arr.push(format!("la  a0, string_0"));
                             },
                             _ => error!("Received {:?} when expecting true or false for print keyword", keyword)
                         }
                         // Make the system call
-                        self.code_arr.push(format!("la  a0, string_{}", *string_index));
                         self.code_arr.push(format!("call print_string"));
                     },
                     _ => error!("Received {:?} when expecting id, digit, string, or keyword for print terminal", token)
