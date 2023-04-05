@@ -171,6 +171,7 @@ impl CodeGeneratorRiscV {
 
         // Add a function for printing an integer
         self.add_print_int_code();
+        self.add_print_string_code();
        
         debug!("{:?}", self.code_arr);
         debug!("{:?}", self.static_arr);
@@ -335,6 +336,27 @@ impl CodeGeneratorRiscV {
         self.code_arr.push(format!("blt  t1, t3, print_int_loop"));
 
         // Return from the function call
+        self.code_arr.push(format!("ret"));
+    }
+
+    fn add_print_string_code(&mut self) {
+        // Create the label for printing the string
+        self.code_arr.push(format!("print_string:"));
+
+        // Assume a0 has the address of the string to print
+        self.code_arr.push(format!("mv  t0, a0"));
+
+        // Basic setup for the sys call
+        self.code_arr.push(format!("li  a7, 64"));
+        self.code_arr.push(format!("li  a0, 1"));
+
+        // The halfword is the length of the string
+        self.code_arr.push(format!("lhu  a2, 0(t0)"));
+
+        // 2 bytes over is the start of the string
+        self.code_arr.push(format!("addi  a1, t0, 2"));
+        self.code_arr.push(format!("ecall"));
+
         self.code_arr.push(format!("ret"));
     }
 
@@ -511,6 +533,7 @@ impl CodeGeneratorRiscV {
         if addr.is_none() {
             // Place the string in the heap
             self.heap_arr.push(format!("string_{}:", self.string_history.len()));
+            // We will let strings be no longer than 2^16 - 1
             self.heap_arr.push(format!(".half {}", string.len()));
             self.heap_arr.push(format!(".ascii \"{}\"", string));
 //            self.heap_arr.push(format!("string_{}: .2byte {} .ascii \"{}\"", self.string_history.len(), string.len(), string));
@@ -837,37 +860,31 @@ impl CodeGeneratorRiscV {
                         self.code_arr.push(format!("li  a0, {}", digit));
                         self.code_arr.push(format!("call print_int"));
                     },
-//                    TokenType::Char(string) => {
-//                        // Store the string in memory and load its address to Y
-//                        let addr: Option<u8> = self.store_string(&string);
-//                        if addr.is_some() {
-//                            if !self.add_code(0xA0) { return false; }
-//                            if !self.add_code(addr.unwrap()) { return false; }
-//                        } else {
-//                            return false;
-//                        }
-//
-//                        // X = 2 for a string sys call
-//                        if !self.add_code(0xA2) { return false; }
-//                        if !self.add_code(0x02) { return false; }
-//                    },
-//                    TokenType::Keyword(keyword) => {
-//                        if !self.add_code(0xA0) { return false; }
-//                        match keyword {
-//                            Keywords::True => {
-//                                // Y = true addr for true
-//                                if !self.add_code(*self.string_history.get("true").unwrap()) { return false; }
-//                            },
-//                            Keywords::False => {
-//                                // Y = false addr for false
-//                                if !self.add_code(*self.string_history.get("false").unwrap()) { return false; }
-//                            },
-//                            _ => error!("Received {:?} when expecting true or false for print keyword", keyword)
-//                        }
-//                        // X = 2 for the sys call
-//                        if !self.add_code(0xA2) { return false; }
-//                        if !self.add_code(0x02) { return false; }
-//                    },
+                    TokenType::Char(string) => {
+                        // Store the string in memory and get its index
+                        let string_index: usize = self.store_string(&string);
+
+                        // Get the address of the string we want to print
+                        self.code_arr.push(format!("la  a0, string_{}", string_index));
+                        self.code_arr.push(format!("call print_string"));
+                    },
+                    TokenType::Keyword(keyword) => {
+                        let mut string_index: &usize = &0;
+                        match keyword {
+                            Keywords::True => {
+                                // Load the address for true
+                                string_index = self.string_history.get("true").unwrap();
+                            },
+                            Keywords::False => {
+                                // Load the address for false
+                                string_index = self.string_history.get("true").unwrap();
+                            },
+                            _ => error!("Received {:?} when expecting true or false for print keyword", keyword)
+                        }
+                        // Make the system call
+                        self.code_arr.push(format!("la  a0, string_{}", *string_index));
+                        self.code_arr.push(format!("call print_string"));
+                    },
                     _ => error!("Received {:?} when expecting id, digit, string, or keyword for print terminal", token)
                 }
             },
