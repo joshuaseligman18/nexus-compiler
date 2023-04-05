@@ -144,9 +144,17 @@ impl CodeGeneratorRiscV {
         self.static_arr.clear();
         self.temp_arr.clear();
         self.heap_arr.clear();
+
+        // Initialize the basic data for printing functionality
+        self.heap_arr.push(format!("new_line: .ascii \"\\n\""));
+        self.heap_arr.push(format!("print_int_char: .byte 0"));
         
         self.temp_index = 0;
         self.string_history.clear();
+
+        // Store the actual strings "true" and "false"
+        self.store_string("true");
+        self.store_string("false");
 
         // We are going to store the strings false and true to print them
         // out instead of 0 and 1
@@ -155,6 +163,15 @@ impl CodeGeneratorRiscV {
 
         // Generate the code for the program
         let program_res: bool = self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
+        
+        // Add the code to exit the program
+        self.code_arr.push(format!("li  a7, 93"));
+        self.code_arr.push(format!("li  a0, 0"));
+        self.code_arr.push(format!("ecall"));
+
+        // Add a function for printing an integer
+        self.add_print_int_code();
+       
         debug!("{:?}", self.code_arr);
         debug!("{:?}", self.static_arr);
         debug!("{:?}", self.temp_arr);
@@ -240,7 +257,7 @@ impl CodeGeneratorRiscV {
                         NonTerminalsAst::Block => self.code_gen_block(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::VarDecl => self.code_gen_var_decl(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Assign => self.code_gen_assignment(ast, neighbor_index, symbol_table),
-                        //NonTerminalsAst::Print => self.code_gen_print(ast, neighbor_index, symbol_table),
+                        NonTerminalsAst::Print => self.code_gen_print(ast, neighbor_index, symbol_table),
                         //NonTerminalsAst::If => self.code_gen_if(ast, neighbor_index, symbol_table),
                         //NonTerminalsAst::While => self.code_gen_while(ast, neighbor_index, symbol_table),
                         _ => { 
@@ -261,6 +278,66 @@ impl CodeGeneratorRiscV {
         return block_res;
     }
 
+    fn add_print_int_code(&mut self) {
+        // Function is called print_int
+        self.code_arr.push(format!("print_int:"));
+
+        // Get the byte stored in a0
+        // Assume a0 is the number that needs to be printed
+        self.code_arr.push(format!("mv t0, a0"));
+
+        // Sys call 64 is printing
+        self.code_arr.push(format!("li  a7, 64"));
+        // a0 = 1 is sysout
+        self.code_arr.push(format!("li  a0, 1"));
+        // a1 is the address of the string to print
+        self.code_arr.push(format!("la  a1, print_int_char"));
+        // a2 is the length of the string (1 digit at a time)
+        self.code_arr.push(format!("li  a2, 1"));
+
+        // t1 is the index of the string we are on
+        self.code_arr.push(format!("li  t1, 0"));
+
+        // t2 is what we are dividing by to get the digit
+        // Starts with 100 because a byte is no longer than 3 digits long in base 10
+        self.code_arr.push(format!("li  t2, 100"));
+
+        // No more than 3 iterations of the loop
+        self.code_arr.push(format!("li  t3, 3"));
+
+        // 10 has to be stored for later use
+        self.code_arr.push(format!("li  t4, 10"));
+
+        // Create the label for the loop
+        self.code_arr.push(format!("print_int_loop:"));
+        
+        // Get the top digit
+        self.code_arr.push(format!("divu  t5, t0, t2"));
+        // Add 0x30 to convert from digit to ascii (0 is 0x30 - 9 is 0x39)
+        self.code_arr.push(format!("addi  t5, t5, 0x30"));
+
+        // a1 already has the address of the byte we are storing
+        self.code_arr.push(format!("sb  t5, 0(a1)"));
+
+        // Make the sys call to print the digit
+        self.code_arr.push(format!("ecall"));
+
+        // Get the remainder
+        self.code_arr.push(format!("remu  t0, t0, t2"));
+
+        // Decrease the number we are dividing by
+        self.code_arr.push(format!("divu  t2, t2, t4"));
+
+        // Increment the counter
+        self.code_arr.push(format!("addi  t1, t1, 1"));
+
+        // Branch to top of loop if still more digits to print
+        self.code_arr.push(format!("blt  t1, t3, print_int_loop"));
+
+        // Return from the function call
+        self.code_arr.push(format!("ret"));
+    }
+
     fn create_output_string(&mut self) -> String {
         let mut output_builder: Builder = Builder::default();
         
@@ -272,11 +349,6 @@ impl CodeGeneratorRiscV {
             output_builder.append(code.as_str());
             output_builder.append("\n");
         }
-
-        // Add the code to exit the program
-        output_builder.append("li  a7, 93\n");
-        output_builder.append("li  a0, 0\n");
-        output_builder.append("ecall\n");
 
         output_builder.append(".section .data\n");
         for static_data in self.static_arr.iter() {
@@ -691,21 +763,21 @@ impl CodeGeneratorRiscV {
         return true;
     }
 
-//    // Function for generating code for a print statement
-//    fn code_gen_print(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::CodeGenerator,
-//            format!("Starting code generation for print statement in scope {}", symbol_table.cur_scope.unwrap())
-//        );
-//
-//        // Get the child on the print statement to evaluate
-//        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
-//        let child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
-//
-//        match child {
-//            SyntaxTreeNode::Terminal(token) => {
-//                match &token.token_type {
+    // Function for generating code for a print statement
+    fn code_gen_print(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for print statement in scope {}", symbol_table.cur_scope.unwrap())
+        );
+
+        // Get the child on the print statement to evaluate
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
+
+        match child {
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
 //                    TokenType::Identifier(id_name) => {
 //                        let print_id: &SymbolTableEntry = symbol_table.get_symbol(&id_name).unwrap();
 //                        let static_offset: usize = self.static_table.get(&(id_name.to_owned(), print_id.scope)).unwrap().to_owned();
@@ -756,15 +828,12 @@ impl CodeGeneratorRiscV {
 //                            }
 //                        }
 //                    },
-//                    TokenType::Digit(digit) => {
-//                        // Sys call 1 for integers needs the number in Y
-//                        if !self.add_code(0xA0) { return false; }
-//                        if !self.add_code(*digit as u8) { return false; }
-//
-//                        // And X = 1
-//                        if !self.add_code(0xA2) { return false; }
-//                        if !self.add_code(0x01) { return false; }
-//                    },
+                    TokenType::Digit(digit) => {
+                        // Place the number in a0 and call the function that
+                        // handles numbers
+                        self.code_arr.push(format!("li  a0, {}", digit));
+                        self.code_arr.push(format!("call print_int"));
+                    },
 //                    TokenType::Char(string) => {
 //                        // Store the string in memory and load its address to Y
 //                        let addr: Option<u8> = self.store_string(&string);
@@ -796,10 +865,10 @@ impl CodeGeneratorRiscV {
 //                        if !self.add_code(0xA2) { return false; }
 //                        if !self.add_code(0x02) { return false; }
 //                    },
-//                    _ => error!("Received {:?} when expecting id, digit, string, or keyword for print terminal", token)
-//                }
-//            },
-//            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+                    _ => error!("Received {:?} when expecting id, digit, string, or keyword for print terminal", token)
+                }
+            },
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
 //                match non_terminal {
 //                    NonTerminalsAst::Add => {
 //                        // Generate the result of the addition expression
@@ -875,15 +944,20 @@ impl CodeGeneratorRiscV {
 //                   },
 //                    _ => error!("Received {:?} when expecting addition or boolean expression for nonterminal print", non_terminal)
 //                }
-//            },
-//            _ => error!("Received {:?} when expecting terminal or AST nonterminal for print in code gen", child)
-//        }
-//
-//        // The x and y registers are all set up, so just add the sys call
-//        if !self.add_code(0xFF) { return false; }
-//        return true;
-//    }
-//
+            },
+            _ => error!("Received {:?} when expecting terminal or AST nonterminal for print in code gen", child)
+        }
+
+        // Add a new line for cleanliness
+        self.code_arr.push(format!("li  a7, 64"));
+        self.code_arr.push(format!("li  a0, 1"));
+        self.code_arr.push(format!("la  a1, new_line"));
+        self.code_arr.push(format!("li  a2, 1"));
+        self.code_arr.push(format!("ecall"));
+
+        return true;
+    }
+
 //    // Function to generate code for an addition statement
 //    // Result is left in the accumulator
 //    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_first: bool) -> bool {
