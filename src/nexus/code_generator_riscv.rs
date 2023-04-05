@@ -377,14 +377,14 @@ impl CodeGeneratorRiscV {
 
         self.code_arr.push(format!("print_bool_call:"));
         
-        self.code_arr.push(format!("addi  sp, sp, -8"));
+        self.code_arr.push(format!("addi  sp, sp, -4"));
         self.code_arr.push(format!("sw  ra, 0(sp)"));
 
         // Print the string for the respective value of the variable
         self.code_arr.push(format!("call print_string"));
 
         self.code_arr.push(format!("lw  ra, 0(sp)"));
-        self.code_arr.push(format!("addi  sp, sp, 8"));
+        self.code_arr.push(format!("addi  sp, sp, 4"));
 
         self.code_arr.push(format!("ret"));
     }
