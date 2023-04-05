@@ -886,31 +886,15 @@ impl CodeGeneratorRiscV {
                 }
             },
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-//                match non_terminal {
-//                    NonTerminalsAst::Add => {
-//                        // Generate the result of the addition expression
-//                        if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
-//
-//                        let temp_addr_option: Option<usize> = self.new_temp();
-//                        if temp_addr_option.is_none() {
-//                            return false;
-//                        }
-//                        let temp_addr: usize = temp_addr_option.unwrap();
-//
-//                        if !self.add_code(0x8D) { return false; }
-//                        if !self.add_temp(temp_addr) { return false; }
-//                        
-//                        // Load the result to Y (wish there was TAY)
-//                        if !self.add_code(0xAC) { return false; }
-//                        if !self.add_temp(temp_addr) { return false; }
-//                        
-//                        // We are done with the temp data
-//                        self.temp_index -= 1;
-//
-//                        // X = 1 for the sys call for integers
-//                        if !self.add_code(0xA2) { return false; }
-//                        if !self.add_code(0x01) { return false; }
-//                    },
+                match non_terminal {
+                    NonTerminalsAst::Add => {
+                        // Generate the result of the addition expression
+                        if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
+                        
+                        // Move the contents in t0 to a0
+                        self.code_arr.push(format!("mv  a0, t0"));
+                        self.code_arr.push(format!("call print_int")); 
+                    },
 //                    NonTerminalsAst::IsEq => {
 //                        // If it is true or false is in the Z flag
 //                        if !self.code_gen_compare(ast, children[0], symbol_table, true) { return false; }
@@ -959,8 +943,8 @@ impl CodeGeneratorRiscV {
 //                        if !self.add_code(0xA0) { return false; }
 //                        if !self.add_code(*self.string_history.get("false").unwrap()) { return false; }
 //                   },
-//                    _ => error!("Received {:?} when expecting addition or boolean expression for nonterminal print", non_terminal)
-//                }
+                    _ => error!("Received {:?} when expecting addition or boolean expression for nonterminal print", non_terminal)
+                }
             },
             _ => error!("Received {:?} when expecting terminal or AST nonterminal for print in code gen", child)
         }
