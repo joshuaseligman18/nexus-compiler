@@ -398,46 +398,29 @@ impl CodeGeneratorRiscV {
 //            return false;
 //        }
 //    }
-//
-//    fn store_string(&mut self, string: &str) -> Option<u8> {
-//        let addr: Option<&u8> = self.string_history.get(string);
-//        if addr.is_none() {
-//            // Assume the string gets stored
-//            let mut is_stored: bool = true;
-//
-//            // All strings are null terminated, so start with a 0x00 at the end
-//            self.add_data(0x00);
-//
-//            // Loop through the string in reverse order
-//            for c in string.chars().rev() {
-//                // Add the ascii code of each character
-//                if !self.add_data(c as u8) {
-//                    is_stored = false;
-//                    // Break if there was a heap overflow error
-//                    break;
-//                }
-//            }
-//           
-//            if is_stored {
-//                nexus_log::log(
-//                    nexus_log::LogTypes::Debug,
-//                    nexus_log::LogSources::CodeGenerator,
-//                    format!("Stored string \"{}\" at memory location 0x{:02X}", string, self.heap_pointer + 1)
-//                );
-//
-//                // Store it for future use
-//                self.string_history.insert(String::from(string), self.heap_pointer + 1);
-//                return Some(self.heap_pointer + 1);
-//            } else {
-//                // There is no address to return
-//                return None;
-//            }
-//        } else {
-//            // The string is already on the heap, so return its address
-//            return Some(*addr.unwrap());
-//        }
-//    }
-//
+
+    fn store_string(&mut self, string: &str) -> usize {
+        let addr: Option<&usize> = self.string_history.get(string);
+        if addr.is_none() {
+            // Place the string in the heap
+            self.heap_arr.push(format!("string_{}: .ascii \"{}\"", self.string_history.len(), string));
+            nexus_log::log(
+                nexus_log::LogTypes::Debug,
+                nexus_log::LogSources::CodeGenerator,
+                format!("Stored string \"{}\" at label string_{}", string, self.string_history.len())
+            );
+
+            // Store it for future use
+            self.string_history.insert(String::from(string), self.string_history.len());
+
+            // Since it has been stored, we need to return 1 minus the index
+            return self.string_history.len() - 1;
+        } else {
+            // The string is already on the heap, so return its address
+            return *addr.unwrap();
+        }
+    }
+
 //    fn add_jump(&mut self) -> bool {
 //        if self.has_available_memory() {
 //            nexus_log::log(
@@ -583,11 +566,22 @@ impl CodeGeneratorRiscV {
         match value_node {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
-                    TokenType::Identifier(_) => {
-                        //let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
+                    TokenType::Identifier(id_name) => {
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
                         
-                        //if !self.add_code(0xAD) { return false; }
-                        //if !self.add_var(value_static_offset) { return false; }
+                        // Load the address of the value variable then load the data
+                        self.code_arr.push(format!("la  t2, {}_{}", id_name, value_id_entry.scope));
+
+                        match value_id_entry.symbol_type {
+                            Type::Int | Type::Boolean => {
+                                // Load only a byte for integers and booleans
+                                self.code_arr.push(format!("lbu t0, 0(t2)"));
+                            },
+                            Type::String => {
+                                // Strings are an entire word
+                                self.code_arr.push(format!("lwu t0, 0(t2)"));
+                            }
+                        }
                     },
                     TokenType::Digit(val) => {
                         // Digits just load a constant to the accumulator
@@ -595,15 +589,10 @@ impl CodeGeneratorRiscV {
                     },
                     TokenType::Char(string) => {
                         // Start by storing the string
-                        //let addr: Option<u8> = self.store_string(&string);
+                        let string_index: usize = self.store_string(&string);
 
                         // Store the starting address of the string in memory
-                        //if addr.is_some() {
-                        //    if !self.add_code (0xA9) { return false; }
-                        //    if !self.add_code(addr.unwrap()) { return false; }
-                        //} else {
-                        //    return false;
-                        //}
+                        self.code_arr.push(format!("la  t0, string_{}", string_index));
                     },
                     TokenType::Keyword(keyword) => {
                         match &keyword {
