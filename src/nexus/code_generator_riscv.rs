@@ -11,6 +11,8 @@ use web_sys::{Document, Window, Element, DomTokenList};
 use wasm_bindgen::{prelude::Closure, JsCast};
 use wasm_bindgen::prelude::*;
 
+use string_builder::Builder;
+
 // Have to import the editor js module
 #[wasm_bindgen(module = "/editor.js")]
 extern "C" {
@@ -158,6 +160,8 @@ impl CodeGeneratorRiscV {
         debug!("{:?}", self.temp_arr);
         debug!("{:?}", self.heap_arr);
 
+        info!("{}", self.create_output_string());
+
 //        if program_res {
 //            // All programs end with 0x00, which is HALT
 //            let final_res: bool = self.add_code(0x00);
@@ -255,6 +259,37 @@ impl CodeGeneratorRiscV {
         // Exit the current scope
         symbol_table.end_cur_scope();
         return block_res;
+    }
+
+    fn create_output_string(&mut self) -> String {
+        let mut output_builder: Builder = Builder::default();
+        
+        output_builder.append(".section .text\n");
+        output_builder.append(".global _start\n");
+        output_builder.append("_start:\n");
+        output_builder.append("nop\n");
+        for code in self.code_arr.iter() {
+            output_builder.append(code.as_str());
+            output_builder.append("\n");
+        }
+
+        // Add the code to exit the program
+        output_builder.append("li  a7, 93\n");
+        output_builder.append("li  a0, 0\n");
+        output_builder.append("ecall\n");
+
+        output_builder.append(".section .data\n");
+        for static_data in self.static_arr.iter() {
+            output_builder.append(static_data.as_str());
+            output_builder.append("\n");
+        }
+
+        for heap_data in self.heap_arr.iter() {
+            output_builder.append(heap_data.as_str());
+            output_builder.append("\n");
+        }
+
+        return output_builder.string().unwrap();
     }
 
 //    fn has_available_memory(&mut self) -> bool {
