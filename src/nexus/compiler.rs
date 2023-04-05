@@ -3,13 +3,15 @@ use log::*;
 use crate::util::nexus_log;
 use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, semantic_analyzer::SemanticAnalyzer, syntax_tree::SyntaxTree};
 use crate::nexus::code_generator::CodeGenerator;
+use crate::nexus::code_generator_riscv::CodeGeneratorRiscV;
 
 // Function to compile multiple programs
 pub fn compile(source_code: &str) {
     let mut lexer: Lexer = Lexer::new(source_code);
     let mut parser: Parser = Parser::new();
-    let mut semantic_analyzer = SemanticAnalyzer::new();
-    let mut code_generator = CodeGenerator::new();
+    let mut semantic_analyzer: SemanticAnalyzer = SemanticAnalyzer::new();
+    let mut code_generator: CodeGenerator = CodeGenerator::new();
+    let mut code_generator_riscv: CodeGeneratorRiscV = CodeGeneratorRiscV::new();
 
     // Clean up the output area
     SyntaxTree::clear_display();
@@ -221,6 +223,6 @@ pub fn compile(source_code: &str) {
             format!("Generating code for program {}", program_number)
         );
         
-        code_generator.generate_code(&ast, &mut semantic_analyzer.symbol_table, &program_number);
+        code_generator_riscv.generate_code(&ast, &mut semantic_analyzer.symbol_table, &program_number);
     }
 }
