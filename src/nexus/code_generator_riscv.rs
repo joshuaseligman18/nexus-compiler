@@ -773,11 +773,11 @@ impl CodeGeneratorRiscV {
                 }
             },
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-//                match non_terminal {
-//                    NonTerminalsAst::Add => {
-//                        // Call add, so the result will be in both the accumulator and in memory
-//                        if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
-//                    },
+                match non_terminal {
+                    NonTerminalsAst::Add => {
+                        // Call add, so the result will be in both the accumulator and in memory
+                        if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
+                    },
 //                    NonTerminalsAst::IsEq => {
 //                        if !self.code_gen_compare(ast, children[0], symbol_table, true) { return false; }
 //                        if !self.get_z_flag_value() { return false; }
@@ -786,8 +786,8 @@ impl CodeGeneratorRiscV {
 //                        if !self.code_gen_compare(ast, children[0], symbol_table, false) { return false; }
 //                        if !self.get_z_flag_value() { return false; }
 //                    },
-//                    _ => error!("Received {:?} for nonterminal on right side of assignment for code gen", non_terminal)
-//                }
+                    _ => error!("Received {:?} for nonterminal on right side of assignment for code gen", non_terminal)
+                }
             },
             _ => error!("Received {:?} when expecting terminal or AST nonterminal for assignment in code gen", value_node)
         }
@@ -975,94 +975,63 @@ impl CodeGeneratorRiscV {
         return true;
     }
 
-//    // Function to generate code for an addition statement
-//    // Result is left in the accumulator
-//    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_first: bool) -> bool {
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::CodeGenerator,
-//            format!("Starting code generation for addition expression in scope {}", symbol_table.cur_scope.unwrap())
-//        );
-//
-//        // Get the child for addition
-//        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
-//        let right_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
-//        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
-//
-//        // Make some space for the temporary data only if first addition
-//        // Otherwise, use the current max temp index, which is the working temp location
-//        let mut temp_addr: usize = self.temp_index - 1;
-//        if is_first {
-//            let temp_addr_option: Option<usize> = self.new_temp();
-//            if temp_addr_option.is_none() {
-//                return false;
-//            }
-//            temp_addr = temp_addr_option.unwrap();
-//        }
-//
-//        match right_child {
-//            SyntaxTreeNode::Terminal(token) => {
-//                match &token.token_type {
-//                    TokenType::Digit(num) => {
-//                        // Store right side digit in the accumulator
-//                        if !self.add_code(0xA9) { return false; }
-//                        if !self.add_code(*num) { return false; }
-//                    },
-//                    TokenType::Identifier(_) => {
-//                        // Get the address needed from memory for the identifier
-//                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
-//                        let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
-//                        
-//                        // Load the value into the accumulator
-//                        if !self.add_code(0xAD) { return false; }
-//                        if !self.add_var(value_static_offset) { return false; }
-//                    },
-//                    _ => error!("Received {:?} when expecting digit or id for right side of addition", token)
-//                }
-//
-//                // Both digits and ids are in the accumulator, so move them to
-//                // the res address for usage in the math operation
-//                if !self.add_code(0x8D) { return false; }
-//                if !self.add_temp(temp_addr) { return false; }
-//                // We are using a new temporary value for temps, so increment the index
-//            },
-//            // Nonterminals are always add, so just call it
-//            SyntaxTreeNode::NonTerminalAst(_) => if !self.code_gen_add(ast, children[0], symbol_table, false) { return false; },
-//            _ => error!("Received {:?} when expecting terminal or AST nonterminal for right addition value", right_child)
-//        }
-//
-//        match left_child {
-//            SyntaxTreeNode::Terminal(token) => {
-//                match &token.token_type {
-//                    TokenType::Digit(num) => {
-//                        // Put left digit in acc
-//                        if !self.add_code(0xA9) { return false; }
-//                        if !self.add_code(*num) { return false; }
-//
-//                        // Perform the addition
-//                        if !self.add_code(0x6D) { return false; }
-//                        if !self.add_temp(temp_addr) { return false; }
-//
-//                        // Only store the result back in memory if we have more addition to do
-//                        if !is_first {
-//                            // Store it back in the resulting address
-//                            if !self.add_code(0x8D) { return false; }
-//                            if !self.add_temp(temp_addr) { return false; }
-//                        } else {
-//                            // We are done with the memory location, so can move
-//                            // the pointer back over 1
-//                            self.temp_index -= 1;
-//                        }
-//                    },
-//                    _ => error!("Received {:?} when expecting a digit for left side of addition for code gen", token)
-//                }
-//            },
-//            _ => error!("Received {:?} when expecting a terminal for the left side of addition for code gen", left_child)
-//        }
-//
-//        return true;
-//    }
-//
+    // Function to generate code for an addition statement
+    // Result is left in t0
+    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_first: bool) -> bool {
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for addition expression in scope {}", symbol_table.cur_scope.unwrap())
+        );
+
+        // Get the child for addition
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let right_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
+        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
+
+        match right_child {
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Digit(num) => {
+                        // Store right side digit in t0
+                        self.code_arr.push(format!("li  t1, {}", num));
+                    },
+                    TokenType::Identifier(id_name) => {
+                        // Get the address needed from memory for the identifier
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
+                        
+                        // Load the variable's value into t0
+                        self.code_arr.push(format!("la  t2, {}_{}", id_name, value_id_entry.scope));
+                        self.code_arr.push(format!("lbu  t1, 0(t2)"));
+                    },
+                    _ => error!("Received {:?} when expecting digit or id for right side of addition", token)
+                }
+            },
+            // Nonterminals are always add, so just call it
+            SyntaxTreeNode::NonTerminalAst(_) => if !self.code_gen_add(ast, children[0], symbol_table, false) { return false; },
+            _ => error!("Received {:?} when expecting terminal or AST nonterminal for right addition value", right_child)
+        }
+
+        match left_child {
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Digit(num) => {
+                        self.code_arr.push(format!("li  t0, {}", num));
+                        if is_first {
+                            self.code_arr.push(format!("add  t0, t0, t1"));
+                        } else {
+                            self.code_arr.push(format!("add  t1, t0, t1"));
+                        }
+                    },
+                    _ => error!("Received {:?} when expecting a digit for left side of addition for code gen", token)
+                }
+            },
+            _ => error!("Received {:?} when expecting a terminal for the left side of addition for code gen", left_child)
+        }
+
+        return true;
+    }
+
 //    // Function to generate code for comparisons
 //    // Result is left in the Z flag and get_z_flag_vale function can be used
 //    // afterwards to place z flag value into the accumulator
