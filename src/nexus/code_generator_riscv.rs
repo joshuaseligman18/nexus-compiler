@@ -350,7 +350,7 @@ impl CodeGeneratorRiscV {
             output_builder.append("\n");
         }
 
-        output_builder.append(".section .data\n");
+        //output_builder.append(".section .data\n");
         for static_data in self.static_arr.iter() {
             output_builder.append(static_data.as_str());
             output_builder.append("\n");
@@ -510,7 +510,10 @@ impl CodeGeneratorRiscV {
         let addr: Option<&usize> = self.string_history.get(string);
         if addr.is_none() {
             // Place the string in the heap
-            self.heap_arr.push(format!("string_{}: .ascii \"{}\"", self.string_history.len(), string));
+            self.heap_arr.push(format!("string_{}:", self.string_history.len()));
+            self.heap_arr.push(format!(".half {}", string.len()));
+            self.heap_arr.push(format!(".ascii \"{}\"", string));
+//            self.heap_arr.push(format!("string_{}: .2byte {} .ascii \"{}\"", self.string_history.len(), string.len(), string));
             nexus_log::log(
                 nexus_log::LogTypes::Debug,
                 nexus_log::LogSources::CodeGenerator,
