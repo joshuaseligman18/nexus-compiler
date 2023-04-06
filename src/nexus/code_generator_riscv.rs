@@ -173,6 +173,7 @@ impl CodeGeneratorRiscV {
         self.add_print_int_code();
         self.add_print_string_code();
         self.add_print_boolean_code();
+        self.add_print_new_line_code();
        
         debug!("{:?}", self.code_arr);
         debug!("{:?}", self.static_arr);
@@ -385,6 +386,20 @@ impl CodeGeneratorRiscV {
 
         self.code_arr.push(format!("lw  ra, 0(sp)"));
         self.code_arr.push(format!("addi  sp, sp, 4"));
+
+        self.code_arr.push(format!("ret"));
+    }
+
+    fn add_print_new_line_code(&mut self) {
+        // Create the label for a new line subroutine
+        self.code_arr.push(format!("print_new_line:"));
+
+        // Print out the new line character
+        self.code_arr.push(format!("li  a7, 64"));
+        self.code_arr.push(format!("li  a0, 1"));
+        self.code_arr.push(format!("la  a1, new_line"));
+        self.code_arr.push(format!("li  a2, 1"));
+        self.code_arr.push(format!("ecall"));
 
         self.code_arr.push(format!("ret"));
     }
@@ -950,11 +965,7 @@ impl CodeGeneratorRiscV {
         }
 
         // Add a new line for cleanliness
-        self.code_arr.push(format!("li  a7, 64"));
-        self.code_arr.push(format!("li  a0, 1"));
-        self.code_arr.push(format!("la  a1, new_line"));
-        self.code_arr.push(format!("li  a2, 1"));
-        self.code_arr.push(format!("ecall"));
+        self.code_arr.push(format!("call print_new_line"));
 
         return true;
     }
@@ -1000,10 +1011,15 @@ impl CodeGeneratorRiscV {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
                     TokenType::Digit(num) => {
+                        // Load the number to t0
                         self.code_arr.push(format!("li  t0, {}", num));
                         if is_first {
+                            // If we are in the outermost add, then store the
+                            // result in t0
                             self.code_arr.push(format!("add  t0, t0, t1"));
                         } else {
+                            // Otherwise store it in t1 because there are still
+                            // more elements to add that will be loaded into t0
                             self.code_arr.push(format!("add  t1, t0, t1"));
                         }
                     },
