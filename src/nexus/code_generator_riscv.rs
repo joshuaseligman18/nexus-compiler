@@ -174,6 +174,8 @@ impl CodeGeneratorRiscV {
         self.add_print_string_code();
         self.add_print_boolean_code();
         self.add_print_new_line_code();
+        self.add_compare_eq_code();
+        self.add_compare_neq_code();
        
         debug!("{:?}", self.code_arr);
         debug!("{:?}", self.static_arr);
@@ -401,6 +403,46 @@ impl CodeGeneratorRiscV {
         self.code_arr.push(format!("li  a2, 1"));
         self.code_arr.push(format!("ecall"));
 
+        self.code_arr.push(format!("ret"));
+    }
+
+    fn add_compare_eq_code(&mut self) {
+        // Create the label for comparing equality between 2 values
+        self.code_arr.push(format!("compare_eq:"));
+
+        // Assume both values are in a0 and a1
+        self.code_arr.push(format!("beq  a0, a1, compare_eq_true"));
+
+        // Result stored in a0
+        self.code_arr.push(format!("li  a0, 0"));
+        self.code_arr.push(format!("j  compare_eq_ret"));
+
+        // Create the label for storing the true value
+        self.code_arr.push(format!("compare_eq_true:"));
+        self.code_arr.push(format!("li  a0, 1"));
+
+        // Return form the subroutine
+        self.code_arr.push(format!("compare_eq_ret:"));
+        self.code_arr.push(format!("ret"));
+    }
+
+    fn add_compare_neq_code(&mut self) {
+        // Create the label for comparing equality between 2 values
+        self.code_arr.push(format!("compare_neq:"));
+
+        // Assume both values are in a0 and a1
+        self.code_arr.push(format!("bne  a0, a1, compare_neq_true"));
+
+        // Result stored in a0
+        self.code_arr.push(format!("li  a0, 0"));
+        self.code_arr.push(format!("j  compare_neq_ret"));
+
+        // Create the label for storing the true value
+        self.code_arr.push(format!("compare_neq_true:"));
+        self.code_arr.push(format!("li  a0, 1"));
+
+        // Return form the subroutine
+        self.code_arr.push(format!("compare_neq_ret:"));
         self.code_arr.push(format!("ret"));
     }
 
@@ -793,14 +835,14 @@ impl CodeGeneratorRiscV {
                         // Call add, so the result will be in both the accumulator and in memory
                         if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
                     },
-//                    NonTerminalsAst::IsEq => {
-//                        if !self.code_gen_compare(ast, children[0], symbol_table, true) { return false; }
-//                        if !self.get_z_flag_value() { return false; }
-//                    },
-//                    NonTerminalsAst::NotEq => {
-//                        if !self.code_gen_compare(ast, children[0], symbol_table, false) { return false; }
-//                        if !self.get_z_flag_value() { return false; }
-//                    },
+                    NonTerminalsAst::IsEq => {
+                        if !self.code_gen_compare(ast, children[0], symbol_table, true) { return false; }
+                        self.code_arr.push(format!("mv  t0, a0"));
+                    },
+                    NonTerminalsAst::NotEq => {
+                        if !self.code_gen_compare(ast, children[0], symbol_table, false) { return false; }
+                        self.code_arr.push(format!("mv  t0, a0"));
+                    },
                     _ => error!("Received {:?} for nonterminal on right side of assignment for code gen", non_terminal)
                 }
             },
@@ -864,7 +906,7 @@ impl CodeGeneratorRiscV {
                             Type::Boolean => {
                                 // Compare the value of the variable with false
                                 self.code_arr.push(format!("lbu  a0, {}_{}", id_name, print_id.scope));
-                                self.code_arr.push(format!("call print_boolean")); 
+                                self.code_arr.push(format!("call print_boolean"));
                             }
                         }
                     },
@@ -910,54 +952,15 @@ impl CodeGeneratorRiscV {
                         self.code_arr.push(format!("mv  a0, t0"));
                         self.code_arr.push(format!("call print_int")); 
                     },
-//                    NonTerminalsAst::IsEq => {
-//                        // If it is true or false is in the Z flag
-//                        if !self.code_gen_compare(ast, children[0], symbol_table, true) { return false; }
-//
-//                        // We are printing a string, so X = 2
-//                        if !self.add_code(0xA2) { return false; }
-//                        if !self.add_code(0x02) { return false; }
-//
-//                        // Skip to the false string if it is false
-//                        if !self.add_code(0xD0) { return false; }
-//                        if !self.add_code(0x07) { return false; }
-//                        
-//                        // Load the true string and skip over the false string
-//                        if !self.add_code(0xA0) { return false; }
-//                        if !self.add_code(*self.string_history.get("true").unwrap()) { return false; }
-//                        if !self.add_code(0xEC) { return false; }
-//                        if !self.add_code(0xFF) { return false; }
-//                        if !self.add_code(0x00) { return false; }
-//                        if !self.add_code(0xD0) { return false; }
-//                        if !self.add_code(0x02) { return false; }
-//
-//                        // Load the false string
-//                        if !self.add_code(0xA0) { return false; }
-//                        if !self.add_code(*self.string_history.get("false").unwrap()) { return false; }
-//                    },
-//                    NonTerminalsAst::NotEq => {
-//                        if !self.code_gen_compare(ast, children[0], symbol_table, false) { return false; }
-//                         // We are printing a string, so X = 2
-//                        if !self.add_code(0xA2) { return false; }
-//                        if !self.add_code(0x02) { return false; }
-//
-//                        // Skip to the false string if it is false
-//                        if !self.add_code(0xD0) { return false; }
-//                        if !self.add_code(0x07) { return false; }
-//                        
-//                        // Load the true string and skip over the false string
-//                        if !self.add_code(0xA0) { return false; }
-//                        if !self.add_code(*self.string_history.get("true").unwrap()) { return false; }
-//                        if !self.add_code(0xEC) { return false; }
-//                        if !self.add_code(0xFF) { return false; }
-//                        if !self.add_code(0x00) { return false; }
-//                        if !self.add_code(0xD0) { return false; }
-//                        if !self.add_code(0x02) { return false; }
-//
-//                        // Load the false string
-//                        if !self.add_code(0xA0) { return false; }
-//                        if !self.add_code(*self.string_history.get("false").unwrap()) { return false; }
-//                   },
+                    NonTerminalsAst::IsEq => {
+                        // The result of the equality comparison is in a0
+                        self.code_gen_compare(ast, children[0], symbol_table, true);
+                        self.code_arr.push(format!("call print_boolean"));
+                    },
+                    NonTerminalsAst::NotEq => {
+                        self.code_gen_compare(ast, children[0], symbol_table, false);
+                        self.code_arr.push(format!("call print_boolean"));
+                    },
                     _ => error!("Received {:?} when expecting addition or boolean expression for nonterminal print", non_terminal)
                 }
             },
@@ -1032,184 +1035,159 @@ impl CodeGeneratorRiscV {
         return true;
     }
 
-//    // Function to generate code for comparisons
-//    // Result is left in the Z flag and get_z_flag_vale function can be used
-//    // afterwards to place z flag value into the accumulator
-//    fn code_gen_compare(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_eq: bool) -> bool {
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::CodeGenerator,
-//            format!("Starting code generation for comparison expression (is_eq = {}) in scope {}", is_eq, symbol_table.cur_scope.unwrap())
-//        );
-//
-//        // Get the child for comparison
-//        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
-//        let right_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
-//        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
-//
-//        match left_child {
-//            SyntaxTreeNode::Terminal(token) => {
-//                match &token.token_type {
-//                    TokenType::Identifier(_) => {
-//                        // Get the address needed from memory for the identifier
-//                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
-//                        let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
-//                        
-//                        // Load the value into the accumulator
-//                        if !self.add_code(0xAD) { return false; }
-//                        if !self.add_var(value_static_offset) { return false; }
-//                    },
-//                    TokenType::Digit(num) => {
-//                        // Store the digit in memory
-//                        if !self.add_code(0xA9) { return false; }
-//                        if !self.add_code(*num) { return false; }
-//                    },
-//                    TokenType::Char(string) => {
-//                        let string_addr: Option<u8> = self.store_string(string);
-//                        if string_addr.is_some() {
-//                            if !self.add_code(0xA9) { return false; }
-//                            if !self.add_code(string_addr.unwrap()) { return false; }
-//                        } else {
-//                            return false;
-//                        }
-//                    },
-//                    TokenType::Keyword(keyword) => {
-//                        if !self.add_code(0xA9) { return false; }
-//                        match &keyword {
-//                            Keywords::True => if !self.add_code(0x01) { return false; },
-//                            Keywords::False => if !self.add_code(0x00) { return false; },
-//                            _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
-//                        }
-//                    },
-//                    _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
-//                }
-//            },
-//            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-//                match &non_terminal {
-//                    NonTerminalsAst::Add => {
-//                        if !self.code_gen_add(ast, children[1], symbol_table, true) { return false; }
-//                    },
-//                    NonTerminalsAst::IsEq => {
-//                        if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; }
-//                        if !self.get_z_flag_value() { return false; }
-//                    },
-//                    NonTerminalsAst::NotEq => {
-//                        if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; }
-//                        if !self.get_z_flag_value() { return false; }
-//                    },
-//                    _ => error!("Received {:?} for left side of nonterminal boolean expression, when expected Add, IsEq, or NotEq", non_terminal)
-//                }
-//            },
-//            _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
-//        }
-//
-//        // The left hand side is already in the ACC, so can store in temp memory
-//        let left_temp_option: Option<usize> = self.new_temp();
-//        if left_temp_option.is_none() {
-//            return false;
-//        }
-//        let left_temp: usize = left_temp_option.unwrap();
-//
-//        if !self.add_code(0x8D) { return false; }
-//        if !self.add_temp(left_temp) { return false; }
-//
-//        match right_child {
-//            SyntaxTreeNode::Terminal(token) => {
-//                match &token.token_type {
-//                    TokenType::Identifier(_) => {
-//                        // Get the address needed from memory for the identifier
-//                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
-//                        let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
-//                        
-//                        // Load the value into the X register
-//                        if !self.add_code(0xAE) { return false; }
-//                        if !self.add_var(value_static_offset) { return false; }
-//                    },
-//                    TokenType::Digit(num) => {
-//                        // Store the digit in X
-//                        if !self.add_code(0xA2) { return false; }
-//                        if !self.add_code(*num) { return false; }
-//                    },
-//                    TokenType::Char(string) => {
-//                        let string_addr: Option<u8> = self.store_string(string);
-//                        if string_addr.is_some() {
-//                            if !self.add_code(0xA2) { return false; }
-//                            if !self.add_code(string_addr.unwrap()) { return false; }
-//                        } else {
-//                            return false;
-//                        }
-//                    },
-//                    TokenType::Keyword(keyword) => {
-//                        if !self.add_code(0xA2) { return false; }
-//                        match &keyword {
-//                            Keywords::True => if !self.add_code(0x01) { return false; },
-//                            Keywords::False => if !self.add_code(0x00) { return false; },
-//                            _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
-//                        }
-//                    },
-//                    _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
-//                }
-//            },
-//            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-//                match &non_terminal {
-//                    NonTerminalsAst::Add => {
-//                        if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
-//                    },
-//                    NonTerminalsAst::IsEq => {
-//                        if !self.code_gen_compare(ast, children[0], symbol_table, true) { return false; }
-//                        if !self.get_z_flag_value() { return false; }
-//                    },
-//                    NonTerminalsAst::NotEq => {
-//                        if !self.code_gen_compare(ast, children[0], symbol_table, false) { return false; }
-//                        if !self.get_z_flag_value() { return false; }
-//                    },
-//                    _ => error!("Received {:?} for right side of nonterminal boolean expression, when expected Add, IsEq, or NotEq", non_terminal)
-//                }
-//
-//                // The nonterminal result is in the ACC, so have to move to X
-//                let temp_addr_option: Option<usize> = self.new_temp();
-//                if temp_addr_option.is_none() {
-//                    return false;
-//                }
-//                let temp_addr: usize = temp_addr_option.unwrap();
-//
-//                if !self.add_code(0x8D) { return false; }
-//                if !self.add_temp(temp_addr) { return false; }
-//
-//                if !self.add_code(0xAE) { return false; }
-//                if !self.add_temp(temp_addr) { return false; }
-//                self.temp_index -= 1;
-//            },
-//            _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
-//        }
-//
-//        if !self.add_code(0xEC) { return false; }
-//        if !self.add_temp(left_temp) { return false; }
-//
-//        // We are done with this data
-//        self.temp_index -= 1;
-//
-//        // Add code if the operation is for not equals
-//        // This effectively flips the Z flag
-//        if !is_eq {
-//            // Start assuming that they were not equal
-//            if !self.add_code(0xA2) { return false; }
-//            if !self.add_code(0x00) { return false; }
-//            // Take the branch if not equal
-//            if !self.add_code(0xD0) { return false; }
-//            if !self.add_code(0x02) { return false; }
-//            // If equal, set x to 1
-//            if !self.add_code(0xA2) { return false; }
-//            if !self.add_code(0x01) { return false; }
-//            // Compare with 0 to flip the Z flag
-//            if !self.add_code(0xEC) { return false; }
-//            if !self.add_code(0xFF) { return false; }
-//            if !self.add_code(0x00) { return false; }
-//        }
-//
-//        return true;
-//    }
-//
+    // Function to generate code for comparisons
+    // Result is left in the Z flag and get_z_flag_vale function can be used
+    // afterwards to place z flag value into the accumulator
+    fn code_gen_compare(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_eq: bool) -> bool {
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for comparison expression (is_eq = {}) in scope {}", is_eq, symbol_table.cur_scope.unwrap())
+        );
+
+        // Get the child for comparison
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let right_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[0]).unwrap();
+        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
+
+        match left_child {
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Identifier(id_name) => {
+                        // Get the address needed from memory for the identifier
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
+                        
+                        // Get the address of the variable
+                        self.code_arr.push(format!("la  t0, {}_{}", id_name, value_id_entry.scope));
+
+                        // Now store the value of the variable in a0
+                        match value_id_entry.symbol_type {
+                            Type::Int | Type::Boolean => {
+                                self.code_arr.push(format!("lbu  a0, 0(t0)"));
+                            },
+                            Type::String => {
+                                self.code_arr.push(format!("lwu  a0, 0(t0)"));
+                            }
+                        }
+                    },
+                    TokenType::Digit(num) => {
+                        // Store the digit in a0
+                        self.code_arr.push(format!("li  a0, {}", num));
+                    },
+                    TokenType::Char(string) => {
+                        // Store the address of the string in a0
+                        let string_index: usize = self.store_string(string);
+                        self.code_arr.push(format!("la  a0, string_{}", string_index));
+                    },
+                    TokenType::Keyword(keyword) => {
+                        match &keyword {
+                            Keywords::True => self.code_arr.push(format!("li  a0, 1")),
+                            Keywords::False => self.code_arr.push(format!("li  a0, 0")),
+                            _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
+                        }
+                    },
+                    _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
+                }
+            },
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+                match &non_terminal {
+                    NonTerminalsAst::Add => {
+                        // Run the addition and move the result from t0 to a0
+                        self.code_gen_add(ast, children[1], symbol_table, true);
+                        self.code_arr.push(format!("mv  a0, t0"));
+                    },
+                    NonTerminalsAst::IsEq => {
+                        if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; }
+                    },
+                    NonTerminalsAst::NotEq => {
+                        if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; }
+                    },
+                    _ => error!("Received {:?} for left side of nonterminal boolean expression, when expected Add, IsEq, or NotEq", non_terminal)
+                }
+            },
+            _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
+        }
+
+        match right_child {
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Identifier(id_name) => {
+                        // Get the address needed from memory for the identifier
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol(&token.text).unwrap(); 
+
+                        // Get the address of the variable
+                        self.code_arr.push(format!("la  t0, {}_{}", id_name, value_id_entry.scope));
+
+                        // Now store the value of the variable in a1
+                        match value_id_entry.symbol_type {
+                            Type::Int | Type::Boolean => {
+                                self.code_arr.push(format!("lbu  a1, 0(t0)"));
+                            },
+                            Type::String => {
+                                self.code_arr.push(format!("lwu  a1, 0(t0)"));
+                            }
+                        }
+                    },
+                    TokenType::Digit(num) => {
+                        // Store the digit in a1
+                        self.code_arr.push(format!("li  a1, {}", num));
+                    },
+                    TokenType::Char(string) => {
+                        // Store the address of the string in a1
+                        let string_index: usize = self.store_string(string);
+                        self.code_arr.push(format!("la  a1, string_{}", string_index));
+                    },
+                    TokenType::Keyword(keyword) => {
+                        match &keyword {
+                            Keywords::True => self.code_arr.push(format!("li  a1, 1")),
+                            Keywords::False => self.code_arr.push(format!("li  a1, 0")),
+                            _ => error!("Received {:?} when expecting true or false for keywords in boolean expression", keyword)
+                        }
+                    },
+                    _ => error!("Received {:?} when expecting an Id, digit, char, or keyword for left side of boolean expression", token)
+                }
+            },
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+                // We have a nonterminal, so store the left side on the stack so there is no
+                // conflict with the right side evaluation
+                self.code_arr.push(format!("addi  sp, sp, -1"));
+                self.code_arr.push(format!("sb  a0, 0(sp)"));
+
+                match &non_terminal {
+                    NonTerminalsAst::Add => {
+                        // Do the add and move the result from t0 to a1
+                        self.code_gen_add(ast, children[0], symbol_table, true);
+                        self.code_arr.push(format!("mv  a1, t0"));
+                    },
+                    NonTerminalsAst::IsEq => {
+                        // Move the result over to a1
+                        self.code_gen_compare(ast, children[0], symbol_table, true);
+                        self.code_arr.push(format!("mv  a1, a0"));
+                    },
+                    NonTerminalsAst::NotEq => {
+                        self.code_gen_compare(ast, children[0], symbol_table, false);
+                        self.code_arr.push(format!("mv  a1, a0"));
+                    },
+                    _ => error!("Received {:?} for right side of nonterminal boolean expression, when expected Add, IsEq, or NotEq", non_terminal)
+                }
+
+                // Get the left side back to a0
+                self.code_arr.push(format!("lbu  a0, 0(sp)"));
+                self.code_arr.push(format!("addi  sp, sp, 1"));
+            },
+            _ => error!("Received {:?} when expected terminal or AST nonterminal for left side of comparison in code gen", left_child)
+        }
+
+        // Perform the appropriate comparison
+        if is_eq {
+            self.code_arr.push(format!("call compare_eq"));
+        } else {
+            self.code_arr.push(format!("call compare_neq"));
+        }
+
+        return true;
+    }
+
 //    // Stores the value of the Z flag into the accumulator
 //    fn get_z_flag_value(&mut self) -> bool {
 //        // Assume Z is set to 0
