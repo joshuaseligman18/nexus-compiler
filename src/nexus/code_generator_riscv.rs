@@ -90,6 +90,12 @@ pub struct CodeGeneratorRiscV {
 
     // Vector to keep track of each jump in the code
     //jumps: Vec<u8>,
+    
+    // The number of if statements
+    if_count: usize,
+
+    // The number of while statements
+    while_count: usize
 }
 
 impl CodeGeneratorRiscV {
@@ -101,7 +107,9 @@ impl CodeGeneratorRiscV {
             temp_arr: Vec::new(),
             heap_arr: Vec::new(),
             temp_index: 0,
-            string_history: HashMap::new()
+            string_history: HashMap::new(),
+            if_count: 0,
+            while_count: 0
         };
     }
 //    pub fn new() -> Self {
@@ -151,6 +159,8 @@ impl CodeGeneratorRiscV {
         
         self.temp_index = 0;
         self.string_history.clear();
+        self.if_count = 0;
+        self.while_count = 0;
 
         // Store the actual strings "true" and "false"
         self.store_string("false");
@@ -263,8 +273,8 @@ impl CodeGeneratorRiscV {
                         NonTerminalsAst::VarDecl => self.code_gen_var_decl(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Assign => self.code_gen_assignment(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Print => self.code_gen_print(ast, neighbor_index, symbol_table),
-                        //NonTerminalsAst::If => self.code_gen_if(ast, neighbor_index, symbol_table),
-                        //NonTerminalsAst::While => self.code_gen_while(ast, neighbor_index, symbol_table),
+                        NonTerminalsAst::If => self.code_gen_if(ast, neighbor_index, symbol_table),
+                        NonTerminalsAst::While => self.code_gen_while(ast, neighbor_index, symbol_table),
                         _ => { 
                             error!("Received {:?} when expecting an AST nonterminal statement in a block", non_terminal);
                             false
@@ -1202,149 +1212,116 @@ impl CodeGeneratorRiscV {
 //
 //        return true;
 //    }
-//
-//    fn code_gen_if(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
-//        nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::CodeGenerator,
-//            format!("Starting code generation for if statement in scope {}", symbol_table.cur_scope.unwrap())
-//        );
-//
-//        // Get the child for comparison
-//        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
-//        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
-//
-//        // Starting address for the branch, but 0 will never be valid, so can have
-//        // default value set to 0
-//        let mut start_addr: u8 = 0x00;
-//        // This is the index of the jump that will ultimately be backpatched
-//        let jump_index: usize = self.jumps.len();
-//
-//        match left_child {
-//            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-//                match &non_terminal {
-//                    // Evaluate the boolean expression for the if statement
-//                    // The Z flag is set by these function calls
-//                    NonTerminalsAst::IsEq => if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; },
-//                    NonTerminalsAst::NotEq => if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; },
-//                    _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
-//                }
-//                // Add the branch code
-//                if !self.add_code(0xD0) { return false; }
-//                if !self.add_jump() { return false; }
-//                start_addr = self.code_pointer.to_owned();
-//            },
-//            SyntaxTreeNode::Terminal(token) => {
-//                match &token.token_type {
-//                    TokenType::Keyword(Keywords::True) => { /* Small optimization because no comparison is needed */ }
-//                    TokenType::Keyword(Keywords::False) => {
-//                        // No code should be generated here because the if-statement is just dead
-//                        // code and will never be reached, so no point in trying to store the code
-//                        // with the limited space that we already have (256 bytes)
-//                        return true;
-//                    }
-//                    _ => error!("Received {:?} when expecting true or false for if expression terminals", token)
-//                }
-//            },
-//            _ => error!("Received {:?} when expecting AST nonterminal or a terminal", left_child)
-//        }
-//
-//        // Generate the code for the body
-//        if !self.code_gen_block(ast, children[0], symbol_table) { return false; }
-//
-//        // If there was a comparison to make, there is a start addr
-//        if start_addr != 0x00 {
-//            // Compute the difference and set it in the vector for use in backpatching
-//            let branch_offset: u8 = self.code_pointer - start_addr;
-//            self.jumps[jump_index] = branch_offset;
-//        }
-//
-//        return true;
-//    }
-//
-//    fn code_gen_while(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
-//         nexus_log::log(
-//            nexus_log::LogTypes::Debug,
-//            nexus_log::LogSources::CodeGenerator,
-//            format!("Starting code generation for while statement in scope {}", symbol_table.cur_scope.unwrap())
-//        );
-//
-//        // Get the child for comparison
-//        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
-//        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
-//
-//        // Save the current address for the loop
-//        let loop_start_addr: u8 = self.code_pointer.to_owned();
-//
-//        // Starting address for the body of the while structure,
-//        // but 0 will never be valid, so can have default value set to 0
-//        let mut body_start_addr: u8 = 0x00;
-//        // This is the index of the body jump if a condition eveluates to false
-//        // that will ultimately be backpatched
-//        let body_jump_index: usize = self.jumps.len();
-//
-//        match left_child {
-//            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-//                match &non_terminal {
-//                    // Evaluate the boolean expression for the while statement
-//                    // The Z flag is set by these function calls
-//                    NonTerminalsAst::IsEq => if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; },
-//                    NonTerminalsAst::NotEq => if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; },
-//                    _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
-//                }
-//                // Add the branch code
-//                if !self.add_code(0xD0) { return false; }
-//                if !self.add_jump() { return false; }
-//                body_start_addr = self.code_pointer.to_owned();
-//            },
-//            SyntaxTreeNode::Terminal(token) => {
-//                match &token.token_type {
-//                    TokenType::Keyword(Keywords::True) => { /* Small optimization because no comparison is needed */ }
-//                    TokenType::Keyword(Keywords::False) => {
-//                        // No code should be generated here because the while-statement is just dead
-//                        // code and will never be reached, so no point in trying to store the code
-//                        // with the limited space that we already have (256 bytes)
-//                        return true;
-//                    }
-//                    _ => error!("Received {:?} when expecting true or false for while expression terminals", token)
-//                }
-//            },
-//            _ => error!("Received {:?} when expecting AST nonterminal or a terminal", left_child)
-//        }
-//
-//        // Generate the code for the body
-//        if !self.code_gen_block(ast, children[0], symbol_table) { return false; }
-//
-//        // Get the position in the vector for the unconditional branch
-//        let unconditional_jump_index: usize = self.jumps.len();
-//        // Set X to 1
-//        if !self.add_code(0xA2) { return false; }
-//        if !self.add_code(0x01) { return false; }
-//        // 0xFF is always 0, so comparing it to 1 will result in Z = 0,
-//        // so the branch will always be taken
-//        if !self.add_code(0xEC) { return false; }
-//        if !self.add_code(0xFF) { return false; }
-//        if !self.add_code(0x00) { return false; }
-//        if !self.add_code(0xD0) { return false; }
-//        if !self.add_jump() { return false; }
-//
-//        // If there was a comparison to make, there is a start addr for the body
-//        // to skip over in case evaluate to false
-//        if body_start_addr != 0x00 {
-//            // Compute the difference and set it in the vector for use in backpatching
-//            let conditional_branch_offset: u8 = self.code_pointer - body_start_addr;
-//            self.jumps[body_jump_index] = conditional_branch_offset;
-//        }
-//        
-//        // The branch offset is the 2s complement difference between the current position
-//        // and the start of the loop, so take the difference and negate and add 1
-//        let unconditional_branch_offset: u8 = !(self.code_pointer - loop_start_addr) + 1;
-//        // Set the unconditional branch offset in the jump
-//        self.jumps[unconditional_jump_index] = unconditional_branch_offset;
-//
-//        return true;
-//    }
-//
+
+    fn code_gen_if(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
+        nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for if statement in scope {}", symbol_table.cur_scope.unwrap())
+        );
+
+        // Get the child for comparison
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
+
+        // Get the index of the current if statement
+        let if_index: usize = self.if_count.to_owned();
+
+        match left_child {
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+                match &non_terminal {
+                    // Evaluate the boolean expression for the if statement
+                    NonTerminalsAst::IsEq => if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; },
+                    NonTerminalsAst::NotEq => if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; },
+                    _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
+                }
+                // Add the branch code
+                self.code_arr.push(format!("beq  a0, zero, if_end_{}", if_index)); 
+                self.if_count += 1;
+            },
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Keyword(Keywords::True) => { /* Small optimization because no comparison is needed */ }
+                    TokenType::Keyword(Keywords::False) => {
+                        // No code should be generated here because the if-statement is just dead
+                        // code and will never be reached, so no point in trying to store the code
+                        // with the limited space that we already have (256 bytes)
+                        return true;
+                    }
+                    _ => error!("Received {:?} when expecting true or false for if expression terminals", token)
+                }
+            },
+            _ => error!("Received {:?} when expecting AST nonterminal or a terminal", left_child)
+        }
+
+        // Generate the code for the body
+        if !self.code_gen_block(ast, children[0], symbol_table) { return false; }
+
+        // Only add the label if it is needed
+        if if_index != self.if_count {
+            // Add the label for the end of the if statement
+            self.code_arr.push(format!("if_end_{}:", if_index));
+        }
+
+        return true;
+    }
+
+    fn code_gen_while(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
+         nexus_log::log(
+            nexus_log::LogTypes::Debug,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Starting code generation for while statement in scope {}", symbol_table.cur_scope.unwrap())
+        );
+
+        // Get the child for comparison
+        let children: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
+        let left_child: &SyntaxTreeNode = (*ast).graph.node_weight(children[1]).unwrap();
+
+        // Get the index of the current start
+        let while_index: usize = self.while_count.to_owned();
+        self.while_count += 1;
+
+        self.code_arr.push(format!("while_start_{}:", while_index));
+
+        match left_child {
+            SyntaxTreeNode::NonTerminalAst(non_terminal) => {
+                match &non_terminal {
+                    // Evaluate the boolean expression for the while statement
+                    // The Z flag is set by these function calls
+                    NonTerminalsAst::IsEq => if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; },
+                    NonTerminalsAst::NotEq => if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; },
+                    _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
+                }
+                // Add the branch code
+                self.code_arr.push(format!("beq  a0, zero, while_end_{}", while_index));
+            },
+            SyntaxTreeNode::Terminal(token) => {
+                match &token.token_type {
+                    TokenType::Keyword(Keywords::True) => { /* Small optimization because no comparison is needed */ }
+                    TokenType::Keyword(Keywords::False) => {
+                        // No code should be generated here because the while-statement is just dead
+                        // code and will never be reached, so no point in trying to store the code
+                        // with the limited space that we already have (256 bytes)
+                        return true;
+                    }
+                    _ => error!("Received {:?} when expecting true or false for while expression terminals", token)
+                }
+            },
+            _ => error!("Received {:?} when expecting AST nonterminal or a terminal", left_child)
+        }
+
+        // Generate the code for the body
+        if !self.code_gen_block(ast, children[0], symbol_table) { return false; }
+
+        // Jump back to the condition
+        self.code_arr.push(format!("j  while_start_{}", while_index));
+
+        // Label for the end of the while block
+        self.code_arr.push(format!("while_end_{}:", while_index));
+
+        return true;
+    }
+
 //    fn display_code(&mut self, program_number: &u32) {
 //        let window: Window = web_sys::window().expect("Should be able to get the window");
 //        let document: Document = window.document().expect("Should be able to get the document");
