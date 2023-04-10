@@ -1,19 +1,22 @@
 use log::*;
 
-use crate::util::nexus_log;
+use crate::util::{nexus_log, target::Target};
 use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, semantic_analyzer::SemanticAnalyzer, syntax_tree::SyntaxTree};
-use crate::nexus::code_generator::CodeGenerator;
+use crate::nexus::code_generator_6502::CodeGenerator6502;
+use crate::nexus::code_generator_riscv::CodeGeneratorRiscV;
+use crate::editor::buttons;
 
 // Function to compile multiple programs
 pub fn compile(source_code: &str) {
     let mut lexer: Lexer = Lexer::new(source_code);
     let mut parser: Parser = Parser::new();
-    let mut semantic_analyzer = SemanticAnalyzer::new();
-    let mut code_generator = CodeGenerator::new();
+    let mut semantic_analyzer: SemanticAnalyzer = SemanticAnalyzer::new();
+    let mut code_generator_6502: CodeGenerator6502 = CodeGenerator6502::new();
+    let mut code_generator_riscv: CodeGeneratorRiscV = CodeGeneratorRiscV::new();
 
     // Clean up the output area
     SyntaxTree::clear_display();
-    CodeGenerator::clear_display();
+    CodeGenerator6502::clear_display();
     nexus_log::clear_logs();
     nexus_log::log(
         nexus_log::LogTypes::Info,
@@ -220,7 +223,10 @@ pub fn compile(source_code: &str) {
             nexus_log::LogSources::CodeGenerator,
             format!("Generating code for program {}", program_number)
         );
-        
-        code_generator.generate_code(&ast, &mut semantic_analyzer.symbol_table, &program_number);
+       
+        match buttons::get_current_target() {
+            Target::Target6502 => code_generator_6502.generate_code(&ast, &mut semantic_analyzer.symbol_table, &program_number),
+            Target::TargetRiscV => code_generator_riscv.generate_code(&ast, &mut semantic_analyzer.symbol_table, &program_number)
+        }
     }
 }

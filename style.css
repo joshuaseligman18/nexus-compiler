@@ -119,10 +119,34 @@ textarea {
 
 .code-text {
     text-align: justify !important;
+    max-height: 450px;
 }
 
 .copy-btn {
     font-size: 14px;
     padding: 5px;
     background-color: #30475E;
+}
+
+.target-btn {
+    margin-left: 5%;
+    margin-right: 5%;
+    width: 40%;
+}
+
+.target-input + .target-btn {
+    background-color: #F05454;
+    color: #F5F5F5;
+    border-radius: 0;
+}
+
+.target-input:hover + .target-btn {
+    background-color: #F05454;
+    color: #F5F5F5;
+    cursor: pointer;
+}
+
+.target-input:checked + .target-btn {
+    background-color: #70AE6E;
+    color: #F5F5F5;
 }

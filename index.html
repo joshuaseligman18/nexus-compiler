@@ -36,7 +36,18 @@
             </div>
         </div>
         <div id="bottom-bar" class="row align-items-center gx-5">
-            <div id="bottom-bar-left" class="col"></div>
+            <div id="bottom-bar-left" class="col container justify-content-center">
+                <div class="row align-items-center text-center">
+                    <p>Target</p>
+                </div>
+                <div class="row text-center">
+                    <input type="radio" class="target-input btn-check col" name="options-target" id="target-6502" autocomplete="off" checked>
+                    <label class="btn target-btn" for="target-6502">6502</label>
+
+                    <input type="radio" class="target-input btn-check col" name="options-target" id="target-riscv" autocomplete="off">
+                    <label class="btn target-btn" for="target-riscv">RISC-V</label>
+                </div>
+            </div>
             <div id="log-mode-area" class="col container">
                 <div class="row align-items-center text-center">
                     <p class="col">Nexus</p>

@@ -1,7 +1,8 @@
 use wasm_bindgen::{prelude::Closure, JsCast};
-use web_sys::{Document, HtmlElement, Event, Element, DomTokenList};
+use web_sys::{Window, Document, HtmlElement, Event, Element, DomTokenList, HtmlInputElement};
 
-use crate::{nexus::{compiler, syntax_tree::SyntaxTree, code_generator::CodeGenerator}, util::nexus_log};
+use crate::{nexus::{compiler, syntax_tree::SyntaxTree, code_generator_6502::CodeGenerator6502}, util::nexus_log};
+use crate::util::target::Target;
 
 use wasm_bindgen::prelude::*;
 
@@ -37,7 +38,7 @@ pub fn set_up_buttons(document: &Document) {
     let clear_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(|| {
         nexus_log::clear_logs();
         SyntaxTree::clear_display();
-        CodeGenerator::clear_display();
+        CodeGenerator6502::clear_display();
     }) as Box<dyn FnMut()>);
 
     clear_btn.add_event_listener_with_callback("click", clear_btn_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
@@ -104,4 +105,23 @@ pub fn set_up_buttons(document: &Document) {
     codegen_log_mode.add_event_listener_with_callback("click", toggle_log_mode_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
 
     toggle_log_mode_fn.forget();
+}
+
+// Function to get the current target platform
+pub fn get_current_target() -> Target {
+    let window: Window = web_sys::window().expect("Should be able to get the window");
+    let document: Document = window.document().expect("Should be able to get the document");
+
+    let target_6502: HtmlInputElement = document
+        .get_element_by_id("target-6502")
+        .expect("Should be able to get the element")
+        .dyn_into::<HtmlInputElement>()
+        .expect("The element should be recognized as an input element");
+
+    // Return the appropriate enum
+    if target_6502.checked() {
+        return Target::Target6502;
+    } else {
+        return Target::TargetRiscV;
+    }
 }
