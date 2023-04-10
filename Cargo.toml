@@ -28,6 +28,7 @@ features = [
     'HtmlTextAreaElement',
     'HtmlSelectElement',
     'HtmlOptionElement',
+    'HtmlInputElement',
     'Event',
     'DomTokenList',
     'Location'

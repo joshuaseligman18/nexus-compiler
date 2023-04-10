@@ -1026,15 +1026,15 @@ impl CodeGeneratorRiscV {
         display_area_class_list.add_3("container", "text-center", "code-gen-pane").expect("Should be able to add the classes");
 
         // Generate the final assembly output string
-        let mut code_str: String = self.create_output_string();
+        let code_str: String = self.create_output_string();
 
         // This is the element that the code is in
         let code_elem: Element = document.create_element("p").expect("Should be able to create the element");
         let code_elem_class_list: DomTokenList = code_elem.class_list();
         code_elem_class_list.add_2("overflow-auto", "code-text").expect("Should be able to add the classes");
-//        code_elem.set_class_name("code-text");
         code_elem.set_inner_html(&code_str);
 
+        // Replace all of the breaks with newlines for the clipboard copy
         let code_str_clipboard: String = code_str.as_str().replace("<br>", "\n");
 
         display_area_div.append_child(&code_elem).expect("Should be able to add the child node");
@@ -1056,16 +1056,4 @@ impl CodeGeneratorRiscV {
         // Add the div to the pane
         content_area.append_child(&display_area_div).expect("Should be able to add the child node");
     }
-
-//    pub fn clear_display() {
-//        // Get the preliminary objects
-//        let window: Window = web_sys::window().expect("Should be able to get the window");
-//        let document: Document = window.document().expect("Should be able to get the document");
-//
-//        // Clear the entire area
-//        let tabs_area: Element = document.get_element_by_id("code-gen-tabs").expect("Should be able to find the element");
-//        tabs_area.set_inner_html("");
-//        let content_area: Element = document.get_element_by_id("code-gen-tab-content").expect("Should be able to find the element");
-//        content_area.set_inner_html("");
-//    }
 }

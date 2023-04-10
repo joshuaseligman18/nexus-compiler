@@ -53,7 +53,7 @@ impl fmt::Debug for CodeGenBytes {
 
 // The struct for the code generator
 #[derive (Debug)]
-pub struct CodeGenerator {
+pub struct CodeGenerator6502 {
     // The current max scope we have seen so far, which are encountered in
     // sequential order
     max_scope: usize,
@@ -81,9 +81,9 @@ pub struct CodeGenerator {
     jumps: Vec<u8>,
 }
 
-impl CodeGenerator {
+impl CodeGenerator6502 {
     pub fn new() -> Self {
-        let mut code_gen: CodeGenerator = CodeGenerator {
+        let mut code_gen: CodeGenerator6502 = CodeGenerator6502 {
             // This is a flag for a new program
             max_scope: usize::MAX,
 
