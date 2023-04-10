@@ -21,38 +21,6 @@ extern "C" {
     fn set_clipboard(newText: &str);
 }
 
-enum CodeGenBytes {
-    // Representation for final code/data in memory
-    Code(u8),
-    // Temporary variable address  until AST is traversed with identifier for later use
-    Var(usize),
-    // Temproary data for addition and boolean expression evaluation
-    Temp(usize),
-    // Spot is available for anything to take it
-    Empty,
-    // Represents data on the heap
-    Data(u8),
-    // This is a jump address for if and while statements
-    Jump(usize),
-    // This is the unknown high order byte for var and temp data
-    HighOrderByte,
-}
-
-// Customize the output when printing the string
-impl fmt::Debug for CodeGenBytes {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self {
-            CodeGenBytes::Code(code) => write!(f, "{:02X}", code),
-            CodeGenBytes::Var(var) => write!(f, "V{}", var),
-            CodeGenBytes::Temp(temp) => write!(f, "T{}", temp),
-            CodeGenBytes::Empty => write!(f, "00"),
-            CodeGenBytes::Data(data) => write!(f, "{:02X}", data),
-            CodeGenBytes::Jump(jump) => write!(f, "J{}", jump),
-            CodeGenBytes::HighOrderByte => write!(f, "XX")
-        }
-    }
-}
-
 // The struct for the code generator
 #[derive (Debug)]
 pub struct CodeGeneratorRiscV {
@@ -66,21 +34,8 @@ pub struct CodeGeneratorRiscV {
     // The array for the variables
     static_arr: Vec<String>,
     
-    // The array for temp data
-    temp_arr: Vec<String>,
-    
     // The array for strings / heap data
     heap_arr: Vec<String>,
-
-    // The current location of the code in the memory array
-    // The stack pointer is always code_pointer + 1
-    //code_pointer: u8,
-
-    // The current location of the heap from the back of the array
-    //heap_pointer: u8,
-
-    // The static table hashmap for <(id, scope), offset>
-    //static_table: HashMap<(String, usize), usize>,
 
     // Index for the temoprary data
     temp_index: usize,
@@ -88,9 +43,6 @@ pub struct CodeGeneratorRiscV {
     // Hashmap to keep track of the strings being stored on the heap
     string_history: HashMap<String, usize>,
 
-    // Vector to keep track of each jump in the code
-    //jumps: Vec<u8>,
-    
     // The number of if statements
     if_count: usize,
 
@@ -104,7 +56,6 @@ impl CodeGeneratorRiscV {
             max_scope: usize::MAX,
             code_arr: Vec::new(),
             static_arr: Vec::new(),
-            temp_arr: Vec::new(),
             heap_arr: Vec::new(),
             temp_index: 0,
             string_history: HashMap::new(),
@@ -112,37 +63,6 @@ impl CodeGeneratorRiscV {
             while_count: 0
         };
     }
-//    pub fn new() -> Self {
-//        let mut code_gen: CodeGeneratorRiscV = CodeGeneratorRiscV {
-//            // This is a flag for a new program
-//            max_scope: usize::MAX,
-//
-//            // We are only able to store 256 bytes in memory
-//            code_arr: Vec::with_capacity(0x100),
-//
-//            // Code starts at 0x00
-//            code_pointer: 0x00,
-//
-//            // Heap starts at 0xFE (0xFF reserved for 0x00)
-//            heap_pointer: 0xFE,
-//
-//            static_table: HashMap::new(),
-//
-//            // Always start with a temp index of 0
-//            temp_index: 0,
-//
-//            string_history: HashMap::new(),
-//
-//            jumps: Vec::new()
-//        };
-//
-//        // Initialize the entire array to be unused spot in memory
-//        for _ in 0..0x100 {
-//            code_gen.code_arr.push(CodeGenBytes::Empty);
-//        }
-//
-//        return code_gen;
-//    }
 
     pub fn generate_code(&mut self, ast: &SyntaxTree, symbol_table: &mut SymbolTable, program_number: &u32) {
         // Make sure the current scope is set to be a flag for none
@@ -150,7 +70,6 @@ impl CodeGeneratorRiscV {
         
         self.code_arr.clear();
         self.static_arr.clear();
-        self.temp_arr.clear();
         self.heap_arr.clear();
 
         // Initialize the basic data for printing functionality
@@ -165,11 +84,6 @@ impl CodeGeneratorRiscV {
         // Store the actual strings "true" and "false"
         self.store_string("false");
         self.store_string("true");
-
-        // We are going to store the strings false and true to print them
-        // out instead of 0 and 1
-        //self.store_string("false");
-        //self.store_string("true");
 
         // Generate the code for the program
         let program_res: bool = self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
@@ -189,53 +103,23 @@ impl CodeGeneratorRiscV {
        
         debug!("{:?}", self.code_arr);
         debug!("{:?}", self.static_arr);
-        debug!("{:?}", self.temp_arr);
         debug!("{:?}", self.heap_arr);
 
         info!("{}", self.create_output_string());
 
-//        if program_res {
-//            // All programs end with 0x00, which is HALT
-//            let final_res: bool = self.add_code(0x00);
-//            debug!("{:?}", self.code_arr);
-//
-//            if final_res {
-//                self.backpatch_addresses();
-//
-//                debug!("Static table: {:?}", self.static_table);
-//                debug!("Jumps vector: {:?}", self.jumps);
-//                debug!("{:?}", self.code_arr);
-//
-//                nexus_log::log(
-//                    nexus_log::LogTypes::Info,
-//                    nexus_log::LogSources::CodeGenerator,
-//                    format!("Code generation completed successfully")
-//                );
-//
-//                nexus_log::log(
-//                    nexus_log::LogTypes::Info,
-//                    nexus_log::LogSources::Nexus,
-//                    format!("Executable image for program {} is below", *program_number)
-//                );
-//
-//                self.display_code(program_number);
-//                return;
-//            }
-//        }
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::CodeGenerator,
+            format!("Code generation completed successfully")
+        );
 
-//        nexus_log::log(
-//            nexus_log::LogTypes::Error,
-//            nexus_log::LogSources::CodeGenerator,
-//            format!("Code generation failed")
-//        );
-//        
-//        nexus_log::insert_empty_line();
-//
-//        nexus_log::log(
-//            nexus_log::LogTypes::Warning,
-//            nexus_log::LogSources::Nexus,
-//            format!("Executable image display skipped due to code generation failure")
-//        );
+        nexus_log::log(
+            nexus_log::LogTypes::Info,
+            nexus_log::LogSources::Nexus,
+            format!("Executable image for program {} is below", *program_number)
+        );
+
+        self.display_code(program_number);
     }
 
     fn code_gen_block(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
@@ -459,170 +343,28 @@ impl CodeGeneratorRiscV {
     fn create_output_string(&mut self) -> String {
         let mut output_builder: Builder = Builder::default();
         
-        output_builder.append(".section .text\n");
-        output_builder.append(".global _start\n");
-        output_builder.append("_start:\n");
-        output_builder.append("nop\n");
+        output_builder.append(".section .text<br>");
+        output_builder.append(".global _start<br>");
+        output_builder.append("_start:<br>");
+        output_builder.append("nop<br>");
         for code in self.code_arr.iter() {
             output_builder.append(code.as_str());
-            output_builder.append("\n");
+            output_builder.append("<br>");
         }
 
         //output_builder.append(".section .data\n");
         for static_data in self.static_arr.iter() {
             output_builder.append(static_data.as_str());
-            output_builder.append("\n");
+            output_builder.append("<br>");
         }
 
         for heap_data in self.heap_arr.iter() {
             output_builder.append(heap_data.as_str());
-            output_builder.append("\n");
+            output_builder.append("<br>");
         }
 
         return output_builder.string().unwrap();
     }
-
-//    fn has_available_memory(&mut self) -> bool {
-//        let num_vars: usize = self.static_table.len();
-//        // Check for collision at the double bar (where stack meets heap)
-//        //  |  Code  |  Vars  ||  Temp  |  Heap  |
-//        return self.code_pointer + (num_vars as u8) <= self.heap_pointer - (self.temp_index as u8);
-//    }
-//
-//    // Function to add byte of code to the memory array
-//    fn add_code(&mut self, code: u8) -> bool {
-//        if self.has_available_memory() {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Debug,
-//                nexus_log::LogSources::CodeGenerator,
-//                format!("Adding code 0x{:02X} at memory location 0x{:02X}", code, self.code_pointer)
-//            );
-//
-//            // Add the code to the next available spot in memory
-//            self.code_arr[self.code_pointer as usize] = CodeGenBytes::Code(code);
-//            self.code_pointer += 1;
-//            // No error, so successful addition to the code
-//            return true;
-//        } else {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Error,
-//                nexus_log::LogSources::CodeGenerator,
-//                String::from("The stack has collided with the heap causing a stack overflow error")
-//            );
-//            return false;
-//        }
-//    }
-//
-//    // Function to add byte of code to the memory array for variable addressing
-//    fn add_var(&mut self, var: usize) -> bool {
-//        if self.has_available_memory() {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Debug,
-//                nexus_log::LogSources::CodeGenerator,
-//                format!("Adding variable placeholder {} at memory location 0x{:02X}", var, self.code_pointer)
-//            );
-//
-//            // Add the code to the next available spot in memory
-//            self.code_arr[self.code_pointer as usize] = CodeGenBytes::Var(var);
-//            self.code_pointer += 1;
-//            // All vars are followed by the high order byte
-//            return self.add_high_order_byte();
-//        } else {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Error,
-//                nexus_log::LogSources::CodeGenerator,
-//                String::from("The stack has collided with the heap causing a stack overflow error")
-//            );
-//            return false;
-//        }
-//    }
-//
-//    // Function to add the high order byte for unknown addresses that will be backpatched
-//    fn add_high_order_byte(&mut self) -> bool {
-//        if self.has_available_memory() {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Debug,
-//                nexus_log::LogSources::CodeGenerator,
-//                format!("Adding high order byte placeholder at memory location 0x{:02X}", self.code_pointer)
-//            );
-//
-//            // Add the code to the next available spot in memory
-//            self.code_arr[self.code_pointer as usize] = CodeGenBytes::HighOrderByte;
-//            self.code_pointer += 1;
-//            return true;
-//        } else {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Error,
-//                nexus_log::LogSources::CodeGenerator,
-//                String::from("The stack has collided with the heap causing a stack overflow error")
-//            );
-//            return false;
-//        }
-//    }
-//
-//    // Function to create space for new temp data and return its index
-//    fn new_temp(&mut self) -> Option<usize> {
-//        if self.has_available_memory() {
-//            // Make the room for the single byte
-//            let temp_addr: usize = self.temp_index.to_owned();
-//            self.temp_index += 1;
-//            return Some(temp_addr);
-//        } else {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Error,
-//                nexus_log::LogSources::CodeGenerator,
-//                String::from("The heap has collided with the stack causing a heap overflow error")
-//            );
-//            return None;
-//        }
-//    }
-//
-//    // Function to add byte of code to memory array for temporary data
-//    fn add_temp(&mut self, temp: usize) -> bool {
-//        if self.has_available_memory() {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Debug,
-//                nexus_log::LogSources::CodeGenerator,
-//                format!("Adding temp data placeholder {} at memory location 0x{:02X}", temp, self.code_pointer)
-//            );
-//
-//            // Add the addressing for the temporary value
-//            self.code_arr[self.code_pointer as usize] = CodeGenBytes::Temp(temp);
-//            self.code_pointer += 1;
-//            // All temps are followed by the high order byte
-//            return self.add_high_order_byte();
-//        } else {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Error,
-//                nexus_log::LogSources::CodeGenerator,
-//                String::from("The heap has collided with the stack causing a heap overflow error")
-//            );
-//            return false;
-//        }
-//    }
-//
-//    // Function to add a byte of data to the heap
-//    fn add_data(&mut self, data: u8) -> bool {
-//        if self.has_available_memory() {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Debug,
-//                nexus_log::LogSources::CodeGenerator,
-//                format!("Adding data 0x{:02X} at memory location 0x{:02X}", data, self.heap_pointer)
-//            );
-//
-//            // Heap starts from the end of the 256 bytes and moves towards the front
-//            self.code_arr[self.heap_pointer as usize] = CodeGenBytes::Data(data);
-//            self.heap_pointer -= 1;
-//            return true;
-//        } else {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Error,
-//                nexus_log::LogSources::CodeGenerator,
-//                String::from("The heap has collided with the stack causing a heap overflow error")
-//            );
-//            return false;
-//        }
-//    }
 
     fn store_string(&mut self, string: &str) -> usize {
         let addr: Option<&usize> = self.string_history.get(string);
@@ -632,7 +374,6 @@ impl CodeGeneratorRiscV {
             // We will let strings be no longer than 2^16 - 1
             self.heap_arr.push(format!(".half {}", string.len()));
             self.heap_arr.push(format!(".ascii \"{}\"", string));
-//            self.heap_arr.push(format!("string_{}: .2byte {} .ascii \"{}\"", self.string_history.len(), string.len(), string));
             nexus_log::log(
                 nexus_log::LogTypes::Debug,
                 nexus_log::LogSources::CodeGenerator,
@@ -649,97 +390,6 @@ impl CodeGeneratorRiscV {
             return *addr.unwrap();
         }
     }
-
-//    fn add_jump(&mut self) -> bool {
-//        if self.has_available_memory() {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Debug,
-//                nexus_log::LogSources::CodeGenerator,
-//                format!("Adding jump placeholder {} at memory location 0x{:02X}", self.jumps.len(), self.code_pointer)
-//            );
-//
-//            // Add the jump to the code and set it to 0 in the vector of jumps
-//            self.code_arr[self.code_pointer as usize] = CodeGenBytes::Jump(self.jumps.len());
-//            self.code_pointer += 1;
-//            self.jumps.push(0x00);
-//            return true;
-//        } else {
-//            nexus_log::log(
-//                nexus_log::LogTypes::Error,
-//                nexus_log::LogSources::CodeGenerator,
-//                String::from("The stack has collided with the heap causing a stack overflow error")
-//            );
-//            return false;
-//        }
-//    }
-//
-//    // Replaces temp addresses with the actual position in memory
-//    // Do not have to worry about memory availability because that was taken
-//    // care of when the placeholders were created
-//    fn backpatch_addresses(&mut self) { 
-//        for i in 0..self.code_arr.len() {
-//            match &self.code_arr[i] {
-//                CodeGenBytes::Var(offset) => {
-//                    // Compute the new address
-//                    let new_addr: u8 = self.code_pointer + *offset as u8;
-//                    nexus_log::log(
-//                        nexus_log::LogTypes::Debug,
-//                        nexus_log::LogSources::CodeGenerator,
-//                        format!("Backpatching 0x{:02X} for variable placeholder {} at memory location 0x{:02X}", new_addr, offset, i)
-//                    );
-//
-//                    self.code_arr[i] = CodeGenBytes::Code(new_addr);
-//
-//                    // The integer division result is the high order byte
-//                    // Always 0 in this case
-//                    let new_high: u8 = (new_addr as u16 / 0x100) as u8;
-//
-//                    nexus_log::log(
-//                        nexus_log::LogTypes::Debug,
-//                        nexus_log::LogSources::CodeGenerator,
-//                        format!("Backpatching 0x{:02X} for high order byte placeholder at memory location 0x{:02X}", new_high, i + 1)
-//                    );
-//
-//                    self.code_arr[i + 1] = CodeGenBytes::Code(new_high);
-//                },
-//                CodeGenBytes::Temp(offset) => {
-//                    // Compute the address of the temp data
-//                    let new_addr: u8 = self.heap_pointer - *offset as u8;
-//                    
-//                    nexus_log::log(
-//                        nexus_log::LogTypes::Debug,
-//                        nexus_log::LogSources::CodeGenerator,
-//                        format!("Backpatching 0x{:02X} for temp data placeholder {} at memory location 0x{:02X}", new_addr, offset, i)
-//                    );
-//
-//                    self.code_arr[i] = CodeGenBytes::Code(new_addr);
-//                   
-//                    // The integer division result is the high order byte
-//                    // Always 0 in this case
-//                    let new_high: u8 = (new_addr as u16 / 0x100) as u8;
-//
-//                    nexus_log::log(
-//                        nexus_log::LogTypes::Debug,
-//                        nexus_log::LogSources::CodeGenerator,
-//                        format!("Backpatching 0x{:02X} for high order byte placeholder at memory location 0x{:02X}", new_high, i + 1)
-//                    );
-//
-//                    self.code_arr[i + 1] = CodeGenBytes::Code(new_high);
-//                },
-//                // Store the value from the jump into the placeholder
-//                CodeGenBytes::Jump(jump_index) => {
-//                    nexus_log::log(
-//                        nexus_log::LogTypes::Debug,
-//                        nexus_log::LogSources::CodeGenerator,
-//                        format!("Backpatching 0x{:02X} for jump placeholder {} at memory location 0x{:02X}", 
-//                                self.jumps[*jump_index], *jump_index, i)
-//                    );
-//                    self.code_arr[i] = CodeGenBytes::Code(self.jumps[*jump_index])
-//                },
-//                _ => {} 
-//            }
-//        }
-//    }
 
     // Function for creating the code for a variable declaration
     fn code_gen_var_decl(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
@@ -1198,21 +848,6 @@ impl CodeGeneratorRiscV {
         return true;
     }
 
-//    // Stores the value of the Z flag into the accumulator
-//    fn get_z_flag_value(&mut self) -> bool {
-//        // Assume Z is set to 0
-//        if !self.add_code(0xA9) { return false; }
-//        if !self.add_code(0x00) { return false; }
-//        // If it is 0, branch
-//        if !self.add_code(0xD0) { return false; }
-//        if !self.add_code(0x02) { return false; }
-//        // Otherwise, set the acc to 1
-//        if !self.add_code(0xA9) { return false; }
-//        if !self.add_code(0x01) { return false; }
-//
-//        return true;
-//    }
-
     fn code_gen_if(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
         nexus_log::log(
             nexus_log::LogTypes::Debug,
@@ -1322,103 +957,106 @@ impl CodeGeneratorRiscV {
         return true;
     }
 
-//    fn display_code(&mut self, program_number: &u32) {
-//        let window: Window = web_sys::window().expect("Should be able to get the window");
-//        let document: Document = window.document().expect("Should be able to get the document");
-//
-//        let code_gen_tabs: Element = document.get_element_by_id("code-gen-tabs").expect("Should be able to get the element");
-//
-//        // Create the new tab in the list
-//        let new_li: Element = document.create_element("li").expect("Should be able to create the li element");
-//
-//        // Add the appropriate classes
-//        let li_classes: DomTokenList = new_li.class_list();
-//        li_classes.add_1("nav-item").expect("Should be able to add the class");
-//        new_li.set_attribute("role", "presentation").expect("Should be able to add the attribute");
-//
-//        // Create the button
-//        let new_button: Element = document.create_element("button").expect("Should be able to create the button");
-//        let btn_classes: DomTokenList = new_button.class_list();
-//        btn_classes.add_1("nav-link").expect("Should be able to add the class");
-//
-//        // Only make the first one active
-//        if code_gen_tabs.child_element_count() == 0 {
-//            btn_classes.add_1("active").expect("Should be able to add the class");
-//            new_button.set_attribute("aria-selected", "true").expect("Should be able to add the attribute");
-//        } else {
-//            new_button.set_attribute("aria-selected", "false").expect("Should be able to add the attribute");
-//        }
-//
-//        // Set the id of the button
-//        new_button.set_id(format!("program{}-code-gen-btn", *program_number).as_str());
-//
-//        // All of the toggle elements from the example above
-//        new_button.set_attribute("data-bs-toggle", "tab").expect("Should be able to add the attribute");
-//        new_button.set_attribute("type", "button").expect("Should be able to add the attribute");
-//        new_button.set_attribute("role", "tab").expect("Should be able to add the attribute");
-//        new_button.set_attribute("data-bs-target", format!("#program{}-code-gen-pane", *program_number).as_str()).expect("Should be able to add the attribute");
-//        new_button.set_attribute("aria-controls", format!("program{}-code-gen-pane", *program_number).as_str()).expect("Should be able to add the attribute");
-//
-//        // Set the inner text
-//        new_button.set_inner_html(format!("Program {}", *program_number).as_str());
-//
-//        // Append the button and the list element to the area
-//        new_li.append_child(&new_button).expect("Should be able to add the child node");
-//        code_gen_tabs.append_child(&new_li).expect("Should be able to add the child node");
-//
-//        // Get the content area
-//        let content_area: Element = document.get_element_by_id("code-gen-tab-content").expect("Should be able to find the element");
-//
-//        // Create the individual pane div
-//        let display_area_div: Element = document.create_element("div").expect("Should be able to create the element");
-//
-//        // Also from the example link above to only let the first pane initially show and be active
-//        let display_area_class_list: DomTokenList = display_area_div.class_list();
-//        display_area_class_list.add_1("tab-pane").expect("Should be able to add the class");
-//        if content_area.child_element_count() == 0 {
-//            display_area_class_list.add_2("show", "active").expect("Should be able to add the classes");
-//        }
-//
-//        // Add the appropriate attributes
-//        display_area_div.set_attribute("role", "tabpanel").expect("Should be able to add the attribute");
-//        display_area_div.set_attribute("tabindex", "0").expect("Should be able to add the attribute");
-//        display_area_div.set_attribute("aria-labeledby", format!("program{}-code-gen-btn", *program_number).as_str()).expect("Should be able to add the attribute");
-//
-//        // Set the id of the pane
-//        display_area_div.set_id(format!("program{}-code-gen-pane", *program_number).as_str());
-//
-//        // The div is a container for the content of the ast info
-//        display_area_class_list.add_3("container", "text-center", "code-gen-pane").expect("Should be able to add the classes");
-//
-//        // Get the array of values but only keep the hex digits and spaces
-//        let mut code_str: String = format!("{:?}", self.code_arr);
-//        code_str.retain(|c| c != ',' && c != '[' && c != ']');
-//
-//        // This is the element that the code is in
-//        let code_elem: Element = document.create_element("p").expect("Should be able to create the element");
+    fn display_code(&mut self, program_number: &u32) {
+        let window: Window = web_sys::window().expect("Should be able to get the window");
+        let document: Document = window.document().expect("Should be able to get the document");
+
+        let code_gen_tabs: Element = document.get_element_by_id("code-gen-tabs").expect("Should be able to get the element");
+
+        // Create the new tab in the list
+        let new_li: Element = document.create_element("li").expect("Should be able to create the li element");
+
+        // Add the appropriate classes
+        let li_classes: DomTokenList = new_li.class_list();
+        li_classes.add_1("nav-item").expect("Should be able to add the class");
+        new_li.set_attribute("role", "presentation").expect("Should be able to add the attribute");
+
+        // Create the button
+        let new_button: Element = document.create_element("button").expect("Should be able to create the button");
+        let btn_classes: DomTokenList = new_button.class_list();
+        btn_classes.add_1("nav-link").expect("Should be able to add the class");
+
+        // Only make the first one active
+        if code_gen_tabs.child_element_count() == 0 {
+            btn_classes.add_1("active").expect("Should be able to add the class");
+            new_button.set_attribute("aria-selected", "true").expect("Should be able to add the attribute");
+        } else {
+            new_button.set_attribute("aria-selected", "false").expect("Should be able to add the attribute");
+        }
+
+        // Set the id of the button
+        new_button.set_id(format!("program{}-code-gen-btn", *program_number).as_str());
+
+        // All of the toggle elements from the example above
+        new_button.set_attribute("data-bs-toggle", "tab").expect("Should be able to add the attribute");
+        new_button.set_attribute("type", "button").expect("Should be able to add the attribute");
+        new_button.set_attribute("role", "tab").expect("Should be able to add the attribute");
+        new_button.set_attribute("data-bs-target", format!("#program{}-code-gen-pane", *program_number).as_str()).expect("Should be able to add the attribute");
+        new_button.set_attribute("aria-controls", format!("program{}-code-gen-pane", *program_number).as_str()).expect("Should be able to add the attribute");
+
+        // Set the inner text
+        new_button.set_inner_html(format!("Program {}", *program_number).as_str());
+
+        // Append the button and the list element to the area
+        new_li.append_child(&new_button).expect("Should be able to add the child node");
+        code_gen_tabs.append_child(&new_li).expect("Should be able to add the child node");
+
+        // Get the content area
+        let content_area: Element = document.get_element_by_id("code-gen-tab-content").expect("Should be able to find the element");
+
+        // Create the individual pane div
+        let display_area_div: Element = document.create_element("div").expect("Should be able to create the element");
+
+        // Also from the example link above to only let the first pane initially show and be active
+        let display_area_class_list: DomTokenList = display_area_div.class_list();
+        display_area_class_list.add_1("tab-pane").expect("Should be able to add the class");
+        if content_area.child_element_count() == 0 {
+            display_area_class_list.add_2("show", "active").expect("Should be able to add the classes");
+        }
+
+        // Add the appropriate attributes
+        display_area_div.set_attribute("role", "tabpanel").expect("Should be able to add the attribute");
+        display_area_div.set_attribute("tabindex", "0").expect("Should be able to add the attribute");
+        display_area_div.set_attribute("aria-labeledby", format!("program{}-code-gen-btn", *program_number).as_str()).expect("Should be able to add the attribute");
+
+        // Set the id of the pane
+        display_area_div.set_id(format!("program{}-code-gen-pane", *program_number).as_str());
+
+        // The div is a container for the content of the ast info
+        display_area_class_list.add_3("container", "text-center", "code-gen-pane").expect("Should be able to add the classes");
+
+        // Generate the final assembly output string
+        let mut code_str: String = self.create_output_string();
+
+        // This is the element that the code is in
+        let code_elem: Element = document.create_element("p").expect("Should be able to create the element");
+        let code_elem_class_list: DomTokenList = code_elem.class_list();
+        code_elem_class_list.add_2("overflow-auto", "code-text").expect("Should be able to add the classes");
 //        code_elem.set_class_name("code-text");
-//        code_elem.set_inner_html(&code_str);
-//
-//        display_area_div.append_child(&code_elem).expect("Should be able to add the child node");
-//
-//        // This is the button to copy to the clipboard
-//        let copy_btn: Element = document.create_element("button").expect("Should be able to create the element");
-//        copy_btn.set_inner_html("Copy to Clipboard");
-//        copy_btn.set_class_name("copy-btn");
-//        display_area_div.append_child(&copy_btn).expect("Should be able to add the child node");
-//
-//        // Create a function that will be used as the event listener and add it to the copy button
-//        let copy_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
-//            // Call the JS function that handles the clipboard
-//            set_clipboard(&code_str);
-//        }) as Box<dyn FnMut()>);
-//        copy_btn.add_event_listener_with_callback("click", copy_btn_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
-//        copy_btn_fn.forget();
-//
-//        // Add the div to the pane
-//        content_area.append_child(&display_area_div).expect("Should be able to add the child node");
-//    }
-//
+        code_elem.set_inner_html(&code_str);
+
+        let code_str_clipboard: String = code_str.as_str().replace("<br>", "\n");
+
+        display_area_div.append_child(&code_elem).expect("Should be able to add the child node");
+
+        // This is the button to copy to the clipboard
+        let copy_btn: Element = document.create_element("button").expect("Should be able to create the element");
+        copy_btn.set_inner_html("Copy to Clipboard");
+        copy_btn.set_class_name("copy-btn");
+        display_area_div.append_child(&copy_btn).expect("Should be able to add the child node");
+
+        // Create a function that will be used as the event listener and add it to the copy button
+        let copy_btn_fn: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
+            // Call the JS function that handles the clipboard
+            set_clipboard(&code_str_clipboard);
+        }) as Box<dyn FnMut()>);
+        copy_btn.add_event_listener_with_callback("click", copy_btn_fn.as_ref().unchecked_ref()).expect("Should be able to add the event listener");
+        copy_btn_fn.forget();
+
+        // Add the div to the pane
+        content_area.append_child(&display_area_div).expect("Should be able to add the child node");
+    }
+
 //    pub fn clear_display() {
 //        // Get the preliminary objects
 //        let window: Window = web_sys::window().expect("Should be able to get the window");

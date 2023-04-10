@@ -119,6 +119,7 @@ textarea {
 
 .code-text {
     text-align: justify !important;
+    height: 450px;
 }
 
 .copy-btn {
