@@ -1,0 +1,113 @@
+\documentclass[letterpaper, 10pt, DIV=13]{scrartcl}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{amsmath, amsfonts, amsthm, xfrac}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{longtable}
+\usepackage{qtree}
+
+\numberwithin{equation}{section}
+\numberwithin{figure}{section}
+\numberwithin{table}{section}
+
+\usepackage{sectsty}
+\allsectionsfont{\normalfont\scshape} % Make all section titles in default font and small caps.
+
+\usepackage{fancyhdr} % Custom headers and footers
+\pagestyle{fancyplain} % Makes all pages in the document conform to the custom headers and footers
+
+\fancyhead{} % No page header - if you want one, create it in the same way as the footers below
+\fancyfoot[L]{} % Empty left footer
+\fancyfoot[C]{} % Empty center footer
+\fancyfoot[R]{\thepage} % Page numbering for right footer
+
+\renewcommand{\headrulewidth}{0pt} % Remove header underlines
+\renewcommand{\footrulewidth}{0pt} % Remove footer underlines
+\setlength{\headheight}{13.6pt} % Customize the height of the header
+
+\setlength\parindent{0pt}
+\pagenumbering{gobble}
+
+\title {
+	\normalfont
+	\huge{Lab 9} \\
+	\vspace{10pt}
+	\large{CMPT 432 - Spring 2023 | Dr. Labouseur}
+}
+
+\author{\normalfont Josh Seligman | joshua.seligman1@marist.edu}
+
+\pagenumbering{arabic}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+\lstset{
+  backgroundcolor=\color{white},   % choose the background color
+  basicstyle=\footnotesize,        % size of fonts used for the code
+  breaklines=true,                 % automatic line breaking only at whitespace
+  captionpos=b,                    % sets the caption-position to bottom
+  commentstyle=\color{mygreen},    % comment style
+  escapeinside={\%*}{*},          % if you want to add LaTeX within your code
+  keywordstyle=\color{blue},       % keyword style
+  stringstyle=\color{mymauve},     % string literal style
+}
+
+\begin{document}
+\maketitle
+
+\section{Crafting a Compiler}
+\subsection{Exercise 5.5}
+Transform the following grammar into LL(1) form using the techniques
+presented in Section 5.5:
+\begin{enumerate}
+    \item DeclList $\rightarrow$ DeclList; Decl
+    \item $\mid$ Decl
+    \item Decl $\rightarrow$ IdList : Type
+    \item IdList $\rightarrow$ IdList, id
+    \item $\mid$ id
+    \item Type $\rightarrow$ ScalarType
+    \item $\mid$ array ( ScalarTypeList ) of Type
+    \item ScalarType $\rightarrow$ id
+    \item $\mid$ Bound . . Bound
+    \item Bound $\rightarrow$ Sign intconstant
+    \item $\mid$ id
+    \item Sign $\rightarrow$ +
+    \item $\mid$ - 
+    \item $\mid$ $\lambda$ 
+    \item ScalarTypelist $\rightarrow$ ScalarTypeList, ScalarType
+    \item $\mid$ ScalarType
+\end{enumerate}
+
+Removal of left recursion for DeclList, IdList, ScalarTypeList and also
+modified the base cases to include $\epsilon$ to make them LL(1) because
+otherwise multiple productions match their first token Create the productions
+for BoundId and BoundIdFollow because ScalarType and Bound both match id and
+are not LL(1), so combine them to become LL(1).
+\begin{enumerate}
+    \item DeclList $\rightarrow$ Decl DeclNext
+    \item DeclNext $\rightarrow$ ; DeclList
+    \item $\mid$ $\epsilon$
+    \item Decl $\rightarrow$ IdList : Type
+    \item IdList $\rightarrow$ id IdNext
+    \item IdNext $\rightarrow$ , IdList
+    \item $\mid$ $\epsilon$
+    \item Type $\rightarrow$ ScalarType
+    \item $\mid$ array ( ScalarTypeList ) of Type
+    \item BoundId $\rightarrow$ id BoundIdFollow
+    \item BoundIdFollow $\rightarrow$ . . id
+    \item $\mid$ $\epsilon$
+    \item ScalarType $\rightarrow$ BoundId
+    \item $\mid$ Sign intconstant
+    \item Sign $\rightarrow$ +
+    \item $\mid$ - 
+    \item $\mid$ $\lambda$ 
+    \item ScalarTypelist $\rightarrow$ ScalarType, ScalarTypeList
+    \item ScalarTypeNext $\rightarrow$ , ScalarTypeList
+    \item $\mid$ $\epsilon$
+\end{enumerate}
+
+\section{Dragon}
+\subsection{Exercise 4.2.1}
+\end{document}
