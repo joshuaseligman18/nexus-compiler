@@ -239,6 +239,11 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::CodeGen,
             test_name: String::from("Lots of loops"),
             test_code: String::from("{\n\t/* Lots of loops from OS */\n\t/* 3 outer loop iterations and 2 inner loop iterations */\n\tint o\n\to = 0\n\twhile (o != 3) {\n\t\to = 1 + o\n\t\tint i\n\t\ti = 0\n\t\twhile (i != 2) {\n\t\t\ti = 1 + i\n\t\t\tprint(\" inner\")\n\t\t\tprint(i)\n\t\t}\n\t\tprint(\" outer\")\n\t\tprint(o)\n\t}\n}$")
+        },
+        Test {
+            test_type: TestType::CodeGen,
+            test_name: String::from("Nested if"),
+            test_code: String::from("{\n\t/* Should print success */\n\tint x\n\tx = 2\n\tif (x != 3) {\n\t\tint y\n\t\ty = 1\n\t\tif (y == 1) {\n\t\t\tprint(\"success\")\n\t\t}\n\t}\n}$")
         }
     ];
 
