@@ -5,3 +5,5 @@
 *.log
 *.swp
 *.swo
+my_program.o
+my_program
