@@ -1,9 +1,11 @@
 # nexus-compiler
+Nexus is a compiler written in Rust (and a little JavaScript) for a custom language grammar that runs in the browser with WebAssembly. Since WebAssembly is a relatively new technology, it is recommended to use the lastest versions of Firefox or Chrome to ensure compatibility. The custom language grammar that Nexus compiles for can be found [here](https://www.labouseur.com/courses/compilers/grammar.pdf). Nexus targets a subset of the 6502 architecture, which can be found [here](https://www.labouseur.com/commondocs/6502alan-instruction-set.pdf), as well as RISC-V assembly. 
 
 ## Project Locations
 * Project 1 (Lexer) - project1 branch
 * Project 2 (Parser) - project2 branch
-* Project 3 (Semantic Analyzer) - main and project3 branches
+* Project 3 (Semantic Analyzer) - project3 branch
+* Project 4 (Code Generator) - main and project4 branch
 
 ## Setup Instructions
 1. Install Rust, which can be found [here](https://www.rust-lang.org/tools/install).
@@ -17,5 +19,9 @@
 * `make` / `make build`: Builds Nexus into a WebAssembly module that can be run on the web through JavaScript.
 * `make clean`: Removes the files created when the project is built, including the WebAssembly output.
 * `make run`: Spins up a basic server to host Nexus. This is required as the current state of WebAssembly requires it to be fetched and it cannot be directly imported to the JavaScript.
-
 * Alan: Run in Chrome.
+
+## RISC-V Execution Instructions
+* Install the RISC-V GNU Toolchain, which can be found [here](https://github.com/riscv-software-src/homebrew-riscv).
+* Compile your program in Nexus with RISC-V target selected.
+* Copy/paste the output assembly into a file called `my_program.s`.
