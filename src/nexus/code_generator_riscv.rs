@@ -86,7 +86,7 @@ impl CodeGeneratorRiscV {
         self.store_string("true");
 
         // Generate the code for the program
-        let program_res: bool = self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
+        self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
         
         // Add the code to exit the program
         self.code_arr.push(format!("li  a7, 93"));
@@ -122,7 +122,7 @@ impl CodeGeneratorRiscV {
         self.display_code(program_number);
     }
 
-    fn code_gen_block(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
+    fn code_gen_block(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
         // If this is the first block, then the first scope is 0
         if self.max_scope == usize::MAX {
             self.max_scope = 0;
@@ -144,28 +144,19 @@ impl CodeGeneratorRiscV {
         // The current node is the block, so we need to loop through each of its children
         let neighbors: Vec<NodeIndex> = (*ast).graph.neighbors(cur_index).collect();
 
-        // Assume a success
-        let mut block_res: bool = true;
-
         for neighbor_index in neighbors.into_iter().rev() {
             let child: &SyntaxTreeNode = (*ast).graph.node_weight(neighbor_index).unwrap();
             
             match child {
                 SyntaxTreeNode::NonTerminalAst(non_terminal) => {
-                    block_res = match non_terminal {
+                    match non_terminal {
                         NonTerminalsAst::Block => self.code_gen_block(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::VarDecl => self.code_gen_var_decl(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Assign => self.code_gen_assignment(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::Print => self.code_gen_print(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::If => self.code_gen_if(ast, neighbor_index, symbol_table),
                         NonTerminalsAst::While => self.code_gen_while(ast, neighbor_index, symbol_table),
-                        _ => { 
-                            error!("Received {:?} when expecting an AST nonterminal statement in a block", non_terminal);
-                            false
-                        }
-                    };
-                    if !block_res {
-                        return false;
+                        _ => error!("Received {:?} when expecting an AST nonterminal statement in a block", non_terminal)
                     }
                 }
                 _ => error!("Received {:?} when expecting an AST nonterminal for code gen in a block", child)
@@ -174,7 +165,6 @@ impl CodeGeneratorRiscV {
 
         // Exit the current scope
         symbol_table.end_cur_scope();
-        return block_res;
     }
 
     fn add_print_int_code(&mut self) {
@@ -392,7 +382,7 @@ impl CodeGeneratorRiscV {
     }
 
     // Function for creating the code for a variable declaration
-    fn code_gen_var_decl(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
+    fn code_gen_var_decl(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
         nexus_log::log(
             nexus_log::LogTypes::Debug,
             nexus_log::LogSources::CodeGenerator,
@@ -426,12 +416,10 @@ impl CodeGeneratorRiscV {
             },
             _ => error!("Received {:?} when expecting terminal for var decl child in code gen", id_node)
         }
-
-        return true;
     }
 
     // Function for creating the code for an assignment
-    fn code_gen_assignment(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
+    fn code_gen_assignment(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
         nexus_log::log(
             nexus_log::LogTypes::Debug,
             nexus_log::LogSources::CodeGenerator,
@@ -493,14 +481,14 @@ impl CodeGeneratorRiscV {
                 match non_terminal {
                     NonTerminalsAst::Add => {
                         // Call add, so the result will be in both the accumulator and in memory
-                        if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
+                        self.code_gen_add(ast, children[0], symbol_table, true);
                     },
                     NonTerminalsAst::IsEq => {
-                        if !self.code_gen_compare(ast, children[0], symbol_table, true) { return false; }
+                        self.code_gen_compare(ast, children[0], symbol_table, true);
                         self.code_arr.push(format!("mv  t0, a0"));
                     },
                     NonTerminalsAst::NotEq => {
-                        if !self.code_gen_compare(ast, children[0], symbol_table, false) { return false; }
+                        self.code_gen_compare(ast, children[0], symbol_table, false);
                         self.code_arr.push(format!("mv  t0, a0"));
                     },
                     _ => error!("Received {:?} for nonterminal on right side of assignment for code gen", non_terminal)
@@ -531,12 +519,10 @@ impl CodeGeneratorRiscV {
             },
             _ => error!("Received {:?} when expecting terminal for assignmentchild in code gen", id_node)
         }
-
-        return true;
     }
 
     // Function for generating code for a print statement
-    fn code_gen_print(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
+    fn code_gen_print(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
         nexus_log::log(
             nexus_log::LogTypes::Debug,
             nexus_log::LogSources::CodeGenerator,
@@ -606,7 +592,7 @@ impl CodeGeneratorRiscV {
                 match non_terminal {
                     NonTerminalsAst::Add => {
                         // Generate the result of the addition expression
-                        if !self.code_gen_add(ast, children[0], symbol_table, true) { return false; }
+                        self.code_gen_add(ast, children[0], symbol_table, true);
                         
                         // Move the contents in t0 to a0
                         self.code_arr.push(format!("mv  a0, t0"));
@@ -629,13 +615,11 @@ impl CodeGeneratorRiscV {
 
         // Add a new line for cleanliness
         self.code_arr.push(format!("call print_new_line"));
-
-        return true;
     }
 
     // Function to generate code for an addition statement
     // Result is left in t0
-    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_first: bool) -> bool {
+    fn code_gen_add(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_first: bool) {
         nexus_log::log(
             nexus_log::LogTypes::Debug,
             nexus_log::LogSources::CodeGenerator,
@@ -666,7 +650,7 @@ impl CodeGeneratorRiscV {
                 }
             },
             // Nonterminals are always add, so just call it
-            SyntaxTreeNode::NonTerminalAst(_) => if !self.code_gen_add(ast, children[0], symbol_table, false) { return false; },
+            SyntaxTreeNode::NonTerminalAst(_) => self.code_gen_add(ast, children[0], symbol_table, false),
             _ => error!("Received {:?} when expecting terminal or AST nonterminal for right addition value", right_child)
         }
 
@@ -691,14 +675,12 @@ impl CodeGeneratorRiscV {
             },
             _ => error!("Received {:?} when expecting a terminal for the left side of addition for code gen", left_child)
         }
-
-        return true;
     }
 
     // Function to generate code for comparisons
     // Result is left in the Z flag and get_z_flag_vale function can be used
     // afterwards to place z flag value into the accumulator
-    fn code_gen_compare(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_eq: bool) -> bool {
+    fn code_gen_compare(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable, is_eq: bool) {
         nexus_log::log(
             nexus_log::LogTypes::Debug,
             nexus_log::LogSources::CodeGenerator,
@@ -757,10 +739,10 @@ impl CodeGeneratorRiscV {
                         self.code_arr.push(format!("mv  a0, t0"));
                     },
                     NonTerminalsAst::IsEq => {
-                        if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; }
+                        self.code_gen_compare(ast, children[1], symbol_table, true);
                     },
                     NonTerminalsAst::NotEq => {
-                        if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; }
+                        self.code_gen_compare(ast, children[1], symbol_table, false);
                     },
                     _ => error!("Received {:?} for left side of nonterminal boolean expression, when expected Add, IsEq, or NotEq", non_terminal)
                 }
@@ -844,11 +826,9 @@ impl CodeGeneratorRiscV {
         } else {
             self.code_arr.push(format!("call compare_neq"));
         }
-
-        return true;
     }
 
-    fn code_gen_if(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
+    fn code_gen_if(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
         nexus_log::log(
             nexus_log::LogTypes::Debug,
             nexus_log::LogSources::CodeGenerator,
@@ -866,8 +846,8 @@ impl CodeGeneratorRiscV {
             SyntaxTreeNode::NonTerminalAst(non_terminal) => {
                 match &non_terminal {
                     // Evaluate the boolean expression for the if statement
-                    NonTerminalsAst::IsEq => if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; },
-                    NonTerminalsAst::NotEq => if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; },
+                    NonTerminalsAst::IsEq => self.code_gen_compare(ast, children[1], symbol_table, true),
+                    NonTerminalsAst::NotEq => self.code_gen_compare(ast, children[1], symbol_table, false),
                     _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
                 }
                 // Add the branch code
@@ -881,7 +861,7 @@ impl CodeGeneratorRiscV {
                         // No code should be generated here because the if-statement is just dead
                         // code and will never be reached, so no point in trying to store the code
                         // with the limited space that we already have (256 bytes)
-                        return true;
+                        return;
                     }
                     _ => error!("Received {:?} when expecting true or false for if expression terminals", token)
                 }
@@ -890,18 +870,16 @@ impl CodeGeneratorRiscV {
         }
 
         // Generate the code for the body
-        if !self.code_gen_block(ast, children[0], symbol_table) { return false; }
+        self.code_gen_block(ast, children[0], symbol_table);
 
         // Only add the label if it is needed
         if if_index != self.if_count {
             // Add the label for the end of the if statement
             self.code_arr.push(format!("if_end_{}:", if_index));
         }
-
-        return true;
     }
 
-    fn code_gen_while(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) -> bool {
+    fn code_gen_while(&mut self, ast: &SyntaxTree, cur_index: NodeIndex, symbol_table: &mut SymbolTable) {
          nexus_log::log(
             nexus_log::LogTypes::Debug,
             nexus_log::LogSources::CodeGenerator,
@@ -923,8 +901,8 @@ impl CodeGeneratorRiscV {
                 match &non_terminal {
                     // Evaluate the boolean expression for the while statement
                     // The Z flag is set by these function calls
-                    NonTerminalsAst::IsEq => if !self.code_gen_compare(ast, children[1], symbol_table, true) { return false; },
-                    NonTerminalsAst::NotEq => if !self.code_gen_compare(ast, children[1], symbol_table, false) { return false; },
+                    NonTerminalsAst::IsEq => self.code_gen_compare(ast, children[1], symbol_table, true),
+                    NonTerminalsAst::NotEq => self.code_gen_compare(ast, children[1], symbol_table, false),
                     _ => error!("Received {:?} when expecting IsEq or NotEq for nonterminal if expression", non_terminal)
                 }
                 // Add the branch code
@@ -937,7 +915,7 @@ impl CodeGeneratorRiscV {
                         // No code should be generated here because the while-statement is just dead
                         // code and will never be reached, so no point in trying to store the code
                         // with the limited space that we already have (256 bytes)
-                        return true;
+                        return;
                     }
                     _ => error!("Received {:?} when expecting true or false for while expression terminals", token)
                 }
@@ -946,15 +924,13 @@ impl CodeGeneratorRiscV {
         }
 
         // Generate the code for the body
-        if !self.code_gen_block(ast, children[0], symbol_table) { return false; }
+        self.code_gen_block(ast, children[0], symbol_table);
 
         // Jump back to the condition
         self.code_arr.push(format!("j  while_start_{}", while_index));
 
         // Label for the end of the while block
         self.code_arr.push(format!("while_end_{}:", while_index));
-
-        return true;
     }
 
     fn display_code(&mut self, program_number: &u32) {
