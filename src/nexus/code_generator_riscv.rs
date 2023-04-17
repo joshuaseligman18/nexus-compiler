@@ -6,7 +6,6 @@ use crate::util::nexus_log;
 use petgraph::graph::{NodeIndex};
 
 use std::collections::HashMap;
-use std::fmt;
 use web_sys::{Document, Window, Element, DomTokenList};
 use wasm_bindgen::{prelude::Closure, JsCast};
 use wasm_bindgen::prelude::*;
@@ -101,12 +100,6 @@ impl CodeGeneratorRiscV {
         self.add_compare_eq_code();
         self.add_compare_neq_code();
        
-        debug!("{:?}", self.code_arr);
-        debug!("{:?}", self.static_arr);
-        debug!("{:?}", self.heap_arr);
-
-        info!("{}", self.create_output_string());
-
         nexus_log::log(
             nexus_log::LogTypes::Info,
             nexus_log::LogSources::CodeGenerator,

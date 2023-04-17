@@ -1,5 +1,3 @@
-use log::*;
-
 use crate::util::{nexus_log, target::Target};
 use crate::nexus::{lexer::Lexer, token::Token, parser::Parser, semantic_analyzer::SemanticAnalyzer, syntax_tree::SyntaxTree};
 use crate::nexus::code_generator_6502::CodeGenerator6502;

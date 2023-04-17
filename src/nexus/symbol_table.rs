@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use log::*;
-
 use petgraph::graph::{NodeIndex, Graph};
 
 use crate::util::nexus_log;

@@ -1,4 +1,3 @@
-use log::*;
 use wasm_bindgen::{JsCast, prelude::Closure};
 use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, Window, Element};
 

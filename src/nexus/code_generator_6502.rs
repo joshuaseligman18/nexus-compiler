@@ -138,19 +138,13 @@ impl CodeGenerator6502 {
 
         // Generate the code for the program
         let program_res: bool = self.code_gen_block(ast, NodeIndex::new((*ast).root.unwrap()), symbol_table);
-        debug!("{:?}", self.code_arr);
 
         if program_res {
             // All programs end with 0x00, which is HALT
             let final_res: bool = self.add_code(0x00);
-            debug!("{:?}", self.code_arr);
 
             if final_res {
                 self.backpatch_addresses();
-
-                debug!("Static table: {:?}", self.static_table);
-                debug!("Jumps vector: {:?}", self.jumps);
-                debug!("{:?}", self.code_arr);
 
                 nexus_log::log(
                     nexus_log::LogTypes::Info,

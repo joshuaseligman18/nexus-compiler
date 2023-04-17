@@ -1,4 +1,3 @@
-use log::*;
 use crate::{nexus::token::{Token, TokenType, Symbols, Keywords}, util::nexus_log};
 
 use crate::nexus::syntax_tree::{SyntaxTree, SyntaxTreeTypes};

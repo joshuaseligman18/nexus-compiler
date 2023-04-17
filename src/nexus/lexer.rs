@@ -1,5 +1,4 @@
 use crate::{nexus::token::{Token, TokenType, Keywords, Symbols}, util::nexus_log};
-use log::*;
 use regex::{Regex, RegexSet, SetMatches};
 
 // Struct to maintain the state of the line numbers when compiling multiple programs
