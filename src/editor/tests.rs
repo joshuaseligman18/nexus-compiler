@@ -234,6 +234,11 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::CodeGen,
             test_name: String::from("Addition is fun"),
             test_code: String::from("{\n\t/* Should print 3545 */\n\tint a\n\ta = 9 + 8 + 7 + 6 + 5\n\tprint(a)\n\tint b\n\tb = 1 + 2 + 3 + 4 + a\n\tprint(b)\n}$")
+        },
+        Test {
+            test_type: TestType::CodeGen,
+            test_name: String::from("Lots of loops"),
+            test_code: String::from("{\n\t/* Lots of loops from OS */\n\t/* 3 outer loop iterations and 2 inner loop iterations */\n\tint o\n\to = 0\n\twhile (o != 3) {\n\t\to = 1 + o\n\t\tint i\n\t\ti = 0\n\t\twhile (i != 2) {\n\t\t\ti = 1 + i\n\t\t\tprint(\" inner\")\n\t\t\tprint(i)\n\t\t}\n\t\tprint(\" outer\")\n\t\tprint(o)\n\t}\n}$")
         }
     ];
 
