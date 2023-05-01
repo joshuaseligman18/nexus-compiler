@@ -1,4 +1,3 @@
-use log::*;
 use wasm_bindgen::{JsCast, prelude::Closure};
 use web_sys::{Document, HtmlSelectElement, HtmlOptionElement, Window, Element};
 
@@ -204,6 +203,46 @@ fn get_tests() -> Vec<Test> {
             test_type: TestType::SemanticAnalysis,
             test_name: String::from("Lots of warnings"),
             test_code: String::from("{\n\t/* Uninitialized and never used */\n\tint a\n\t/* Uninitialized and used */\n\tint b\n\t/* Initialized but never used */\n\tint c\n\tc = 2 + b\n\t/* Initialized after being used */\n\tint d\n\tc = d\n\td = 5\n}$")
+        },
+        Test {
+            test_type: TestType::CodeGen,
+            test_name: String::from("Alan's tests"),
+            test_code: String::from("{\n\t/* Should print 44 */\n\tint a\n\ta = 3\n\tint b\n\tb = 4\n\ta = b\n\tprint(a)\n\tif (a == b) {\n\t\tprint(a)\n\t}\n}$\n\n{\n\t/* Should print 2alan */\n\tint a\n\ta = 1\n\t{\n\t\tint a\n\t\ta = 2\n\t\tprint(a)\n\t}\n\tstring b\n\tb = \"alan\"\n\tif (a == 1) {\n\t\tprint(b)\n\t}\n}$\n\n{\n\t/* Should print 2alanblackstone */\n\tint a\n\ta = 1\n\t{\n\t\tint a\n\t\ta = 2\n\t\tprint(a)\n\t}\n\tstring b\n\tb = \"alan\"\n\tif (a == 1) {\n\t\tprint(b)\n\t}\n\tstring c\n\tc = \"james\"\n\tb = \"blackstone\"\n\tprint(b)\n}$\n\n{\n\t/* Should print 2345 */\n\tint a\n\ta = 1\n\twhile (a != 5) {\n\t\ta = 1 + a\n\t\tprint(a)\n\t}\n}$")
+        },
+        Test {
+            test_type: TestType::CodeGen,
+            test_name: String::from("Boolean hell"),
+            test_code: String::from("{\n\t/* Should print success */\n\tint a\n\ta = 9\n\tif ((a == 1 + 3 + 5) != ((\"hello\" != \"hi\") == (true == (2 == 3)))) {\n\t\tprint(\"success\")\n\t}\n}$")
+        },
+        Test {
+            test_type: TestType::CodeGen,
+            test_name: String::from("If and while optimizations"),
+            test_code: String::from("{\n\t/* No comparison should be generated */\n\tif true {\n\t\tprint(\"hi\")\n\t}\n\n\t/* No code should be generated including \"hello\" on the heap */\n\tif false {\n\t\tprint(\"hello\")\n\t}\n\n\t/* No code should be generated including \"hello\" on the heap */\n\twhile false {\n\t\tprint(\"hello\")\n\t}\n\n\t/* No comparison should be generated plus an inifinite loop */\n\twhile true {\n\t\tprint(\"true\")\n\t}\n}$")
+        },
+        Test {
+            test_type: TestType::CodeGen,
+            test_name: String::from("Stack overflow error"),
+            test_code: String::from("{\n\tstring s\n\ts = \"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\"\n\tif (s != \"hello there\") {\n\t\tprint(s)\n\t}\n\tprint(1 + 2 + 3)\n}$")
+        },
+        Test {
+            test_type: TestType::CodeGen,
+            test_name: String::from("Heap overflow error"),
+            test_code: String::from("{\n\tint a\n\ta = 1 + 2 + 3\n\tstring s\n\ts = \"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\"\n\tif (s != \"hello there\") {\n\t\tprint(s)\n\t}\n}$")
+        },
+        Test {
+            test_type: TestType::CodeGen,
+            test_name: String::from("Addition is fun"),
+            test_code: String::from("{\n\t/* Should print 3545 */\n\tint a\n\ta = 9 + 8 + 7 + 6 + 5\n\tprint(a)\n\tint b\n\tb = 1 + 2 + 3 + 4 + a\n\tprint(b)\n}$")
+        },
+        Test {
+            test_type: TestType::CodeGen,
+            test_name: String::from("Lots of loops"),
+            test_code: String::from("{\n\t/* Lots of loops from OS */\n\t/* 3 outer loop iterations and 2 inner loop iterations */\n\tint o\n\to = 0\n\twhile (o != 3) {\n\t\to = 1 + o\n\t\tint i\n\t\ti = 0\n\t\twhile (i != 2) {\n\t\t\ti = 1 + i\n\t\t\tprint(\" inner\")\n\t\t\tprint(i)\n\t\t}\n\t\tprint(\" outer\")\n\t\tprint(o)\n\t}\n}$")
+        },
+        Test {
+            test_type: TestType::CodeGen,
+            test_name: String::from("Nested if"),
+            test_code: String::from("{\n\t/* Should print success */\n\tint x\n\tx = 2\n\tif (x != 3) {\n\t\tint y\n\t\ty = 1\n\t\tif (y == 1) {\n\t\t\tprint(\"success\")\n\t\t}\n\t}\n}$")
         }
     ];
 

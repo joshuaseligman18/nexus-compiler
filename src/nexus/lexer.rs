@@ -1,5 +1,4 @@
 use crate::{nexus::token::{Token, TokenType, Keywords, Symbols}, util::nexus_log};
-use log::*;
 use regex::{Regex, RegexSet, SetMatches};
 
 // Struct to maintain the state of the line numbers when compiling multiple programs
@@ -469,7 +468,7 @@ impl Lexer {
                 }
             } else if self.digits.is_match(substr) {
                 // We have a digit
-                *best_token_type = TokenType::Digit(substr.parse::<u32>().unwrap());
+                *best_token_type = TokenType::Digit(substr.parse::<u8>().unwrap());
                 return true;
             } else if substr.len() == 1 {
                 // We have an unrecognized symbol

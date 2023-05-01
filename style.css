@@ -44,10 +44,14 @@ textarea {
     resize: none;
 }
 
-#code-input, #nexus-log-area {
+#code-input {
     font-size: 12px;
     height: 350px;
-    /* width: 100%; */
+}
+
+#nexus-log-area {
+    font-size: 11px;
+    height: 350px;
 }
 
 #nexus-log-area {
@@ -84,16 +88,16 @@ textarea {
     background-color: #F05454;
 }
 
-#cst-area, #ast-area {
+#cst-area, #ast-area, #code-gen-area {
     width: 95%;
     margin: 2.5%;
 }
 
-#cst-tab-content, #ast-tab-content {
+#cst-tab-content, #ast-tab-content, #code-gen-tab-content {
     margin-top: 1.5%;
 }
 
-.cst-pane *, .ast-pane div, .ast-pane textarea {
+.cst-pane *, .ast-pane svg, .ast-pane textarea {
     height: 450px;
 }
 
@@ -111,5 +115,38 @@ textarea {
 
 .symbol-table-area {
     text-align: center;
-    height: 0px !important;
+}
+
+.code-text {
+    text-align: justify !important;
+    max-height: 450px;
+}
+
+.copy-btn {
+    font-size: 14px;
+    padding: 5px;
+    background-color: #30475E;
+}
+
+.target-btn {
+    margin-left: 5%;
+    margin-right: 5%;
+    width: 40%;
+}
+
+.target-input + .target-btn {
+    background-color: #F05454;
+    color: #F5F5F5;
+    border-radius: 0;
+}
+
+.target-input:hover + .target-btn {
+    background-color: #F05454;
+    color: #F5F5F5;
+    cursor: pointer;
+}
+
+.target-input:checked + .target-btn {
+    background-color: #70AE6E;
+    color: #F5F5F5;
 }

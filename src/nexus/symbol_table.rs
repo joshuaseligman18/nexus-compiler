@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use log::*;
-
 use petgraph::graph::{NodeIndex, Graph};
 
 use crate::util::nexus_log;
@@ -65,6 +63,12 @@ impl SymbolTable {
 
         // Update the current scope to be the new scope
         self.cur_scope = Some(new_node.index());
+    }
+
+    // Function to manually set the current scope assuming it is in bounds
+    // Used by the code generator
+    pub fn set_cur_scope(&mut self, new_scope: usize) {
+        self.cur_scope = Some(new_scope);
     }
 
     // Called to end the current  
