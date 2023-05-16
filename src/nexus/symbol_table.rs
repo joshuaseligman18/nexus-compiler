@@ -140,7 +140,7 @@ impl SymbolTable {
     // Returns a reference to the appropriate symbol table entry
     // based on the current scope and position in the code
     // for code generation after the symbol table is already fully populated
-    pub fn get_symbol_with_context(&mut self, id: &str, cur_row: usize) -> Option<&SymbolTableEntry> {
+    pub fn get_symbol_with_context(&mut self, id: &str, cur_position: (usize, usize)) -> Option<&SymbolTableEntry> {
         // Start with the current scope
         let mut cur_scope_check: usize = self.cur_scope.unwrap();
       
@@ -148,24 +148,11 @@ impl SymbolTable {
         loop {
             // Get the hashmap for the scope
             let scope_table: &HashMap<String, SymbolTableEntry> = self.graph.node_weight(NodeIndex::new(cur_scope_check)).unwrap();
-            if (*scope_table).contains_key(id) {
-                // If the variable exists, then return the entry
-                let entry: &SymbolTableEntry = (*scope_table).get(id).unwrap().to_owned();
-                if entry.position.0 <= cur_row {
-                   return Some(entry); 
-                } else {
-                    if cur_scope_check == 0 {
-                        // We are now in the master scope, so the variable does
-                        // not exist relative to the current scope
-                        return None;
-                    } else {
-                        // Get a vector of neighbors
-                        let neighbors: Vec<NodeIndex> = self.graph.neighbors(NodeIndex::new(cur_scope_check)).collect();
-                        
-                        // Move on the the next higher scope
-                        cur_scope_check = neighbors[0].index();
-                    }
-                }
+
+            // We have to make sure that the entry being received was declared before the current position
+            let entry: Option<&SymbolTableEntry> = (*scope_table).get(id);
+            if entry.is_some() && self.is_in_context(entry.unwrap().position, cur_position) {
+                return entry;
             } else {
                 if cur_scope_check == 0 {
                     // We are now in the master scope, so the variable does
@@ -179,6 +166,19 @@ impl SymbolTable {
                     cur_scope_check = neighbors[0].index();
                 }
             }
+        }
+    }
+
+    fn is_in_context(&self, symbol_position: (usize, usize), cur_position: (usize, usize), ) -> bool {
+        if symbol_position.0 < cur_position.0 {
+            // Symbol declared first, so it is valid
+            return true;
+        } else if symbol_position.0 > cur_position.0 {
+            // Symbol declared second, so is not valid
+            return false;
+        } else {
+            // Position in the row makes the difference if in the same row
+            return symbol_position.1 <= cur_position.1;
         }
     }
 

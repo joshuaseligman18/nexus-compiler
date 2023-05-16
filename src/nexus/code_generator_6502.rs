@@ -523,7 +523,7 @@ impl CodeGenerator6502 {
                 self.static_table.insert((token.text.to_owned(), symbol_table.cur_scope.unwrap()), static_offset);
 
                 // Get the symbol table entry to get the type of the variable
-                let symbol_table_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap();
+                let symbol_table_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap();
                 match symbol_table_entry.symbol_type {
                     // Only integers and booleans are initialized
                     Type::Int | Type::Boolean => {
@@ -562,7 +562,7 @@ impl CodeGenerator6502 {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
                     TokenType::Identifier(_) => {
-                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap(); 
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap(); 
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
                         if !self.add_code(0xAD) { return false; }
@@ -626,7 +626,7 @@ impl CodeGenerator6502 {
         match id_node {
             SyntaxTreeNode::Terminal(token) => {
                 // Get the static offset for the variable being assigned to
-                let id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap(); 
+                let id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap(); 
                 let static_offset = self.static_table.get(&(token.text.to_owned(), id_entry.scope)).unwrap().to_owned();
                 
                 // The data that we are storing is already in the accumulator
@@ -656,7 +656,7 @@ impl CodeGenerator6502 {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
                     TokenType::Identifier(id_name) => {
-                        let print_id: &SymbolTableEntry = symbol_table.get_symbol_with_context(&id_name, token.position.0).unwrap();
+                        let print_id: &SymbolTableEntry = symbol_table.get_symbol_with_context(&id_name, token.position).unwrap();
                         let static_offset: usize = self.static_table.get(&(id_name.to_owned(), print_id.scope)).unwrap().to_owned();
                         match &print_id.symbol_type {
                             Type::Int  => {
@@ -868,7 +868,7 @@ impl CodeGenerator6502 {
                     },
                     TokenType::Identifier(_) => {
                         // Get the address needed from memory for the identifier
-                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap(); 
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap(); 
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
                         // Load the value into the accumulator
@@ -941,7 +941,7 @@ impl CodeGenerator6502 {
                 match &token.token_type {
                     TokenType::Identifier(_) => {
                         // Get the address needed from memory for the identifier
-                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap(); 
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap(); 
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
                         // Load the value into the accumulator
@@ -1007,7 +1007,7 @@ impl CodeGenerator6502 {
                 match &token.token_type {
                     TokenType::Identifier(_) => {
                         // Get the address needed from memory for the identifier
-                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap(); 
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap(); 
                         let value_static_offset: usize = self.static_table.get(&(token.text.to_owned(), value_id_entry.scope)).unwrap().to_owned();
                         
                         // Load the value into the X register

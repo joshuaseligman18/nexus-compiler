@@ -388,7 +388,7 @@ impl CodeGeneratorRiscV {
         match id_node {
             SyntaxTreeNode::Terminal(token) => {
                 // Get the symbol table entry to get the type of the variable
-                let symbol_table_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap();
+                let symbol_table_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap();
                 match symbol_table_entry.symbol_type {
                     // Only integers and booleans are initialized
                     Type::Int | Type::Boolean => {
@@ -427,7 +427,7 @@ impl CodeGeneratorRiscV {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
                     TokenType::Identifier(id_name) => {
-                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap(); 
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap(); 
                         
                         // Load the address of the value variable then load the data
                         self.code_arr.push(format!("la  t2, {}_{}", id_name, value_id_entry.scope));
@@ -493,7 +493,7 @@ impl CodeGeneratorRiscV {
         match id_node {
             SyntaxTreeNode::Terminal(token) => {
                 // Get the static offset for the variable being assigned to
-                let id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap(); 
+                let id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap(); 
                 
                 // The data that we are storing is already in t0, so load the appropriate
                 // address and store the data
@@ -530,7 +530,7 @@ impl CodeGeneratorRiscV {
             SyntaxTreeNode::Terminal(token) => {
                 match &token.token_type {
                     TokenType::Identifier(id_name) => {
-                        let print_id: &SymbolTableEntry = symbol_table.get_symbol_with_context(&id_name, token.position.0).unwrap();
+                        let print_id: &SymbolTableEntry = symbol_table.get_symbol_with_context(&id_name, token.position).unwrap();
                         match &print_id.symbol_type {
                             Type::Int => {
                                 self.code_arr.push(format!("la  t0, {}_{}", id_name, print_id.scope));
@@ -633,7 +633,7 @@ impl CodeGeneratorRiscV {
                     },
                     TokenType::Identifier(id_name) => {
                         // Get the address needed from memory for the identifier
-                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap(); 
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap(); 
                         
                         // Load the variable's value into t0
                         self.code_arr.push(format!("la  t2, {}_{}", id_name, value_id_entry.scope));
@@ -690,7 +690,7 @@ impl CodeGeneratorRiscV {
                 match &token.token_type {
                     TokenType::Identifier(id_name) => {
                         // Get the address needed from memory for the identifier
-                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap(); 
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap(); 
                         
                         // Get the address of the variable
                         self.code_arr.push(format!("la  t0, {}_{}", id_name, value_id_entry.scope));
@@ -748,7 +748,7 @@ impl CodeGeneratorRiscV {
                 match &token.token_type {
                     TokenType::Identifier(id_name) => {
                         // Get the address needed from memory for the identifier
-                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position.0).unwrap(); 
+                        let value_id_entry: &SymbolTableEntry = symbol_table.get_symbol_with_context(&token.text, token.position).unwrap(); 
 
                         // Get the address of the variable
                         self.code_arr.push(format!("la  t0, {}_{}", id_name, value_id_entry.scope));
