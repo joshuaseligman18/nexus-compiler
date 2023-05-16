@@ -137,6 +137,51 @@ impl SymbolTable {
         }
     }
 
+    // Returns a reference to the appropriate symbol table entry
+    // based on the current scope and position in the code
+    // for code generation after the symbol table is already fully populated
+    pub fn get_symbol_with_context(&mut self, id: &str, cur_row: usize) -> Option<&SymbolTableEntry> {
+        // Start with the current scope
+        let mut cur_scope_check: usize = self.cur_scope.unwrap();
+      
+        // This loop has checks at the end, but work has to be done first
+        loop {
+            // Get the hashmap for the scope
+            let scope_table: &HashMap<String, SymbolTableEntry> = self.graph.node_weight(NodeIndex::new(cur_scope_check)).unwrap();
+            if (*scope_table).contains_key(id) {
+                // If the variable exists, then return the entry
+                let entry: &SymbolTableEntry = (*scope_table).get(id).unwrap().to_owned();
+                if entry.position.0 <= cur_row {
+                   return Some(entry); 
+                } else {
+                    if cur_scope_check == 0 {
+                        // We are now in the master scope, so the variable does
+                        // not exist relative to the current scope
+                        return None;
+                    } else {
+                        // Get a vector of neighbors
+                        let neighbors: Vec<NodeIndex> = self.graph.neighbors(NodeIndex::new(cur_scope_check)).collect();
+                        
+                        // Move on the the next higher scope
+                        cur_scope_check = neighbors[0].index();
+                    }
+                }
+            } else {
+                if cur_scope_check == 0 {
+                    // We are now in the master scope, so the variable does
+                    // not exist relative to the current scope
+                    return None;
+                } else {
+                    // Get a vector of neighbors
+                    let neighbors: Vec<NodeIndex> = self.graph.neighbors(NodeIndex::new(cur_scope_check)).collect();
+                    
+                    // Move on the the next higher scope
+                    cur_scope_check = neighbors[0].index();
+                }
+            }
+        }
+    }
+
     // Function to set a variable to be initialized
     pub fn set_entry_field(&mut self, id: &str, field: SymbolTableEntryField) {
         // Start with the current scope
